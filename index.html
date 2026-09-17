@@ -182,14 +182,14 @@ function update(dt){
  if(game.phase==='playerUp'){
    // Camera follows the PLAYER correctly: when the player rises above the
    // focus line, the world moves down on screen while the seesaw stays fixed.
-   const focusY=H*.42;
-   // Keep the airborne PLAYER near the focus line at any height.
-   // Do not cap the camera offset at a fixed number: at high altitude
-   // a fixed cap makes the player eventually leave the screen.
-   const desiredCamera=Math.max(0, focusY-game.player.y);
-   game.cameraY += (desiredCamera-game.cameraY)*Math.min(1,dt*5);
-   const targetScroll=Math.min(150,Math.max(0,(game.plank.y-game.player.y)*.32));
-   game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*6);
+   const focusY=H*.40;
+   // Camera is a visual offset only. Never let smoothing allow the PLAYER
+   // to leave the viewport: calculate the target from the real world Y,
+   // then render the player in a guaranteed screen-safe band.
+   const desiredCamera=focusY-game.player.y;
+   game.cameraY += (desiredCamera-game.cameraY)*Math.min(1,dt*7);
+   const targetScroll=Math.min(240,Math.max(0,(game.plank.y-game.player.y)*.42));
+   game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*7);
  }else{
    game.worldScroll += (0-game.worldScroll)*Math.min(1,dt*3);
    // Ease the camera back as the player returns to the seesaw.
@@ -365,12 +365,18 @@ function draw(){
  // The seesaw is screen-fixed. Grounded characters share its rotation;
  // only the airborne PLAYER follows the camera.
  drawPlank();
+ // Partner always belongs to the fixed seesaw layer.
  drawChar(game.partner,false);
- ctx.save();
- const playerCamera = game.phase==='playerUp' ? game.cameraY : 0;
- ctx.translate(0,playerCamera);
- drawChar(game.player,true);
- ctx.restore();
+ // PLAYER gets an explicit screen-space lock while airborne. This prevents
+ // high-altitude drift caused by camera smoothing/device resize.
+ if(game.phase==='playerUp'){
+   const rawScreenY=game.player.y+game.cameraY;
+   const safeY=Math.max(H*.20,Math.min(H*.58,rawScreenY));
+   const screenPlayer={...game.player,y:safeY};
+   drawChar(screenPlayer,true);
+ }else{
+   drawChar(game.player,true);
+ }
 
  ctx.save();
  const particleCamera = game.phase==='playerUp' ? game.cameraY : 0;
