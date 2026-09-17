@@ -19,7 +19,7 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 #msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
 #msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 </style>
-<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=760"></script>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=1195"></script>
 </head>
 <body>
 <div id="game">
@@ -39,7 +39,7 @@ const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 let W,H,D;
 const G=1500;
 const game={
- phase:'partnerDown',
+ phase:'partnerFall',
  t:0,
  score:0,best:0,combo:0,worldScroll:0,
  plank:{x:0,y:0,len:0,ang:0},
@@ -84,14 +84,10 @@ function playerLaunch(){
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
 function tap(){
- // Only this button matters. During partner descent, one tap = one clean seesaw beat.
- if(game.phase!=='partnerDown')return;
+ // TAP is allowed only when the partner has landed and is waiting.
+ if(game.phase!=='partnerReady')return;
  playerLaunch();
 }
-document.getElementById('tap').addEventListener('click',tap);
-document.getElementById('tap').addEventListener('pointerup',e=>{e.preventDefault();});
-canvas.addEventListener('pointerdown',e=>{if(e.target===canvas)tap()},{passive:true});
-
 function update(dt){
  game.shake*=.88;
  game.t+=dt;
@@ -103,7 +99,7 @@ function update(dt){
    game.worldScroll += (0-game.worldScroll)*Math.min(1,dt*3);
  }
 
- if(game.phase==='partnerDown'){
+ if(game.phase==='partnerFall'){
    // Partner falls ONCE, then waits. Only TAP can launch PLAYER.
    const u=Math.min(1,game.t/.95);
    const top=game.plank.y-170,bottom=game.plank.y-40;
@@ -115,7 +111,9 @@ function update(dt){
    if(game.t>=.95){
      game.partner.y=bottom;
      game.partner.vy=0;
-     setState('상대 ↓ 착지 대기','TAP 하면 PLAYER가 팡!');
+     game.phase='partnerReady';
+     game.t=0;
+     setState('상대 ↓ 착지 완료','TAP 하면 PLAYER가 팡!');
    }
  }
  else if(game.phase==='playerUp'){
@@ -159,10 +157,11 @@ function update(dt){
      burst(L(),game.plank.y);
      game.plank.ang=0;
 
-     // IMPORTANT: stop here. Do not launch again automatically.
-     game.phase='partnerDown';
+     // IMPORTANT: stop here. The partner is now standing on the plank.
+     // It must NOT jump again until the player taps.
+     game.phase='partnerReady';
      game.t=0;
-     setState('상대 ↓ 내려오는 중','상대가 내려오면 TAP!');
+     setState('상대 ↓ 착지 완료','TAP 하면 PLAYER가 팡!');
    }
  }
 
