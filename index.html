@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V43</title>
+<title>널뛰기팡 V44</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -183,7 +183,10 @@ function update(dt){
    // Camera follows the PLAYER correctly: when the player rises above the
    // focus line, the world moves down on screen while the seesaw stays fixed.
    const focusY=H*.42;
-   const desiredCamera=Math.max(0,Math.min(H*.38, focusY-game.player.y));
+   // Keep the airborne PLAYER near the focus line at any height.
+   // Do not cap the camera offset at a fixed number: at high altitude
+   // a fixed cap makes the player eventually leave the screen.
+   const desiredCamera=Math.max(0, focusY-game.player.y);
    game.cameraY += (desiredCamera-game.cameraY)*Math.min(1,dt*5);
    const targetScroll=Math.min(150,Math.max(0,(game.plank.y-game.player.y)*.32));
    game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*6);
