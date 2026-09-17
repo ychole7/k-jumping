@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V44</title>
+<title>널뛰기팡 V46</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -179,21 +179,22 @@ function update(dt){
  game.plank.ang=Math.max(-PHYSICS.maxPlankAngle,Math.min(PHYSICS.maxPlankAngle,game.plank.ang));
  game.t+=dt;
 
+ // Camera is deliberately decoupled from gameplay coordinates.
+ // The seesaw stays fixed on screen; altitude is expressed by moving the
+ // background and by placing airborne characters in a safe screen band.
  if(game.phase==='playerUp'){
-   // Camera follows the PLAYER correctly: when the player rises above the
-   // focus line, the world moves down on screen while the seesaw stays fixed.
-   const focusY=H*.40;
-   // Camera is a visual offset only. Never let smoothing allow the PLAYER
-   // to leave the viewport: calculate the target from the real world Y,
-   // then render the player in a guaranteed screen-safe band.
-   const desiredCamera=focusY-game.player.y;
-   game.cameraY += (desiredCamera-game.cameraY)*Math.min(1,dt*7);
-   const targetScroll=Math.min(240,Math.max(0,(game.plank.y-game.player.y)*.42));
-   game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*7);
+   const ascent=Math.max(0,game.plank.y-game.player.y);
+   const targetScroll=Math.min(560,Math.max(0,(ascent-120)*.72));
+   game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*6);
+   game.cameraY=0;
+ }else if(game.phase==='partnerUp'){
+   const rise=Math.max(0,game.plank.y-game.partner.y);
+   const targetScroll=Math.min(140,Math.max(0,(rise-120)*.25));
+   game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*5);
+   game.cameraY=0;
  }else{
    game.worldScroll += (0-game.worldScroll)*Math.min(1,dt*3);
-   // Ease the camera back as the player returns to the seesaw.
-   game.cameraY += (0-game.cameraY)*Math.min(1,dt*4);
+   game.cameraY=0;
  }
 
  if(game.phase==='partnerFall'){
@@ -362,25 +363,28 @@ function draw(){
  if(game.shake>1){
    ctx.translate((Math.random()-.5)*game.shake,(Math.random()-.5)*game.shake);
  }
- // The seesaw is screen-fixed. Grounded characters share its rotation;
- // only the airborne PLAYER follows the camera.
+ // The seesaw is screen-fixed. Airborne characters are rendered from
+ // gameplay coordinates into a controlled screen-space band. This avoids
+ // the previous failure where camera smoothing could move both characters
+ // outside the viewport.
  drawPlank();
- // Partner always belongs to the fixed seesaw layer.
- drawChar(game.partner,false);
- // PLAYER gets an explicit screen-space lock while airborne. This prevents
- // high-altitude drift caused by camera smoothing/device resize.
+ if(game.phase==='partnerUp'){
+   const rise=Math.max(0,game.plank.y-game.partner.y);
+   const sy=Math.max(H*.20,Math.min(H*.64,game.plank.y-rise*.58));
+   drawChar({...game.partner,y:sy},false);
+ }else{
+   drawChar(game.partner,false);
+ }
  if(game.phase==='playerUp'){
-   const rawScreenY=game.player.y+game.cameraY;
-   const safeY=Math.max(H*.20,Math.min(H*.58,rawScreenY));
-   const screenPlayer={...game.player,y:safeY};
-   drawChar(screenPlayer,true);
+   const ascent=Math.max(0,game.plank.y-game.player.y);
+   const sy=Math.max(H*.18,Math.min(H*.58,game.plank.y-ascent*.72));
+   drawChar({...game.player,y:sy},true);
  }else{
    drawChar(game.player,true);
  }
 
  ctx.save();
- const particleCamera = game.phase==='playerUp' ? game.cameraY : 0;
- ctx.translate(0,particleCamera);
+ ctx.translate(0,0);
  for(const p of particles){
    ctx.globalAlpha=p.life/.45;
    ctx.fillStyle='#fff0a5';
