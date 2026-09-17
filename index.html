@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V20</title>
+<title>널뛰기팡 V39</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -18,8 +18,11 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 #tap:active{transform:translateX(-50%) scale(.92);background:#ffe9a8}
 #msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
 #msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#pause{position:absolute;z-index:12;top:58px;left:14px;width:42px;height:42px;border:0;border-radius:50%;background:#ffffffdf;color:#315b70;font-size:18px;font-weight:1000;box-shadow:0 5px 15px #315b7030;cursor:pointer}#pause:active{transform:scale(.92)}
+#overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#315b7038;backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.15s}
+#overlay.show{opacity:1;pointer-events:auto}
+.card{width:78%;padding:26px 22px;border-radius:24px;background:#fffffff2;text-align:center;box-shadow:0 18px 50px #315b7040}.card h2{margin:0 0 8px;color:#315b70;font-size:25px}.card p{margin:0 0 18px;color:#587180;font-weight:800;font-size:14px}.card button{border:0;border-radius:18px;padding:13px 28px;background:#315b70;color:#fff;font-size:16px;font-weight:1000;cursor:pointer}
 </style>
-<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=2352"></script>
 </head>
 <body>
 <div id="game">
@@ -31,21 +34,28 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 <div id="timingFill" style="width:0%;height:100%;background:#fff;border-radius:8px"></div>
 </div>
 <div id="milestone" style="position:absolute;top:58px;right:14px;padding:5px 9px;border-radius:14px;background:#ffffffb8;color:#315b70;font-size:11px;font-weight:900;pointer-events:none">다음 목표 10m</div>
+<button id="pause" aria-label="일시정지">Ⅱ</button>
 <button id="tap">TAP</button>
 <div id="msg"></div>
+<div id="overlay"><div class="card"><h2 id="overlayTitle">일시정지</h2><p id="overlayText">게임을 잠시 멈췄어요.</p><button id="resume">계속하기</button></div></div>
 </div>
 <script>
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 let W,H,D;
-const G=1500;
+// Lightweight physics layer: centralized motion/collision values.
+const PHYSICS={gravity:1500, playerLaunch:-1050, partnerLaunch:-610, groundOffset:40, landingTolerance:16, minRebound:520, maxRebound:820, seesawSpring:7.5, seesawDamp:8.5,
+  plankResponse:.00034, maxPlankAngle:.24};
 const game={
+ mode:'ready',
+ readyT:3,
  phase:'partnerFall',
  t:0,
- score:0,best:0,combo:0,worldScroll:0,
+ score:0,best:0,combo:0,worldScroll:0,cameraY:0,
  plank:{x:0,y:0,len:0,ang:0},
  player:{x:0,y:0,vy:0},
  partner:{x:0,y:0,vy:0},
- shake:0
+ shake:0,
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false
 };
 let particles=[];
 
@@ -57,30 +67,57 @@ function resize(){
 }
 function L(){return game.plank.x-game.plank.len/2+28}
 function R(){return game.plank.x+game.plank.len/2-28}
+// Height of each standing point on the rotated plank.
+function plankYAt(x){return game.plank.y+(x-game.plank.x)*Math.sin(game.plank.ang)}
+function standY(x){return plankYAt(x)-PHYSICS.groundOffset}
 function resetPositions(){
- game.player.x=R();game.player.y=game.plank.y-40;game.player.vy=0;
- game.partner.x=L();game.partner.y=game.plank.y-40;game.partner.vy=0;
+ game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false;
+ game.player.x=R();game.player.y=standY(R());game.player.vy=0;game.player.lastImpactSpeed=0;
+ game.partner.x=L();game.partner.y=standY(L());game.partner.vy=0;game.partner.lastImpactSpeed=0;
 }
+
+function integrate(body, dt){
+  body.vy += PHYSICS.gravity * dt;
+  body.y += body.vy * dt;
+}
+function land(body){
+  // Centralized collision test: only a downward-moving body can land, and
+  // it must cross the plank's collision plane within a small tolerance.
+  const groundY=standY(body.x);
+  const crossed=body.y>=groundY-PHYSICS.landingTolerance;
+  if(body.vy>0 && crossed){
+    const impactSpeed=body.vy;
+    body.y=groundY;
+    body.vy=0;
+    body.lastImpactSpeed=impactSpeed;
+    return true;
+  }
+  return false;
+}
+
 function setState(a,b){document.getElementById('state').textContent=a;document.getElementById('hint').textContent=b}
 function pop(t){
  const e=document.getElementById('msg');e.textContent=t;e.classList.remove('show');void e.offsetWidth;e.classList.add('show');
  clearTimeout(pop.tm);pop.tm=setTimeout(()=>e.classList.remove('show'),420);
 }
-function burst(x,y){
+function burst(x,y,side=0){
  for(let i=0;i<18;i++){let a=Math.random()*Math.PI*2,s=80+Math.random()*220;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45,r:2+Math.random()*3})}
+ game.impact=.18; game.impactSide=side;
 }
 
 function tap(){
+ if(game.mode!=='playing') return;
  // Only a landed partner can be tapped. This is the sole player action.
  if(game.phase!=='partnerReady') return;
 
- game.partner.y=game.plank.y-40;
+ game.partner.y=standY(L());
  game.partner.vy=0;
- game.player.y=game.plank.y-40;
+ game.player.y=standY(R());
  game.combo++;
 
- game.player.vy=-1050*(1+Math.min(game.combo,10)*.035);
- game.plank.ang=.16;
+ game.player.vy=PHYSICS.playerLaunch*(1+Math.min(game.combo,10)*.035);
+ game.plank.ang=Math.min(PHYSICS.maxPlankAngle,.14+game.combo*.004);
+ game.plankVel=.95;
  game.shake=7;
  burst(L(),game.plank.y);
  pop('팡!');
@@ -92,6 +129,17 @@ function tap(){
  game.t=0;
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
+function setPause(paused){
+  game.mode=paused?'paused':'playing';
+  const overlay=document.getElementById('overlay');
+  overlay.classList.toggle('show',paused);
+  document.getElementById('pause').textContent=paused?'▶':'Ⅱ';
+  if(!paused) setState(game.phase==='partnerReady'?'상대 ↓ 착지 완료':'PLAYER ↑ 팡!','게임 계속');
+}
+const pauseButton=document.getElementById('pause');
+pauseButton.addEventListener('click',()=>setPause(game.mode!=='paused'));
+document.getElementById('resume').addEventListener('click',()=>setPause(false));
+
 const tapButton=document.getElementById('tap');
 tapButton.addEventListener('pointerdown',e=>{
   e.preventDefault();
@@ -103,20 +151,50 @@ tapButton.addEventListener('click',e=>{
 });
 
 function update(dt){
+ if(game.mode==='paused') return;
+ document.getElementById('tap').style.opacity=game.mode==='playing'?'1':'0.55';
+ if(game.mode==='ready'){
+   game.readyT-=dt;
+   const n=Math.max(1,Math.ceil(game.readyT));
+   setState('준비 '+n,'곧 시작합니다');
+   if(game.readyT<=0){
+     game.mode='playing';
+     game.t=0;
+     setState('상대 ↓ 내려오는 중','상대가 내려오면 TAP!');
+     pop('START!');
+   }
+   return;
+ }
+ // Brief slow-motion when the player pushes past the next 10m target.
+ if(game.slowMo>0){
+   game.slowMo=Math.max(0,game.slowMo-dt);
+ }
+ const timeScale=game.slowMo>0 ? .32 : 1;
+ dt*=timeScale;
  game.shake*=.88;
+ game.impact=Math.max(0,game.impact-dt);
+ // Seesaw angle behaves like a damped spring: impact bends it, then it settles.
+ game.plankVel += (-game.plank.ang*PHYSICS.seesawSpring - game.plankVel*PHYSICS.seesawDamp)*dt;
+ game.plank.ang += game.plankVel*dt;
+ game.plank.ang=Math.max(-PHYSICS.maxPlankAngle,Math.min(PHYSICS.maxPlankAngle,game.plank.ang));
  game.t+=dt;
 
  if(game.phase==='playerUp'){
+   // Keep the airborne player comfortably inside the viewport. The seesaw stays fixed.
+   const desiredCamera=Math.max(0,Math.min(H*.42, H*.42-game.player.y));
+   game.cameraY += (desiredCamera-game.cameraY)*Math.min(1,dt*5);
    const targetScroll=Math.min(150,Math.max(0,(game.plank.y-game.player.y)*.32));
    game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*6);
  }else{
    game.worldScroll += (0-game.worldScroll)*Math.min(1,dt*3);
+   // Ease the camera back as the player returns to the seesaw.
+   game.cameraY += (0-game.cameraY)*Math.min(1,dt*4);
  }
 
  if(game.phase==='partnerFall'){
    // Partner falls ONCE, then waits. Only TAP can launch PLAYER.
    const u=Math.min(1,game.t/.95);
-   const top=game.plank.y-170,bottom=game.plank.y-40;
+   const top=standY(L())-130,bottom=standY(L());
    game.partner.x=L();
    game.partner.y=top+(bottom-top)*u*u;
    game.partner.vy=(bottom-top)*2*u/.95;
@@ -130,52 +208,67 @@ function update(dt){
      setState('상대 ↓ 착지 완료','TAP 하면 PLAYER가 팡!');
    }
  }
+ else if(game.phase==='partnerReady') {
+   game.partner.x=L();
+   game.partner.y=standY(L());
+ }
  else if(game.phase==='playerUp'){
    game.player.x=R();
-   game.player.vy+=G*dt;
-   game.player.y+=game.player.vy*dt;
+   integrate(game.player,dt);
 
    const oldScore=game.score;
    game.score=Math.max(game.score,(game.plank.y-game.player.y)/7);
    game.best=Math.max(game.best,game.score);
-   const target=Math.max(10,Math.ceil((game.score+0.01)/10)*10);
+   const target=game.slowMoTarget;
    const milestone=document.getElementById('milestone');
    if(milestone)milestone.textContent='다음 목표 '+target+'m';
-   if(Math.floor(game.score/10)>Math.floor(oldScore/10) && game.score>1) pop(Math.floor(game.score/10)*10+'m!');
+
+   // Once the player clears the target by a few meters, give a short
+   // "wow" slow-motion moment, then set the next target.
+   if(!game.slowMoTriggered && game.score>=target+3){
+     game.slowMoTriggered=true;
+     game.slowMo=.38;
+     pop(target+'m 돌파!');
+     game.slowMoTarget+=10;
+   }
+   if(game.score<target-2) game.slowMoTriggered=false;
    document.getElementById('score').textContent=Math.floor(game.score);
 
-   if(game.player.vy>0 && game.player.y>=game.plank.y-40){
-     game.player.y=game.plank.y-40;
-     game.player.vy=0;
-     burst(R(),game.plank.y);
+   if(land(game.player)){
+     burst(R(),game.plank.y,1);
 
-     // Player landing launches the partner exactly once.
+     // Player landing transfers part of the impact energy to the opposite side.
+     // This is a lightweight spring/rebound model, not a full physics engine.
+     const impactSpeed=Math.max(0, game.player.lastImpactSpeed || game.player.vy);
+     const rebound=Math.max(PHYSICS.minRebound, Math.min(PHYSICS.maxRebound, impactSpeed*.38));
      game.partner.x=L();
-     game.partner.y=game.plank.y-40;
-     game.partner.vy=-610;
-     game.plank.ang=-.14;
-     game.shake=5;
+     game.partner.y=standY(L());
+     game.partner.vy=-rebound;
+     game.plank.ang=-Math.min(PHYSICS.maxPlankAngle, .09 + rebound/5200);
+     game.plankVel=-.65;
+     game.shake=Math.min(8,4+rebound/180);
      game.phase='partnerUp';
      game.t=0;
+     pop('쿵!');
      setState('상대 ↑','PLAYER 착지 → 상대 발사');
    }
  }
  else if(game.phase==='partnerUp'){
    game.partner.x=L();
-   game.partner.vy+=G*dt;
-   game.partner.y+=game.partner.vy*dt;
+   integrate(game.partner,dt);
 
-   if(game.partner.vy>0 && game.partner.y>=game.plank.y-40){
-     game.partner.y=game.plank.y-40;
-     game.partner.vy=0;
-     burst(L(),game.plank.y);
-     game.plank.ang=0;
+   if(land(game.partner)){
+     burst(L(),game.plank.y,-1);
+     game.plank.ang=-.035;
+     game.partner.y=standY(L());
+     game.plankVel=.25;
 
      // IMPORTANT: stop here. The partner is now standing on the plank.
      // It must NOT jump again until the player taps.
      game.phase='partnerReady';
      game.t=0;
      setState('상대 ↓ 착지 완료','TAP 하면 PLAYER가 팡!');
+     pop('착지!');
    }
  }
 
@@ -208,7 +301,7 @@ function drawBg(){
  const count=h<10?6:h<20?8:10;
  for(let i=0;i<count;i++){
    let x=(i*91+30)%W;
-   let y=(i*127+80-game.worldScroll)%(H+160);
+   let y=(i*127+80-game.worldScroll+game.cameraY*.55)%(H+160);
    if(y<0)y+=H+160;
    const sc=1+Math.min(h,40)/100;
    ctx.beginPath();
@@ -221,7 +314,7 @@ function drawBg(){
  const ga=Math.max(.12,.48-h*.012);
  ctx.fillStyle=`rgba(167,215,168,${ga})`;
  ctx.save();
- ctx.translate(0,Math.min(60,game.worldScroll*.25));
+ ctx.translate(0,Math.min(60,game.worldScroll*.25+game.cameraY*.18));
  ctx.beginPath();
  ctx.moveTo(0,H*.72);
  for(let x=0;x<=W;x+=40)ctx.lineTo(x,H*.67+Math.sin(x*.026)*18);
@@ -241,6 +334,8 @@ function drawPlank(){
  ctx.fillStyle='#704e37';ctx.beginPath();ctx.moveTo(-11,8);ctx.lineTo(11,8);ctx.lineTo(27,75);ctx.lineTo(-27,75);ctx.closePath();ctx.fill();ctx.restore();
 }
 function drawChar(c,player){
+ // Keep the player's descent visually simple, matching the partner.
+ // Special slow-motion treatment for exceeding the goal will be added later.
  ctx.save();ctx.translate(c.x,c.y);
  ctx.fillStyle='#4f5360';ctx.beginPath();ctx.roundRect(-18,8,36,25,11);ctx.fill();
  ctx.strokeStyle='#4f5360';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-7,25);ctx.lineTo(-12,42);ctx.moveTo(7,25);ctx.lineTo(12,42);ctx.stroke();
@@ -257,11 +352,21 @@ function draw(){
  if(game.shake>1){
    ctx.translate((Math.random()-.5)*game.shake,(Math.random()-.5)*game.shake);
  }
- // All gameplay objects share one fixed coordinate system.
+ // The seesaw is screen-fixed; only airborne characters follow the camera.
  drawPlank();
+ // Partner and seesaw stay fixed in the play area.
  drawChar(game.partner,false);
+ // Only the airborne player follows the camera, so the partner never
+ // appears to move down/up when TAP is pressed.
+ ctx.save();
+ const playerCamera = game.phase==='playerUp' ? game.cameraY : 0;
+ ctx.translate(0,playerCamera);
  drawChar(game.player,true);
+ ctx.restore();
 
+ ctx.save();
+ const particleCamera = game.phase==='playerUp' ? game.cameraY : 0;
+ ctx.translate(0,particleCamera);
  for(const p of particles){
    ctx.globalAlpha=p.life/.45;
    ctx.fillStyle='#fff0a5';
@@ -269,6 +374,7 @@ function draw(){
    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
    ctx.fill();
  }
+ ctx.restore();
  ctx.globalAlpha=1;
  ctx.restore();
 }
