@@ -19,7 +19,7 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 #msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
 #msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 </style>
-<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=1809"></script>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=2352"></script>
 </head>
 <body>
 <div id="game">
@@ -92,6 +92,16 @@ function tap(){
  game.t=0;
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
+const tapButton=document.getElementById('tap');
+tapButton.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  tap();
+},{passive:false});
+tapButton.addEventListener('click',e=>{
+  e.preventDefault();
+  tap();
+});
+
 function update(dt){
  game.shake*=.88;
  game.t+=dt;
@@ -177,6 +187,10 @@ function update(dt){
  }
  particles=particles.filter(p=>p.life>0);
 }
+canvas.addEventListener('pointerdown',e=>{
+  if(e.target===canvas) tap();
+},{passive:true});
+
 function drawBg(){
  const h=game.score;
  let top='#86d9ff', bottom='#eafaff';
