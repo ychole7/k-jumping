@@ -19,6 +19,7 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 #msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
 #msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 </style>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=760"></script>
 </head>
 <body>
 <div id="game">
@@ -94,48 +95,56 @@ canvas.addEventListener('pointerdown',e=>{if(e.target===canvas)tap()},{passive:t
 function update(dt){
  game.shake*=.88;
  game.t+=dt;
- // V26: visual camera only. Gameplay coordinates never move.
+
  if(game.phase==='playerUp'){
-   const targetScroll=Math.min(150,Math.max(0,(game.plank.y-game.player.y)*0.32));
+   const targetScroll=Math.min(150,Math.max(0,(game.plank.y-game.player.y)*.32));
    game.worldScroll += (targetScroll-game.worldScroll)*Math.min(1,dt*6);
  }else{
    game.worldScroll += (0-game.worldScroll)*Math.min(1,dt*3);
  }
- const tf=document.getElementById('timingFill');
- if(game.phase==='partnerDown') tf.style.width=(Math.min(1,game.t/.95)*100)+'%';
- else tf.style.width='0%';
 
  if(game.phase==='partnerDown'){
-   // Partner approaches the plank in a short, predictable arc.
+   // Partner falls ONCE, then waits. Only TAP can launch PLAYER.
    const u=Math.min(1,game.t/.95);
    const top=game.plank.y-170,bottom=game.plank.y-40;
    game.partner.x=L();
    game.partner.y=top+(bottom-top)*u*u;
    game.partner.vy=(bottom-top)*2*u/.95;
-   game.player.x=R();game.player.y=game.plank.y-40;
+   game.player.x=R();
+   game.player.y=game.plank.y-40;
    if(game.t>=.95){
-     game.partner.y=bottom;game.partner.vy=0;
-     // Stay in the timing state, waiting for the player's tap.
+     game.partner.y=bottom;
+     game.partner.vy=0;
+     setState('상대 ↓ 착지 대기','TAP 하면 PLAYER가 팡!');
    }
- } 
+ }
  else if(game.phase==='playerUp'){
    game.player.x=R();
    game.player.vy+=G*dt;
    game.player.y+=game.player.vy*dt;
+
    const oldScore=game.score;
    game.score=Math.max(game.score,(game.plank.y-game.player.y)/7);
    game.best=Math.max(game.best,game.score);
    const target=Math.max(10,Math.ceil((game.score+0.01)/10)*10);
-   document.getElementById('milestone').textContent='다음 목표 '+target+'m';
+   const milestone=document.getElementById('milestone');
+   if(milestone)milestone.textContent='다음 목표 '+target+'m';
    if(Math.floor(game.score/10)>Math.floor(oldScore/10) && game.score>1) pop(Math.floor(game.score/10)*10+'m!');
    document.getElementById('score').textContent=Math.floor(game.score);
+
    if(game.player.vy>0 && game.player.y>=game.plank.y-40){
-     game.player.y=game.plank.y-40;game.player.vy=0;
+     game.player.y=game.plank.y-40;
+     game.player.vy=0;
      burst(R(),game.plank.y);
-     // Player landing launches partner: the next tic-tac beat.
-     game.partner.x=L();game.partner.y=game.plank.y-40;game.partner.vy=-610;
-     game.plank.ang=-.14;game.shake=5;
-     game.phase='partnerUp';game.t=0;
+
+     // Player landing launches the partner exactly once.
+     game.partner.x=L();
+     game.partner.y=game.plank.y-40;
+     game.partner.vy=-610;
+     game.plank.ang=-.14;
+     game.shake=5;
+     game.phase='partnerUp';
+     game.t=0;
      setState('상대 ↑','PLAYER 착지 → 상대 발사');
    }
  }
@@ -143,15 +152,26 @@ function update(dt){
    game.partner.x=L();
    game.partner.vy+=G*dt;
    game.partner.y+=game.partner.vy*dt;
+
    if(game.partner.vy>0 && game.partner.y>=game.plank.y-40){
-     game.partner.y=game.plank.y-40;game.partner.vy=0;
+     game.partner.y=game.plank.y-40;
+     game.partner.vy=0;
      burst(L(),game.plank.y);
      game.plank.ang=0;
-     game.phase='partnerDown';game.t=0;
+
+     // IMPORTANT: stop here. Do not launch again automatically.
+     game.phase='partnerDown';
+     game.t=0;
      setState('상대 ↓ 내려오는 중','상대가 내려오면 TAP!');
    }
  }
- for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;p.life-=dt}
+
+ for(const p of particles){
+   p.x+=p.vx*dt;
+   p.y+=p.vy*dt;
+   p.vy+=500*dt;
+   p.life-=dt;
+ }
  particles=particles.filter(p=>p.life>0);
 }
 function drawBg(){
