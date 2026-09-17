@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>널뛰기팡 V20</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+#game{position:relative;width:min(100vw,480px);height:100vh;margin:auto;overflow:hidden;background:linear-gradient(#86d9ff,#eafaff 68%,#f1ddb0)}
+canvas{width:100%;height:100%;display:block;touch-action:manipulation}
+.ui{position:absolute;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+.pill{background:#ffffffdf;border-radius:20px;padding:8px 13px;color:#38586a;font-weight:900;font-size:13px}
+.logo{font-size:20px;font-weight:1000;color:#31586c;text-shadow:0 2px #fff}
+#state{position:absolute;top:76px;left:50%;transform:translateX(-50%);background:#315b70ed;color:white;border-radius:20px;padding:8px 15px;font-size:13px;font-weight:900;white-space:nowrap;pointer-events:none}
+#hint{position:absolute;bottom:184px;left:50%;transform:translateX(-50%);color:white;font-size:15px;font-weight:1000;text-shadow:0 2px 4px #315b70;white-space:nowrap;pointer-events:none}
+#tap{position:absolute;z-index:10;left:50%;bottom:105px;transform:translateX(-50%);width:118px;height:62px;border:0;border-radius:32px;background:white;color:#315b70;font-size:20px;font-weight:1000;box-shadow:0 8px 22px #315b7040;cursor:pointer;touch-action:manipulation}
+#tap:active{transform:translateX(-50%) scale(.92);background:#ffe9a8}
+#msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
+#msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="c"></canvas>
+<div class="ui"><div class="pill">높이 <b id="score">0</b>m</div><div class="logo">널뛰기팡</div><div class="pill">COMBO <b id="combo">0</b></div></div>
+<div id="state">상대 ↓ 내려오는 중</div>
+<div id="hint">상대가 내려오면 TAP!</div>
+<div id="timingBar" style="position:absolute;left:50%;bottom:174px;transform:translateX(-50%);width:220px;height:9px;border-radius:8px;background:#ffffff66;overflow:hidden;pointer-events:none">
+<div id="timingFill" style="width:0%;height:100%;background:#fff;border-radius:8px"></div>
+</div>
+<div id="milestone" style="position:absolute;top:58px;right:14px;padding:5px 9px;border-radius:14px;background:#ffffffb8;color:#315b70;font-size:11px;font-weight:900;pointer-events:none">다음 목표 10m</div>
+<button id="tap">TAP</button>
+<div id="msg"></div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W,H,D;
+const G=1500;
+const game={
+ phase:'partnerDown',
+ t:0,
+ score:0,best:0,combo:0,camY:0,
+ plank:{x:0,y:0,len:0,ang:0},
+ player:{x:0,y:0,vy:0},
+ partner:{x:0,y:0,vy:0},
+ shake:0
+};
+let particles=[];
+
+function resize(){
+ W=canvas.clientWidth;H=canvas.clientHeight;D=Math.min(devicePixelRatio||1,2);
+ canvas.width=W*D;canvas.height=H*D;ctx.setTransform(D,0,0,D,0,0);
+ game.plank.x=W/2;game.plank.y=H*.70;game.plank.len=W*.70;
+ resetPositions();
+}
+function L(){return game.plank.x-game.plank.len/2+28}
+function R(){return game.plank.x+game.plank.len/2-28}
+function resetPositions(){
+ game.player.x=R();game.player.y=game.plank.y-40;game.player.vy=0;
+ game.partner.x=L();game.partner.y=game.plank.y-40;game.partner.vy=0;
+}
+function setState(a,b){document.getElementById('state').textContent=a;document.getElementById('hint').textContent=b}
+function pop(t){
+ const e=document.getElementById('msg');e.textContent=t;e.classList.remove('show');void e.offsetWidth;e.classList.add('show');
+ clearTimeout(pop.tm);pop.tm=setTimeout(()=>e.classList.remove('show'),420);
+}
+function burst(x,y){
+ for(let i=0;i<18;i++){let a=Math.random()*Math.PI*2,s=80+Math.random()*220;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45,r:2+Math.random()*3})}
+}
+function playerLaunch(){
+ // The important beat: partner hits the plank and PLAYER launches at once.
+ game.partner.y=game.plank.y-40;game.partner.vy=0;
+ game.player.y=game.plank.y-40;
+ game.combo++;
+ game.player.vy=-1050*(1+Math.min(game.combo,10)*.035);
+ game.plank.ang=.16;game.shake=7;
+ burst(L(),game.plank.y);
+ pop(game.combo>=3?'PERFECT!':'팡!');
+ document.getElementById('score').textContent=Math.floor(game.score);
+ document.getElementById('combo').textContent=game.combo;
+ game.phase='playerUp';game.t=0;
+ setState('PLAYER ↑ 팡!','높이 올라가는 중');
+}
+function tap(){
+ // Only this button matters. During partner descent, one tap = one clean seesaw beat.
+ if(game.phase!=='partnerDown')return;
+ playerLaunch();
+}
+document.getElementById('tap').addEventListener('click',tap);
+document.getElementById('tap').addEventListener('pointerup',e=>{e.preventDefault();});
+canvas.addEventListener('pointerdown',e=>{if(e.target===canvas)tap()},{passive:true});
+
+function update(dt){
+ game.shake*=.88;
+ game.t+=dt;
+ const tf=document.getElementById('timingFill');
+ if(game.phase==='partnerDown') tf.style.width=(Math.min(1,game.t/.95)*100)+'%';
+ else tf.style.width='0%';
+
+ // V23 camera: only the view moves. The proven V22 jump logic stays untouched.
+ const followLine=H*.43;
+ const desired=Math.max(0,followLine-game.player.y);
+ if(game.phase==='playerUp'){
+   game.camY += (desired-game.camY)*Math.min(1,dt*7);
+ }else{
+   // Keep the gained height briefly, then gently settle after the beat.
+   game.camY += (0-game.camY)*Math.min(1,dt*1.8);
+ }
+
+ if(game.phase==='partnerDown'){
+   // Partner approaches the plank in a short, predictable arc.
+   const u=Math.min(1,game.t/.95);
+   const top=game.plank.y-170,bottom=game.plank.y-40;
+   game.partner.x=L();
+   game.partner.y=top+(bottom-top)*u*u;
+   game.partner.vy=(bottom-top)*2*u/.95;
+   game.player.x=R();game.player.y=game.plank.y-40;
+   if(game.t>=.95){
+     game.partner.y=bottom;game.partner.vy=0;
+     // Stay in the timing state, waiting for the player's tap.
+   }
+ } 
+ else if(game.phase==='playerUp'){
+   game.player.x=R();
+   game.player.vy+=G*dt;
+   game.player.y+=game.player.vy*dt;
+   const oldScore=game.score;
+   game.score=Math.max(game.score,(game.plank.y-game.player.y)/7);
+   game.best=Math.max(game.best,game.score);
+   const target=Math.max(10,Math.ceil((game.score+0.01)/10)*10);
+   document.getElementById('milestone').textContent='다음 목표 '+target+'m';
+   if(Math.floor(game.score/10)>Math.floor(oldScore/10) && game.score>1) pop(Math.floor(game.score/10)*10+'m!');
+   document.getElementById('score').textContent=Math.floor(game.score);
+   if(game.player.vy>0 && game.player.y>=game.plank.y-40){
+     game.player.y=game.plank.y-40;game.player.vy=0;
+     burst(R(),game.plank.y);
+     // Player landing launches partner: the next tic-tac beat.
+     game.partner.x=L();game.partner.y=game.plank.y-40;game.partner.vy=-610;
+     game.plank.ang=-.14;game.shake=5;
+     game.phase='partnerUp';game.t=0;
+     setState('상대 ↑','PLAYER 착지 → 상대 발사');
+   }
+ }
+ else if(game.phase==='partnerUp'){
+   game.partner.x=L();
+   game.partner.vy+=G*dt;
+   game.partner.y+=game.partner.vy*dt;
+   if(game.partner.vy>0 && game.partner.y>=game.plank.y-40){
+     game.partner.y=game.plank.y-40;game.partner.vy=0;
+     burst(L(),game.plank.y);
+     game.plank.ang=0;
+     game.phase='partnerDown';game.t=0;
+     setState('상대 ↓ 내려오는 중','상대가 내려오면 TAP!');
+   }
+ }
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;p.life-=dt}
+ particles=particles.filter(p=>p.life>0);
+}
+function drawBg(){
+ const h=game.score;
+ let top='#86d9ff', bottom='#eafaff';
+ if(h>=10){top='#72c9f4';bottom='#e3f5ff'}
+ if(h>=20){top='#69b6e8';bottom='#d9effc'}
+ if(h>=30){top='#5b9ed0';bottom='#cfe7f7'}
+ const g=ctx.createLinearGradient(0,0,0,H);
+ g.addColorStop(0,top);g.addColorStop(.68,bottom);g.addColorStop(1,'#f1ddb0');
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ const alpha=h<10?.58:h<20?.72:.86;
+ ctx.fillStyle=`rgba(255,255,255,${alpha})`;
+ const count=h<10?6:h<20?8:10;
+ for(let i=0;i<count;i++){
+   let x=(i*91+30)%W,y=(i*127+80-game.score*5)%(H+160);
+   if(y<0)y+=H+160;
+   const sc=1+Math.min(h,40)/100;
+   ctx.beginPath();ctx.ellipse(x,y,38*sc,12*sc,0,0,7);
+   ctx.ellipse(x+28*sc,y+2*sc,25*sc,10*sc,0,0,7);ctx.fill();
+ }
+ const ga=Math.max(.12,.48-h*.012);
+ ctx.fillStyle=`rgba(167,215,168,${ga})`;
+ ctx.beginPath();ctx.moveTo(0,H*.72);
+ for(let x=0;x<=W;x+=40)ctx.lineTo(x,H*.67+Math.sin(x*.026)*18);
+ ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+ if(h>=20){
+   ctx.fillStyle=`rgba(255,255,255,${Math.min(.14,(h-20)*.003)})`;
+   ctx.fillRect(0,0,W,H);
+ }
+}
+function drawPlank(){
+ const p=game.plank;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.ang);
+ ctx.fillStyle='#6f4e35';ctx.beginPath();ctx.roundRect(-p.len/2,-10,p.len,20,10);ctx.fill();
+ ctx.fillStyle='#d39a5d';ctx.beginPath();ctx.roundRect(-p.len/2+4,-8,p.len-8,12,7);ctx.fill();
+ ctx.fillStyle='#ffd65b';ctx.beginPath();ctx.arc(-p.len/2+28,0,5,0,7);ctx.arc(p.len/2-28,0,5,0,7);ctx.fill();
+ ctx.fillStyle='#704e37';ctx.beginPath();ctx.moveTo(-11,8);ctx.lineTo(11,8);ctx.lineTo(27,75);ctx.lineTo(-27,75);ctx.closePath();ctx.fill();ctx.restore();
+}
+function drawChar(c,player){
+ ctx.save();ctx.translate(c.x,c.y);
+ ctx.fillStyle='#4f5360';ctx.beginPath();ctx.roundRect(-18,8,36,25,11);ctx.fill();
+ ctx.strokeStyle='#4f5360';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-7,25);ctx.lineTo(-12,42);ctx.moveTo(7,25);ctx.lineTo(12,42);ctx.stroke();
+ ctx.fillStyle=player?'#f18b63':'#65afd5';ctx.beginPath();ctx.roundRect(-21,-5,42,30,12);ctx.fill();
+ ctx.fillStyle='#ffd1a7';ctx.beginPath();ctx.arc(0,-22,19,0,7);ctx.fill();
+ ctx.fillStyle='#493b36';ctx.beginPath();ctx.arc(0,-29,18,Math.PI,7);ctx.arc(-13,-25,7,0,7);ctx.arc(13,-25,7,0,7);ctx.fill();
+ ctx.fillStyle='#4b4650';ctx.beginPath();ctx.arc(-6,-21,2,0,7);ctx.arc(6,-21,2,0,7);ctx.fill();
+ if(player){ctx.fillStyle='#315b70';ctx.font='900 10px system-ui';ctx.textAlign='center';ctx.fillText('PLAYER',0,-54)}
+ ctx.restore();
+}
+function draw(){
+ drawBg();
+
+ // Characters and effects follow the camera upward.
+ ctx.save();
+ if(game.shake>1)ctx.translate((Math.random()-.5)*game.shake,(Math.random()-.5)*game.shake);
+ ctx.translate(0,game.camY);
+ drawChar(game.partner,false);
+ drawChar(game.player,true);
+ for(const p of particles){
+   ctx.globalAlpha=p.life/.45;
+   ctx.fillStyle='#fff0a5';
+   ctx.beginPath();
+   ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+   ctx.fill();
+ }
+ ctx.globalAlpha=1;
+ ctx.restore();
+
+ // V25: the seesaw is a fixed screen/ground anchor.
+ // It can tilt, but never moves upward with the camera.
+ ctx.save();
+ if(game.shake>1)ctx.translate((Math.random()-.5)*game.shake*.45,(Math.random()-.5)*game.shake*.25);
+ drawPlank();
+ ctx.restore();
+}
+function loop(t){const dt=Math.min(.033,(t-(loop.last||t))/1000);loop.last=t;update(dt);draw();requestAnimationFrame(loop)}
+addEventListener('resize',resize);
+resize();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
