@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingTargetX:0, landingTargetReady:false, landingTargetPulse:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingTargetX:0, landingTargetReady:false, landingTargetPulse:0, lastCollectedX:0, routeBonusGiven:false, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
 };
 let particles=[];
 
@@ -240,6 +240,7 @@ function checkBonusCatch(body, drawY){
     const dx=body.x-b.x, dy=drawY-b.y;
     if(dx*dx+dy*dy<34*34){
       b.got=true;
+      game.lastCollectedX=b.x;
       const gain=b.type==='gem'?30:10;
       game.bonusScore+=gain;
       game.score+=gain;
@@ -461,7 +462,7 @@ function tap(){
    cs.style.transform='translateX(-50%) scale('+(1+(game.comboPulse>0?game.comboPulse*.12:0))+')';
   }
 
- game.phase='playerUp'; game.flightCollected=0; setLandingTarget(); game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
+ game.phase='playerUp'; game.flightCollected=0; game.lastCollectedX=0; game.routeBonusGiven=false; setLandingTarget(); game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
  game.t=0;
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
@@ -535,12 +536,21 @@ function update(dt){
   if((game.phase==='playerUp'||game.phase==='partnerUp') && game.bonusSpawnT>1.15 && game.bonusItems.filter(b=>!b.got).length<3){
     game.bonusSpawnT=0;
     spawnBonus();
+    setLandingTarget();
     game.bonusText='ROUTE!';
     if(game.score>=25 && Math.random()<.40 && game.hazards.filter(z=>!z.hit).length<1) spawnHazard();
   }
   for(const b of game.bonusItems){ b.life-=dt; b.spin+=dt*3.2; }
   for(const z of game.hazards){ z.life-=dt; z.spin+=dt*4; }
   game.bonusItems=game.bonusItems.filter(b=>b.life>0&&!b.got);
+  if(game.phase==='playerUp' && !game.routeBonusGiven && game.flightCollected>=4 && game.bonusItems.filter(b=>!b.got).length===0){
+    game.routeBonusGiven=true;
+    game.score+=25;
+    game.bonusFlash=.7;
+    game.bonusText='🌟 ROUTE CLEAR +25';
+    pop('🌟 ROUTE CLEAR +25');
+    game.comboPulse=.7;
+  }
   game.hazards=game.hazards.filter(z=>z.life>0&&!z.hit);
 
  // Seesaw angle behaves like a damped spring: impact bends it, then it settles.
@@ -879,22 +889,23 @@ function drawAirGuide(){
 
 function setLandingTarget(){
   const active=game.bonusItems.filter(b=>!b.got);
-  const caught=game.bonusItems.filter(b=>b.got);
   let x=R();
 
-  // If a route exists, bias the landing target toward its final direction.
+  // Aim for the end of the current collection route.
   if(active.length){
     const last=active.reduce((a,b)=>a.y>b.y?a:b);
     x=last.x;
-  }else if(caught.length){
-    const last=caught[caught.length-1];
-    x=last.x;
+  }else if(game.lastCollectedX){
+    x=game.lastCollectedX;
   }
 
-  // Keep a little uncertainty so the player still has to steer.
-  x += (Math.random()-.5)*90;
-  game.landingTargetX=Math.max(game.plank.x-game.plank.len/2+42,
-    Math.min(game.plank.x+game.plank.len/2-42,x));
+  // Small variation keeps every jump from feeling scripted.
+  x += (Math.random()-.5)*54;
+
+  game.landingTargetX=Math.max(
+    game.plank.x-game.plank.len/2+42,
+    Math.min(game.plank.x+game.plank.len/2-42,x)
+  );
   game.landingTargetReady=true;
   game.landingTargetPulse=.8;
 }
@@ -926,6 +937,10 @@ function drawSafeLandingZone(){
   ctx.globalAlpha=.95;
   ctx.font='900 12px system-ui,sans-serif';
   ctx.fillText(safe?'SAFE LANDING':'MOVE TO CENTER',cx,y-18);
+  if(Math.abs(game.player.x-cx)>82){
+    ctx.font='900 11px system-ui,sans-serif';
+    ctx.fillText('RETURN TO LANDING',cx,y+30);
+  }
   const pulse=1+(1-(game.landingTargetPulse||0)/.8)*.35;
   ctx.globalAlpha=.55;
   ctx.beginPath();
