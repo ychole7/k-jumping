@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, courseNo:0, collectStreak:0, collectStreakT:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
 };
 let particles=[];
 
@@ -121,6 +121,58 @@ function pop(t){
 function burst(x,y,side=0){
  for(let i=0;i<18;i++){let a=Math.random()*Math.PI*2,s=80+Math.random()*220;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45,r:2+Math.random()*3})}
  game.impact=.18; game.impactSide=side; game.impactPulse=1; game.landingFlash=.22;
+}
+
+
+
+
+function buildCoinTrail(points, type='star'){
+  const out=[];
+  for(let s=0;s<points.length-1;s++){
+    const a=points[s], b=points[s+1];
+    const dx=b[0]-a[0], dy=b[1]-a[1];
+    const dist=Math.hypot(dx,dy);
+    const count=Math.max(2,Math.floor(dist/0.075));
+    for(let i=0;i<count;i++){
+      const t=i/count;
+      const x=a[0]+dx*t;
+      const y=a[1]+dy*t;
+      out.push([x,y,type]);
+    }
+  }
+  const last=points[points.length-1];
+  out.push([last[0],last[1],type]);
+  return out;
+}
+
+function spawnAirCourse(){
+  game.courseNo=(game.courseNo||0)+1;
+  game.bonusItems.length=0;
+
+  // Hand-authored routes. Dense enough to feel like a continuous runner trail,
+  // but with enough spacing for the player to make meaningful left/right moves.
+  const routes=[
+    [[.78,.56],[.68,.53],[.56,.49],[.44,.45],[.34,.39],[.28,.32],[.38,.27],[.52,.23],[.68,.20]],
+    [[.72,.55],[.61,.51],[.48,.48],[.34,.43],[.25,.36],[.32,.30],[.48,.28],[.64,.25],[.76,.20]],
+    [[.78,.55],[.70,.48],[.57,.44],[.42,.46],[.29,.40],[.20,.33],[.30,.28],[.47,.24],[.64,.22]]
+  ];
+
+  const route=routes[(game.courseNo-1)%routes.length];
+  const dense=buildCoinTrail(route,'star');
+
+  // Upgrade selected points to gems so the route has decisions.
+  dense.forEach((p,i)=>{
+    const gem=(i===Math.floor(dense.length*.35) || i===Math.floor(dense.length*.72));
+    game.bonusItems.push({
+      x:Math.max(38,Math.min(W-38,p[0]*W)),
+      y:Math.max(H*.17,Math.min(H*.60,p[1]*H)),
+      type:gem?'gem':'star',
+      life:20, spin:i*.32, got:false, course:true, index:i
+    });
+  });
+
+  game.bonusSpawnT=0;
+  game.bonusPattern=(game.bonusPattern||0)+1;
 }
 
 
@@ -193,6 +245,10 @@ function checkBonusCatch(body, drawY){
       const gain=b.type==='gem'?30:10;
       game.bonusScore+=gain;
       game.score+=gain;
+      game.flightCollected=(game.flightCollected||0)+1;
+      game.totalCollected=(game.totalCollected||0)+1;
+      game.collectStreak=(game.collectStreak||0)+1; game.collectStreakT=1.1;
+      if(game.collectStreak%5===0){ game.score+=5; pop('⭐ COLLECTION x'+game.collectStreak+'  +5'); }
       game.bonusFlash=.45;
       game.bonusText=(b.type==='gem'?'💎 +30':'⭐ +10');
       pop(game.bonusText);
@@ -412,7 +468,8 @@ function tap(){
    cs.style.transform='translateX(-50%) scale('+(1+(game.comboPulse>0?game.comboPulse*.12:0))+')';
   }
 
- game.phase='playerUp'; game.flightCollected=0; game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
+ game.phase='playerUp'; game.flightCollected=0; game.collectStreak=0; game.collectStreakT=0; game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
+ spawnAirCourse();
  game.t=0;
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
@@ -500,10 +557,12 @@ function update(dt){
   if(game.tripleWindow>0) game.tripleWindow=Math.max(0,game.tripleWindow-dt);
   if(game.tripleReady && game.tripleWindow<=0){ game.tripleReady=false; }
   game.bonusSpawnT+=dt;
-  if((game.phase==='playerUp'||game.phase==='partnerUp') && game.bonusSpawnT>1.15 && game.bonusItems.filter(b=>!b.got).length<3){
+  if(game.phase==='partnerUp' && game.bonusSpawnT>1.15 && game.bonusItems.filter(b=>!b.got).length<2){
     game.bonusSpawnT=0;
     spawnBonus();
-    if(game.score>=25 && Math.random()<.40 && game.hazards.filter(z=>!z.hit).length<1) spawnHazard();
+  }
+  if(game.phase==='playerUp' && game.score>=25 && Math.random()<.008 && game.hazards.filter(z=>!z.hit).length<1){
+    spawnHazard();
   }
   for(const b of game.bonusItems){ b.life-=dt; b.spin+=dt*3.2; }
   for(const z of game.hazards){ z.life-=dt; z.spin+=dt*4; }
@@ -1070,6 +1129,46 @@ function drawHeightMeter(){
   ctx.restore();
 }
 
+
+
+function drawCollectStreak(){
+  if(game.phase!=='playerUp' || (game.collectStreak||0)<2 || (game.collectStreakT||0)<=0) return;
+  ctx.save();
+  const a=Math.min(1,game.collectStreakT*2);
+  ctx.globalAlpha=a;
+  ctx.textAlign='center';
+  ctx.font='900 16px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(0,0,0,.45)';
+  ctx.shadowBlur=7;
+  ctx.fillText('⭐ x'+game.collectStreak+' STREAK',W/2,H*.16);
+  ctx.restore();
+}
+
+function drawCourseProgress(){
+  if(game.phase!=='playerUp') return;
+  const items=game.bonusItems.filter(b=>b.course);
+  if(!items.length) return;
+  const total=items.length;
+  const got=items.filter(b=>b.got).length;
+
+  ctx.save();
+  const y=H*.11, x=W/2, width=Math.min(W*.62,280);
+  ctx.globalAlpha=.82;
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.beginPath(); ctx.roundRect(x-width/2,y,width,7,4); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.roundRect(x-width/2,y,width*(got/total),7,4); ctx.fill();
+
+  ctx.textAlign='center';
+  ctx.font='800 11px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(0,0,0,.4)';
+  ctx.shadowBlur=5;
+  ctx.fillText('AIR COURSE  '+got+' / '+total,x,y-8);
+  ctx.restore();
+}
+
 function drawFlightStats(){
   if(game.phase!=='playerUp') return;
   ctx.save();
@@ -1101,7 +1200,140 @@ function drawAirLane(){
   ctx.restore();
 }
 
+
+function drawKJumpingBackdrop(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#69b7e8');
+  g.addColorStop(.55,'#bfe5f4');
+  g.addColorStop(1,'#fff1c8');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,W,H);
+
+  // soft clouds
+  ctx.save();
+  ctx.globalAlpha=.55;
+  const clouds=[[.12,.16,70],[.72,.12,85],[.40,.36,65],[.78,.48,72],[.18,.68,80]];
+  clouds.forEach(c=>{
+    const x=c[0]*W,y=c[1]*H,s=c[2];
+    ctx.fillStyle='#fff';
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.ellipse(x+(i-1)*s*.42,y+(i%2)*5,s*.58,s*.20,0,0,Math.PI*2);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+
+  // distant Korean mountain layers
+  ctx.save();
+  ctx.globalAlpha=.22;
+  ctx.fillStyle='#5e9c9c';
+  ctx.beginPath();
+  ctx.moveTo(0,H*.70);
+  for(let x=0;x<=W;x+=W/5){
+    ctx.lineTo(x,H*(.62+((x/W*7)%1)*.09));
+  }
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  ctx.restore();
+
+  // hanok roof silhouettes at the bottom edges
+  ctx.save();
+  ctx.globalAlpha=.45;
+  ctx.fillStyle='#355766';
+  const roof=(x,y,s)=>{
+    ctx.beginPath();
+    ctx.moveTo(x-s,y);ctx.quadraticCurveTo(x,y-s*.45,x+s,y);
+    ctx.lineTo(x+s*.82,y+s*.16);ctx.quadraticCurveTo(x,y-s*.15,x-s*.82,y+s*.16);
+    ctx.closePath();ctx.fill();
+  };
+  roof(W*.12,H*.82,72); roof(W*.88,H*.78,78); roof(W*.50,H*.86,58);
+  ctx.restore();
+}
+
+function drawKLogo(){
+  ctx.save();
+  ctx.textAlign='left';
+  ctx.font='900 34px system-ui,sans-serif';
+  ctx.lineJoin='round';
+  ctx.lineWidth=7;
+  ctx.strokeStyle='rgba(63,39,25,.85)';
+  ctx.fillStyle='#ffd35a';
+  ctx.strokeText('K-JUMPING',18,88);
+  ctx.fillText('K-JUMPING',18,88);
+  ctx.font='900 15px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.strokeStyle='rgba(63,39,25,.55)';
+  ctx.lineWidth=3;
+  ctx.strokeText('널뛰기팡',24,108);
+  ctx.fillText('널뛰기팡',24,108);
+  ctx.restore();
+}
+
+function drawPolishedHUD(){
+  // top counters
+  ctx.save();
+  ctx.textAlign='center';
+  const pills=[
+    [W*.70,34,'⭐ '+Math.max(0,game.totalCollected||0)],
+    [W*.88,34,'💎 '+Math.max(0,Math.floor((game.bonusScore||0)/30))]
+  ];
+  pills.forEach(p=>{
+    ctx.fillStyle='rgba(27,68,91,.72)';
+    ctx.beginPath();ctx.roundRect(p[0]-48,p[1]-18,96,36,18);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='900 15px system-ui,sans-serif';ctx.fillText(p[2],p[0],p[1]+5);
+  });
+  ctx.restore();
+}
+
+function drawStyledSeesaw(){
+  const cx=game.plank.x, y=game.plank.y;
+  const len=game.plank.len, ang=game.plank.ang||0;
+  ctx.save();
+  ctx.translate(cx,y);
+  ctx.rotate(ang);
+
+  // shadow
+  ctx.globalAlpha=.18;
+  ctx.fillStyle='#3c291d';
+  ctx.beginPath();ctx.roundRect(-len/2+4,7,len-8,18,9);ctx.fill();
+
+  // wood board
+  ctx.globalAlpha=1;
+  const grad=ctx.createLinearGradient(0,-13,0,13);
+  grad.addColorStop(0,'#f2bf67');grad.addColorStop(.45,'#c77a36');grad.addColorStop(1,'#8d4f28');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.roundRect(-len/2,-14,len,28,12);ctx.fill();
+  ctx.strokeStyle='#6e3b22';ctx.lineWidth=3;ctx.stroke();
+
+  // center cloth
+  ctx.fillStyle='#f6ead2';
+  ctx.beginPath();ctx.roundRect(-48,-16,96,32,5);ctx.fill();
+  ctx.globalAlpha=.28;ctx.fillStyle='#c98c54';
+  for(let x=-42;x<42;x+=12) ctx.fillRect(x,-14,5,28);
+
+  // center pivot
+  ctx.restore();
+  ctx.save();
+  ctx.translate(cx,y+16);
+  ctx.fillStyle='#754b35';
+  ctx.beginPath();ctx.moveTo(-26,88);ctx.lineTo(0,0);ctx.lineTo(26,88);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#9a6845';ctx.beginPath();ctx.arc(0,10,12,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawPolishedLives(){
+  ctx.save();
+  ctx.textAlign='left';
+  for(let i=0;i<(game.maxLives||3);i++){
+    ctx.font='24px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+    ctx.globalAlpha=i<(game.lives||0)?1:.28;
+    ctx.fillText(i<(game.lives||0)?'❤️':'♡',18+i*27,143);
+  }
+  ctx.restore();
+}
+
 function draw(){
+  drawKJumpingBackdrop();
  drawBg();
  drawLandingTargetFX();
   drawSafeLandingZone();
@@ -1123,7 +1355,7 @@ function draw(){
  // the previous failure where camera smoothing could move both characters
  // outside the viewport.
  drawFlightTrail();
-  drawPlank();
+  drawStyledSeesaw();
   drawImpactFx();
  drawBonusItems();
  drawHazards();
