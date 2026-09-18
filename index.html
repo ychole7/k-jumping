@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
 };
 let particles=[];
 
@@ -243,6 +243,23 @@ function landingBounce(grade){
   game.landingFlashT = Math.max(game.landingFlashT||0, grade==='PERFECT' ? .34 : .22);
 }
 
+
+function loseLife(){
+  game.lives=Math.max(0,(game.lives||0)-1);
+  game.deathT=.65;
+  game.respawnT=.65;
+  game.landingFlashT=.28;
+  game.landingGrade='MISS';
+    loseLife();
+  game.airInput=0;
+  game.airVX=0;
+  pop(game.lives>0 ? '💨 착지 실패! 목숨 -1' : '💀 GAME OVER');
+  game.combo=0;
+  game.doubleReady=false;
+  game.tripleReady=false;
+  game.fever=false;
+}
+
 function resolveLanding(){
   const targetX=R(), adx=Math.abs(game.player.x-targetX);
   let grade=adx<=38?'PERFECT':adx<=82?'GOOD':adx<=118?'EDGE':'MISS';
@@ -276,6 +293,7 @@ function resolveLanding(){
 }
 
 function tap(){
+  if((game.lives||0)<=0){ if(typeof resetGame==='function') resetGame(); return; }
  if(game.mode!=='playing') return;
  // Only a landed partner can be tapped. This is the sole player action.
  if(game.phase!=='partnerReady') return;
@@ -756,6 +774,31 @@ function drawAirGuide(){
   ctx.restore();
 }
 
+
+function drawSafeLandingZone(){
+  if(game.phase!=='playerUp' || game.player.vy<=120) return;
+  const cx=R(), y=game.plank.y;
+  ctx.save();
+  ctx.globalAlpha=.22;
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.roundRect(cx-82,y-8,164,16,8);
+  ctx.fill();
+  ctx.globalAlpha=.8;
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=3;
+  ctx.setLineDash([7,5]);
+  ctx.beginPath();
+  ctx.roundRect(cx-82,y-8,164,16,8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha=.95;
+  ctx.font='800 13px system-ui,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('SAFE LANDING',cx,y-15);
+  ctx.restore();
+}
+
 function drawLandingGuide(){
   if(game.phase!=='playerUp' || game.player.vy<=120) return;
   const x=R(), y=game.plank.y-2;
@@ -782,6 +825,23 @@ function drawLandingImpact(){
   ctx.beginPath();
   ctx.ellipse(R(),y+2,58+(1-a)*48,10+(1-a)*12,0,0,Math.PI*2);
   ctx.stroke();
+  ctx.restore();
+}
+
+
+function drawLivesHUD(){
+  ctx.save();
+  ctx.textAlign='right';
+  ctx.font='900 18px system-ui,sans-serif';
+  ctx.shadowColor='rgba(0,0,0,.35)';
+  ctx.shadowBlur=6;
+  const lives=Math.max(0,game.lives||0);
+  let s='';
+  for(let i=0;i<(game.maxLives||3);i++) s += i<lives ? '❤️ ' : '♡ ';
+  ctx.fillStyle='#fff';
+  ctx.fillText(s.trim(),W-18,38);
+  ctx.font='700 11px system-ui,sans-serif';
+  ctx.fillText('LANDING LIFE',W-18,56);
   ctx.restore();
 }
 
@@ -818,7 +878,8 @@ function drawAirLane(){
 
 function draw(){
  drawBg();
- drawLandingGuide();
+ drawSafeLandingZone();
+  drawLandingGuide();
  drawAirGuide();
  if(game.fever){
    ctx.save();
