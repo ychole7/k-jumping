@@ -55,6 +55,8 @@ const game={
  player:{x:0,y:0,vy:0},
  partner:{x:0,y:0,vy:0},
  shake:0,
+ plankVel:0,
+ impact:0, impactSide:0,
  slowMo:0, slowMoTarget:10, slowMoTriggered:false
 };
 let particles=[];
@@ -71,6 +73,8 @@ function R(){return game.plank.x+game.plank.len/2-28}
 function plankYAt(x){return game.plank.y+(x-game.plank.x)*Math.sin(game.plank.ang)}
 function standY(x){return plankYAt(x)-PHYSICS.groundOffset}
 function resetPositions(){
+ game.plankVel=0;
+ game.impact=0; game.impactSide=0;
  game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false;
  game.player.x=R();game.player.y=standY(R());game.player.vy=0;game.player.lastImpactSpeed=0;
  game.partner.x=L();game.partner.y=standY(L());game.partner.vy=0;game.partner.lastImpactSpeed=0;
