@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V64</title>
+<title>널뛰기팡 V65</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0
 };
 let particles=[];
 
@@ -178,7 +178,13 @@ function tap(){
  game.partner.vy=0;
  game.player.y=standY(R());
  game.combo++;
-  if(game.doubleReady){
+  if(if(game.tripleReady){
+      game.tripleReady=false;
+      game.tripleWindow=0;
+      game.score+=30;
+      pop('🔥 TRIPLE +30!');
+      burst(R(),game.plank.y,3);
+    }else game.doubleReady){
     game.doubleCount++;
     game.score+=15;
     game.doubleReady=false;
@@ -208,7 +214,16 @@ function tap(){
     game.doubleReady=true; game.doubleWindow=2.2; game.doubleCount=0;
     pop('DOUBLE READY!');
   }
- game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
+ if(game.combo>=5&&!game.tripleReady&&!game.doubleReady){
+      game.tripleReady=true;
+      game.tripleWindow=2.2;
+      pop('🔥 TRIPLE READY!');
+    }else if(game.combo>=3&&!game.doubleReady&&!game.tripleReady){
+      game.doubleReady=true;
+      game.doubleWindow=2.2;
+      pop('⚡ DOUBLE READY!');
+    }
+    game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
  const gradeTilt=grade==='PERFECT'?.19:grade==='GOOD'?.16:grade==='POWER'?.21:.12;
  const gradeKick=grade==='PERFECT'?1.18:grade==='GOOD'?1.05:grade==='POWER'?1.28:.82;
  game.plank.ang=Math.min(PHYSICS.maxPlankAngle,gradeTilt+game.combo*.003);
@@ -253,6 +268,7 @@ tapButton.addEventListener('click',e=>{
 });
 
 function update(dt){
+    if(game.tripleReady){game.tripleWindow-=dt;if(game.tripleWindow<=0){game.tripleReady=false;game.tripleWindow=0;}}
  if(game.mode==='paused') return;
  document.getElementById('tap').style.opacity=game.mode==='playing'?'1':'0.55';
  if(game.mode==='ready'){
