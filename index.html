@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V66</title>
+<title>널뛰기팡 V67</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -435,13 +435,11 @@ function update(dt){
    if(game.score<target-2) game.slowMoTriggered=false;
    document.getElementById('score').textContent=Math.floor(game.score);
 
+   // TEST MODE: stage target never stops the run.
+   // Keep scoring, combos, bonuses and FEVER running indefinitely.
    if(!game.stageCleared && game.score>=game.stageTarget){
      game.stageCleared=true;
-     game.mode='stageClear';
-     document.getElementById('stageClear').classList.add('show');
-     document.getElementById('clearTitle').textContent='STAGE '+game.stage+' CLEAR!';
-     document.getElementById('clearScore').textContent=Math.floor(game.score)+'m';
-     setState('STAGE CLEAR!','다음 스테이지로 이동');
+     setState('TEST MODE · 목표 돌파!','계속 플레이 가능');
    }
 
    if(land(game.player)){
