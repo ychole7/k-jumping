@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V69</title>
+<title>널뛰기팡 V70</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0
 };
 let particles=[];
 
@@ -227,6 +227,39 @@ canvas.addEventListener('pointerup',clearAirInput);
 canvas.addEventListener('pointercancel',clearAirInput);
 canvas.addEventListener('pointerleave',clearAirInput);
 
+
+function resolveLanding(){
+  const targetX=R(), adx=Math.abs(game.player.x-targetX);
+  let grade=adx<=38?'PERFECT':adx<=82?'GOOD':adx<=118?'EDGE':'MISS';
+
+  // Gentle catch only near the plank; no teleporting.
+  if(adx<=82){
+    const assist=Math.max(0,Math.min(1,(82-adx)/82));
+    game.player.x += (targetX-game.player.x)*.16*assist;
+    game.landingAssist=assist;
+  }else game.landingAssist=0;
+
+  game.landingGrade=grade;
+  game.landingFlashT=.65;
+
+  if(grade==='PERFECT'){
+    game.score+=5; game.comboPulse=.8;
+    pop('🎯 PERFECT LANDING!'); burst(R(),game.plank.y,3);
+  }else if(grade==='GOOD'){
+    game.score+=2; game.comboPulse=.5;
+    pop('👍 GOOD LANDING!'); burst(R(),game.plank.y,2);
+  }else if(grade==='EDGE'){
+    game.combo=Math.max(0,game.combo-1);
+    pop('⚠️ EDGE LANDING'); burst(R(),game.plank.y,1);
+  }else{
+    game.combo=0;
+    pop('💨 MISS!'); burst(R(),game.plank.y,1);
+  }
+  document.getElementById('score').textContent=Math.floor(game.score);
+  document.getElementById('combo').textContent=game.combo;
+  return grade;
+}
+
 function tap(){
  if(game.mode!=='playing') return;
  // Only a landed partner can be tapped. This is the sole player action.
@@ -379,6 +412,7 @@ function update(dt){
   if(game.feverT>0) game.feverT=Math.max(0,game.feverT-dt);
   if(game.fever && game.feverT<=0) game.fever=false;
   game.feverFlash=Math.max(0,game.feverFlash-dt);
+  game.landingFlashT=Math.max(0,game.landingFlashT-dt);
  game.squash=Math.max(0,game.squash-dt); game.comboPulse=Math.max(0,game.comboPulse-dt); game.apexT=0;
   game.bonusFlash=Math.max(0,game.bonusFlash-dt);
   if(game.doubleWindow>0) game.doubleWindow=Math.max(0,game.doubleWindow-dt);
@@ -485,6 +519,14 @@ function update(dt){
    game.player.x += game.airVX*dt;
    game.player.x=Math.max(42,Math.min(W-42,game.player.x));
    game.player.y += game.player.vy*dt;
+
+   if(game.player.vy>120){
+     const dx=R()-game.player.x;
+     const near=Math.max(0,Math.min(1,1-Math.abs(dx)/180));
+     game.airVX += dx*3.0*near*dt;
+     game.airVX *= Math.pow(.002,dt);
+   }
+
    const playerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.player.y)*.62));
    checkBonusCatch(game.player,playerDrawY);
    checkHazardHit(game.player,playerDrawY);
@@ -516,15 +558,17 @@ function update(dt){
    }
 
    if(land(game.player)){
-     burst(R(),game.plank.y,1);
+     const landingGrade=resolveLanding();
 
      // Player landing transfers part of the impact energy to the opposite side.
      // This is a lightweight spring/rebound model, not a full physics engine.
      const impactSpeed=Math.max(0, game.player.lastImpactSpeed || game.player.vy);
      const rebound=Math.max(PHYSICS.minRebound, Math.min(PHYSICS.maxRebound, impactSpeed*.38));
+     const landingMul=landingGrade==='PERFECT'?1.12:landingGrade==='GOOD'?1.0:landingGrade==='EDGE'?.82:.68;
+     const adjustedRebound=Math.max(PHYSICS.minRebound*.75,Math.min(PHYSICS.maxRebound,rebound*landingMul));
      game.partner.x=L();
      game.partner.y=standY(L());
-     game.partner.vy=-rebound;
+     game.partner.vy=-adjustedRebound;
      game.plank.ang=-Math.min(PHYSICS.maxPlankAngle, .09 + rebound/5200);
      game.plankVel=-.65;
      game.shake=Math.min(8,4+rebound/180);
@@ -693,8 +737,20 @@ function drawAirGuide(){
   ctx.setLineDash([]);
   ctx.restore();
 }
+
+function drawLandingGuide(){
+  if(game.phase!=='playerUp' || game.player.vy<=120) return;
+  const x=R(), y=game.plank.y-2;
+  ctx.save();
+  ctx.globalAlpha=.20; ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x-82,y);ctx.lineTo(x+82,y);ctx.stroke();
+  ctx.globalAlpha=.6; ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(x-38,y);ctx.lineTo(x+38,y);ctx.stroke();
+  ctx.restore();
+}
 function draw(){
  drawBg();
+ drawLandingGuide();
  drawAirGuide();
  if(game.fever){
    ctx.save();
