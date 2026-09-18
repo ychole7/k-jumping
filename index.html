@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V46</title>
+<title>널뛰기팡 V50</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -30,9 +30,12 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 <div class="ui"><div class="pill">높이 <b id="score">0</b>m</div><div class="logo">널뛰기팡</div><div class="pill">COMBO <b id="combo">0</b></div></div>
 <div id="state">상대 ↓ 내려오는 중</div>
 <div id="hint">상대가 내려오면 TAP!</div>
-<div id="timingBar" style="position:absolute;left:50%;bottom:174px;transform:translateX(-50%);width:220px;height:9px;border-radius:8px;background:#ffffff66;overflow:hidden;pointer-events:none">
-<div id="timingFill" style="width:0%;height:100%;background:#fff;border-radius:8px"></div>
-</div>
+<div id="powerWrap" style="position:absolute;left:50%;bottom:174px;transform:translateX(-50%);width:250px;pointer-events:none">
+<div style="display:flex;justify-content:space-between;color:white;font-size:11px;font-weight:1000;text-shadow:0 2px 4px #315b70;margin-bottom:5px"><span>약하게</span><b id="powerText">힘 조절</b><span>강하게</span></div>
+<div id="powerBar" style="position:relative;width:100%;height:14px;border-radius:9px;background:#ffffff70;box-shadow:0 2px 8px #315b7030;overflow:hidden">
+<div style="position:absolute;left:38%;width:24%;top:0;bottom:0;background:#fff9b0;border-radius:8px"></div><div style="position:absolute;left:47%;width:6%;top:-2px;bottom:-2px;background:#fff;border-radius:8px;opacity:.9"></div>
+<div id="powerNeedle" style="position:absolute;top:-4px;left:50%;width:6px;height:22px;border-radius:5px;background:white;box-shadow:0 2px 6px #315b7060;transform:translateX(-50%)"></div>
+</div></div>
 <div id="milestone" style="position:absolute;top:58px;right:14px;padding:5px 9px;border-radius:14px;background:#ffffffb8;color:#315b70;font-size:11px;font-weight:900;pointer-events:none">다음 목표 10m</div>
 <button id="pause" aria-label="일시정지">Ⅱ</button>
 <button id="tap">TAP</button>
@@ -57,7 +60,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0,
- slowMo:0, slowMoTarget:10, slowMoTriggered:false
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0
 };
 let particles=[];
 
@@ -75,7 +78,7 @@ function standY(x){return plankYAt(x)-PHYSICS.groundOffset}
 function resetPositions(){
  game.plankVel=0;
  game.impact=0; game.impactSide=0;
- game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false;
+ game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false; game.powerT=0; game.power=1; game.powerResult=''; game.powerFlash=0; game.lastGrade=''; game.launchBoost=1; game.squash=0;
  game.player.x=R();game.player.y=standY(R());game.player.vy=0;game.player.lastImpactSpeed=0;
  game.partner.x=L();game.partner.y=standY(L());game.partner.vy=0;game.partner.lastImpactSpeed=0;
 }
@@ -119,12 +122,24 @@ function tap(){
  game.player.y=standY(R());
  game.combo++;
 
- game.player.vy=PHYSICS.playerLaunch*(1+Math.min(game.combo,10)*.035);
- game.plank.ang=Math.min(PHYSICS.maxPlankAngle,.14+game.combo*.004);
- game.plankVel=.95;
+ const gaugePos=10+(game.power-.72)/.58*80;
+ const centerDist=Math.abs(gaugePos-50);
+ let grade, powerMul;
+ if(centerDist<=4){ grade='PERFECT'; powerMul=1.10; }
+ else if(centerDist<=16){ grade='GOOD'; powerMul=1.03; }
+ else if(gaugePos<50){ grade='WEAK'; powerMul=.94; }
+ else { grade='POWER'; powerMul=1.08; }
+ game.powerResult=grade; game.lastGrade=grade; game.powerFlash=.55;
+ game.launchBoost=powerMul;
+ game.squash=.18;
+ game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
+ const gradeTilt=grade==='PERFECT'?.19:grade==='GOOD'?.16:grade==='POWER'?.21:.12;
+ const gradeKick=grade==='PERFECT'?1.18:grade==='GOOD'?1.05:grade==='POWER'?1.28:.82;
+ game.plank.ang=Math.min(PHYSICS.maxPlankAngle,gradeTilt+game.combo*.003);
+ game.plankVel=.95*gradeKick;
  game.shake=7;
  burst(L(),game.plank.y);
- pop('팡!');
+ pop(game.powerResult==='PERFECT'?'PERFECT!':game.powerResult==='GOOD'?'GOOD!':game.powerResult==='POWER'?'POWER!':'WEAK!');
 
  document.getElementById('score').textContent=Math.floor(game.score);
  document.getElementById('combo').textContent=game.combo;
@@ -177,11 +192,26 @@ function update(dt){
  dt*=timeScale;
  game.shake*=.88;
  game.impact=Math.max(0,game.impact-dt);
+ game.powerFlash=Math.max(0,game.powerFlash-dt);
+ game.squash=Math.max(0,game.squash-dt);
  // Seesaw angle behaves like a damped spring: impact bends it, then it settles.
  game.plankVel += (-game.plank.ang*PHYSICS.seesawSpring - game.plankVel*PHYSICS.seesawDamp)*dt;
  game.plank.ang += game.plankVel*dt;
  game.plank.ang=Math.max(-PHYSICS.maxPlankAngle,Math.min(PHYSICS.maxPlankAngle,game.plank.ang));
  game.t+=dt;
+
+ // Moving power gauge is active only while waiting for TAP.
+ game.powerT += dt;
+ const wave=.5+.5*Math.sin(game.powerT*4.2);
+ game.power=.72+wave*.58;
+ const needle=document.getElementById('powerNeedle');
+ const powerText=document.getElementById('powerText');
+ if(needle){ needle.style.left=(10+wave*80)+'%'; }
+ if(powerText){
+   if(game.phase==='partnerReady') powerText.textContent=game.powerResult?game.powerResult+' · 다시 조준!':'지금 TAP!';
+   else powerText.textContent='힘 조절';
+   powerText.style.transform=game.powerFlash>0?'scale(1.16)':'scale(1)';
+ }
 
  // Camera is deliberately decoupled from gameplay coordinates.
  // The seesaw stays fixed on screen; altitude is expressed by moving the
@@ -344,14 +374,26 @@ function drawPlank(){
  ctx.fillStyle='#704e37';ctx.beginPath();ctx.moveTo(-11,8);ctx.lineTo(11,8);ctx.lineTo(27,75);ctx.lineTo(-27,75);ctx.closePath();ctx.fill();ctx.restore();
 }
 function drawChar(c,player){
- // When a character is standing on the seesaw, rotate the character with
- // the plank so the feet visually stay attached to its surface. Airborne
- // characters remain upright.
+ // Characters follow the plank only while grounded. Airborne characters stay upright.
  const grounded = game.phase!=='playerUp' && ((player && game.phase==='partnerUp') || (!player && (game.phase==='partnerReady' || game.phase==='partnerFall' || game.phase==='partnerUp')));
- const followPlank = grounded;
  ctx.save();
  ctx.translate(c.x,c.y);
- if(followPlank) ctx.rotate(game.plank.ang);
+ if(grounded) ctx.rotate(game.plank.ang);
+
+ // Small squash/stretch makes the power judgment visibly matter.
+ let sx=1, sy=1;
+ if(player && game.phase==='playerUp'){
+   const v=c.vy||0;
+   const speed=Math.min(1,Math.abs(v)/1100);
+   if(v<0){ sx=1-.07*speed; sy=1+.11*speed; }
+   else { sx=1+.07*speed; sy=1-.09*speed; }
+   if(game.squash>0){ sx=.91; sy=1.12; }
+ } else if(!player && game.phase==='partnerUp'){
+   const v=c.vy||0, speed=Math.min(1,Math.abs(v)/800);
+   if(v<0){sx=1-.04*speed;sy=1+.06*speed;} else {sx=1+.05*speed;sy=1-.05*speed;}
+ }
+ ctx.scale(sx,sy);
+
  ctx.fillStyle='#4f5360';ctx.beginPath();ctx.roundRect(-18,8,36,25,11);ctx.fill();
  ctx.strokeStyle='#4f5360';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-7,25);ctx.lineTo(-12,42);ctx.moveTo(7,25);ctx.lineTo(12,42);ctx.stroke();
  ctx.fillStyle=player?'#f18b63':'#65afd5';ctx.beginPath();ctx.roundRect(-21,-5,42,30,12);ctx.fill();
