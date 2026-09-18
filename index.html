@@ -245,7 +245,7 @@ function landingBounce(grade){
 
 
 function loseLife(){
-  game.lives=Math.max(0,(game.lives||0)-1);
+  game.lives=Math.max(0,(game.lives||0)-1); game.lifeLostT=.8;
   game.deathT=.65;
   game.respawnT=.65;
   game.landingFlashT=.28;
@@ -258,6 +258,16 @@ function loseLife(){
   game.doubleReady=false;
   game.tripleReady=false;
   game.fever=false;
+}
+
+
+function showLandingResult(){
+  const g=game.landingGrade;
+  game.landingResultT = g==='PERFECT' ? .72 : g==='GOOD' ? .58 : g==='EDGE' ? .52 : .68;
+  if(g==='PERFECT') pop('🎯 PERFECT!');
+  else if(g==='GOOD') pop('👍 GOOD!');
+  else if(g==='EDGE') pop('⚠️ EDGE!');
+  else pop((game.lives||0)>0 ? '💨 MISS!' : '💀 GAME OVER');
 }
 
 function resolveLanding(){
@@ -779,7 +789,7 @@ function drawSafeLandingZone(){
   if(game.phase!=='playerUp' || game.player.vy<=120) return;
   const cx=R(), y=game.plank.y;
   ctx.save();
-  ctx.globalAlpha=.22;
+  ctx.globalAlpha=.16;
   ctx.fillStyle='#fff';
   ctx.beginPath();
   ctx.roundRect(cx-82,y-8,164,16,8);
@@ -809,6 +819,45 @@ function drawLandingGuide(){
   ctx.beginPath();ctx.moveTo(x-38,y);ctx.lineTo(x+38,y);ctx.stroke();
   ctx.restore();
 }
+
+
+function drawGameOverOverlay(){
+  if((game.lives||0)>0) return;
+  ctx.save();
+  ctx.fillStyle='rgba(10,12,20,.46)';
+  ctx.fillRect(0,0,W,H);
+  const cy=H*.47;
+  ctx.textAlign='center';
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(0,0,0,.6)';
+  ctx.shadowBlur=12;
+  ctx.font='900 38px system-ui,sans-serif';
+  ctx.fillText('GAME OVER',W/2,cy);
+  ctx.font='700 16px system-ui,sans-serif';
+  ctx.fillText('TAP TO RETRY',W/2,cy+36);
+  ctx.restore();
+}
+
+function drawLandingResultFX(){
+  const t=game.landingResultT||0;
+  if(t<=0) return;
+  const g=game.landingGrade;
+  const max=g==='PERFECT'?.72:g==='GOOD'?.58:g==='EDGE'?.52:.68;
+  const p=1-t/max;
+  const a=Math.min(1,t/.16)*Math.min(1,(1-p)/.25);
+  const y=game.plank.y-38-p*18;
+  ctx.save();
+  ctx.textAlign='center';
+  ctx.font=g==='PERFECT'?'900 28px system-ui,sans-serif':'900 24px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(0,0,0,.5)';
+  ctx.shadowBlur=8;
+  ctx.globalAlpha=Math.max(0,a);
+  const label=g==='PERFECT'?'PERFECT!':g==='GOOD'?'GOOD!':g==='EDGE'?'EDGE':'MISS';
+  ctx.fillText(label,R(),y);
+  ctx.restore();
+}
+
 function drawLandingImpact(){
   if(!game.landingFlashT) return;
   const a=Math.min(1,game.landingFlashT/0.34);
@@ -830,18 +879,25 @@ function drawLandingImpact(){
 
 
 function drawLivesHUD(){
+  const lives=Math.max(0,game.lives||0);
+  const maxLives=game.maxLives||3;
+  const pulse=(game.lifeLostT||0)>0 ? Math.sin(game.lifeLostT*38)*3 : 0;
   ctx.save();
   ctx.textAlign='right';
-  ctx.font='900 18px system-ui,sans-serif';
+  ctx.translate(pulse,0);
   ctx.shadowColor='rgba(0,0,0,.35)';
-  ctx.shadowBlur=6;
-  const lives=Math.max(0,game.lives||0);
-  let s='';
-  for(let i=0;i<(game.maxLives||3);i++) s += i<lives ? '❤️ ' : '♡ ';
+  ctx.shadowBlur=7;
+  for(let i=0;i<maxLives;i++){
+    const x=W-20-(maxLives-1-i)*25;
+    const y=34;
+    ctx.font='24px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+    ctx.globalAlpha=i<lives ? 1 : .30;
+    ctx.fillText(i<lives?'♥':'♡',x,y);
+  }
+  ctx.globalAlpha=1;
+  ctx.font='800 10px system-ui,sans-serif';
   ctx.fillStyle='#fff';
-  ctx.fillText(s.trim(),W-18,38);
-  ctx.font='700 11px system-ui,sans-serif';
-  ctx.fillText('LANDING LIFE',W-18,56);
+  ctx.fillText('LIVES',W-18,55);
   ctx.restore();
 }
 
