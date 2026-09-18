@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V65</title>
+<title>널뛰기팡 V66</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0
 };
 let particles=[];
 
@@ -85,7 +85,7 @@ function resetPositions(){
  game.plankVel=0;
  game.impact=0; game.impactSide=0;
  game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false; game.risk=0;game.riskFlash=0; game.powerT=0; game.power=1; game.powerResult=''; game.powerFlash=0; game.lastGrade=''; game.launchBoost=1; game.squash=0;
- game.stageCleared=false; resetBonuses(); game.doubleReady=false; game.doubleWindow=0; game.doubleCount=0; game.tripleReady=false; game.tripleWindow=0; updateStageUI();
+ game.stageCleared=false; resetBonuses(); game.doubleReady=false; game.doubleWindow=0; game.doubleCount=0; game.tripleReady=false; game.tripleWindow=0; game.fever=false; game.feverT=0; game.feverFlash=0; updateStageUI();
  game.player.x=R();game.player.y=standY(R());game.player.vy=0;game.player.lastImpactSpeed=0;
  game.partner.x=L();game.partner.y=standY(L());game.partner.vy=0;game.partner.lastImpactSpeed=0;
 }
@@ -224,6 +224,18 @@ function tap(){
       pop('⚡ DOUBLE READY!');
     }
   }
+  // Seven clean beats unlock a short FEVER scoring phase.
+  if(game.combo>=7 && !game.fever){
+    game.fever=true;
+    game.feverT=5;
+    game.feverFlash=.9;
+    pop('🔥 FEVER!');
+    game.comboPulse=.9;
+  }
+ if(game.fever){
+    game.score+=5;
+    game.feverFlash=.45;
+  }
  game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
  const gradeTilt=grade==='PERFECT'?.19:grade==='GOOD'?.16:grade==='POWER'?.21:.12;
  const gradeKick=grade==='PERFECT'?1.18:grade==='GOOD'?1.05:grade==='POWER'?1.28:.82;
@@ -239,7 +251,11 @@ function tap(){
 
  document.getElementById('score').textContent=Math.floor(game.score);
  document.getElementById('combo').textContent=game.combo;
- const cs=document.getElementById('comboStreak'); if(cs){ cs.textContent=game.combo>=3?'🔥 '+game.combo+' COMBO!':game.combo===2?'2 COMBO!':''; cs.style.opacity=game.combo>=2?'1':'0'; cs.style.transform='translateX(-50%) scale('+(1+(game.comboPulse>0?game.comboPulse*.12:0))+')'; }
+ const cs=document.getElementById('comboStreak'); if(cs){
+   cs.textContent=game.fever?'🔥 FEVER  +5 / TAP':game.combo>=3?'🔥 '+game.combo+' COMBO!':game.combo===2?'2 COMBO!':'';
+   cs.style.opacity=(game.combo>=2||game.fever)?'1':'0';
+   cs.style.transform='translateX(-50%) scale('+(1+(game.comboPulse>0?game.comboPulse*.12:0))+')';
+  }
 
  game.phase='playerUp';
  game.t=0;
@@ -300,6 +316,9 @@ function update(dt){
   game.flightTrail=game.flightTrail.filter(tr=>tr.life>0);
  game.powerFlash=Math.max(0,game.powerFlash-dt);
  game.riskFlash=Math.max(0,game.riskFlash-dt);
+  if(game.feverT>0) game.feverT=Math.max(0,game.feverT-dt);
+  if(game.fever && game.feverT<=0) game.fever=false;
+  game.feverFlash=Math.max(0,game.feverFlash-dt);
  game.squash=Math.max(0,game.squash-dt); game.comboPulse=Math.max(0,game.comboPulse-dt); game.apexT=0;
   game.bonusFlash=Math.max(0,game.bonusFlash-dt);
   if(game.doubleWindow>0) game.doubleWindow=Math.max(0,game.doubleWindow-dt);
@@ -591,6 +610,13 @@ function drawChar(c,player){
 }
 function draw(){
  drawBg();
+ if(game.fever){
+   ctx.save();
+   ctx.globalAlpha=.045 + game.feverFlash*.035;
+   ctx.fillStyle='#ffd84a';
+   ctx.fillRect(0,0,W,H);
+   ctx.restore();
+ }
  ctx.save();
  if(game.shake>1){
    ctx.translate((Math.random()-.5)*game.shake,(Math.random()-.5)*game.shake);
