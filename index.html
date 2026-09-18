@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V68</title>
+<title>널뛰기팡 V69</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0
 };
 let particles=[];
 
@@ -209,6 +209,24 @@ function checkHazardHit(body,drawY){
     }
   }
 }
+
+function setAirInput(clientX){
+  if(game.mode!=='playing' || game.phase!=='playerUp') return;
+  const rect=canvas.getBoundingClientRect();
+  const nx=(clientX-rect.left)/rect.width;
+  game.airInput=Math.max(-1,Math.min(1,(nx-.5)*2));
+}
+function clearAirInput(){
+  game.airInput=0;
+}
+canvas.addEventListener('pointermove',e=>setAirInput(e.clientX));
+canvas.addEventListener('pointerdown',e=>{
+  if(game.phase==='playerUp') setAirInput(e.clientX);
+});
+canvas.addEventListener('pointerup',clearAirInput);
+canvas.addEventListener('pointercancel',clearAirInput);
+canvas.addEventListener('pointerleave',clearAirInput);
+
 function tap(){
  if(game.mode!=='playing') return;
  // Only a landed partner can be tapped. This is the sole player action.
@@ -276,6 +294,7 @@ function tap(){
     game.score+=5;
     game.feverFlash=.45;
   }
+ game.airX=game.player.x; game.airVX=0;
  game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
  const gradeTilt=grade==='PERFECT'?.19:grade==='GOOD'?.16:grade==='POWER'?.21:.12;
  const gradeKick=grade==='PERFECT'?1.18:grade==='GOOD'?1.05:grade==='POWER'?1.28:.82;
@@ -352,6 +371,7 @@ function update(dt){
     game.flightTrail.push({x:f.x,y:f.y,life:.24});
     if(game.flightTrail.length>18) game.flightTrail.shift();
   }else game.flightTrail.length=0;
+  if(game.phase!=='playerUp') game.airInput=0;
   for(const tr of game.flightTrail) tr.life-=dt;
   game.flightTrail=game.flightTrail.filter(tr=>tr.life>0);
  game.powerFlash=Math.max(0,game.powerFlash-dt);
@@ -456,8 +476,15 @@ function update(dt){
    game.partner.y=standY(L());
  }
  else if(game.phase==='playerUp'){
-   game.player.x=R();
-   game.player.vy += PHYSICS.playerFallGravity*dt; game.player.y += game.player.vy*dt;
+   game.player.vy += PHYSICS.playerFallGravity*dt;
+   const airAccel=1500;
+   const airMax=360;
+   game.airVX += game.airInput*airAccel*dt;
+   game.airVX *= Math.pow(.0008,dt);
+   game.airVX=Math.max(-airMax,Math.min(airMax,game.airVX));
+   game.player.x += game.airVX*dt;
+   game.player.x=Math.max(42,Math.min(W-42,game.player.x));
+   game.player.y += game.player.vy*dt;
    const playerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.player.y)*.62));
    checkBonusCatch(game.player,playerDrawY);
    checkHazardHit(game.player,playerDrawY);
@@ -652,8 +679,23 @@ function drawChar(c,player){
  if(player){ctx.fillStyle='#315b70';ctx.font='900 10px system-ui';ctx.textAlign='center';ctx.fillText('PLAYER',0,-54)}
  ctx.restore();
 }
+
+function drawAirGuide(){
+  if(game.phase!=='playerUp') return;
+  ctx.save();
+  const y=H*.68;
+  const alpha=.08+Math.min(.12,Math.abs(game.airInput)*.12);
+  ctx.globalAlpha=alpha;
+  ctx.strokeStyle='#ffffff';
+  ctx.lineWidth=3;
+  ctx.setLineDash([8,10]);
+  ctx.beginPath();ctx.moveTo(30,y);ctx.lineTo(W-30,y);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
 function draw(){
  drawBg();
+ drawAirGuide();
  if(game.fever){
    ctx.save();
    ctx.globalAlpha=.045 + game.feverFlash*.035;
