@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusScore:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0
 };
 let particles=[];
 
@@ -236,6 +236,12 @@ canvas.addEventListener('pointerup',clearAirInput);
 canvas.addEventListener('pointercancel',clearAirInput);
 canvas.addEventListener('pointerleave',clearAirInput);
 
+
+function landingBounce(grade){
+  // Small visual recoil: the plank reacts first, then partner is launched.
+  game.plank.angle += grade==='PERFECT' ? -0.075 : grade==='GOOD' ? -0.05 : grade==='EDGE' ? -0.03 : 0.02;
+  game.landingFlashT = Math.max(game.landingFlashT||0, grade==='PERFECT' ? .34 : .22);
+}
 
 function resolveLanding(){
   const targetX=R(), adx=Math.abs(game.player.x-targetX);
@@ -532,7 +538,7 @@ function update(dt){
    if(game.player.vy>120){
      const dx=R()-game.player.x;
      const near=Math.max(0,Math.min(1,1-Math.abs(dx)/180));
-     game.airVX += dx*0.65*near*dt;
+     game.airVX += dx*0.38*near*dt;
      game.airVX *= Math.pow(.18,dt);
    }
 
@@ -757,6 +763,25 @@ function drawLandingGuide(){
   ctx.beginPath();ctx.moveTo(x-38,y);ctx.lineTo(x+38,y);ctx.stroke();
   ctx.restore();
 }
+function drawLandingImpact(){
+  if(!game.landingFlashT) return;
+  const a=Math.min(1,game.landingFlashT/0.34);
+  const y=game.plank.y;
+  ctx.save();
+  ctx.globalAlpha=a*.22;
+  ctx.beginPath();
+  ctx.ellipse(R(),y+2,105,18,0,0,Math.PI*2);
+  ctx.fillStyle='#fff';
+  ctx.fill();
+  ctx.globalAlpha=a*.75;
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.ellipse(R(),y+2,58+(1-a)*48,10+(1-a)*12,0,0,Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function draw(){
  drawBg();
  drawLandingGuide();
