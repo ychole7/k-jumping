@@ -61,7 +61,7 @@ const game={
  shake:0,
  plankVel:0,
  impact:0, impactSide:0, impactPulse:0, landingFlash:0, flightTrail:[],
- slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
+ slowMo:0, slowMoTarget:10, slowMoTriggered:false, powerT:0, power:1, powerResult:'', powerFlash:0, lastGrade:'', launchBoost:1, squash:0, risk:0, lives:3, maxLives:3, riskFlash:0, comboPulse:0, apexT:0, bonusItems:[], bonusPattern:0, bonusScore:0, peakHeight:0, flightCollected:0, totalCollected:0, bonusSpawnT:0, bonusFlash:0, bonusText:'', hazards:[], doubleReady:false, doubleWindow:0, doubleCount:0, tripleReady:false, tripleWindow:0, fever:false, feverT:0, feverFlash:0, airX:0, airVX:0, airInput:0, landingTargetX:0, landingTargetReady:false, landingTargetPulse:0, landingAssist:0, landingGrade:'', landingFlashT:0, landingLockT:0, deathT:0, respawnT:0, safeLandingFlashT:0
 };
 let particles=[];
 
@@ -325,7 +325,7 @@ function showLandingResult(){
 }
 
 function resolveLanding(){
-  const target=R();
+  const target=game.landingTargetReady?game.landingTargetX:R();
   const dx=Math.abs(game.player.x-target);
 
   // The actual playable landing zone is the central 164px of the seesaw.
@@ -461,7 +461,7 @@ function tap(){
    cs.style.transform='translateX(-50%) scale('+(1+(game.comboPulse>0?game.comboPulse*.12:0))+')';
   }
 
- game.phase='playerUp'; game.flightCollected=0; game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
+ game.phase='playerUp'; game.flightCollected=0; setLandingTarget(); game.peakHeight=0; game.airX=game.player.x; game.airVX=0;
  game.t=0;
  setState('PLAYER ↑ 팡!','높이 올라가는 중');
 }
@@ -876,9 +876,32 @@ function drawAirGuide(){
 }
 
 
+
+function setLandingTarget(){
+  const active=game.bonusItems.filter(b=>!b.got);
+  const caught=game.bonusItems.filter(b=>b.got);
+  let x=R();
+
+  // If a route exists, bias the landing target toward its final direction.
+  if(active.length){
+    const last=active.reduce((a,b)=>a.y>b.y?a:b);
+    x=last.x;
+  }else if(caught.length){
+    const last=caught[caught.length-1];
+    x=last.x;
+  }
+
+  // Keep a little uncertainty so the player still has to steer.
+  x += (Math.random()-.5)*90;
+  game.landingTargetX=Math.max(game.plank.x-game.plank.len/2+42,
+    Math.min(game.plank.x+game.plank.len/2-42,x));
+  game.landingTargetReady=true;
+  game.landingTargetPulse=.8;
+}
+
 function drawSafeLandingZone(){
   if(game.phase!=='playerUp' || game.player.vy<=120) return;
-  const cx=R(), y=game.plank.y;
+  const cx=game.landingTargetReady?game.landingTargetX:R(), y=game.plank.y;
   const dx=Math.abs(game.player.x-cx);
   const safe=dx<=82;
   ctx.save();
@@ -903,6 +926,15 @@ function drawSafeLandingZone(){
   ctx.globalAlpha=.95;
   ctx.font='900 12px system-ui,sans-serif';
   ctx.fillText(safe?'SAFE LANDING':'MOVE TO CENTER',cx,y-18);
+  const pulse=1+(1-(game.landingTargetPulse||0)/.8)*.35;
+  ctx.globalAlpha=.55;
+  ctx.beginPath();
+  ctx.arc(cx,y,12*pulse,0,Math.PI*2);
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=2;
+  ctx.stroke();
+  ctx.globalAlpha=.95;
+  ctx.beginPath(); ctx.arc(cx,y,4,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
   ctx.globalAlpha=.95;
   ctx.beginPath(); ctx.arc(cx,y,4,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
   ctx.restore();
