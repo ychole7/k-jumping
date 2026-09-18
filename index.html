@@ -210,6 +210,15 @@ function checkHazardHit(body,drawY){
   }
 }
 
+function setAirDirect(clientX){
+  if(game.phase!=='playerUp') return;
+  const rect=canvas.getBoundingClientRect();
+  const nx=(clientX-rect.left)/rect.width;
+  const targetX=Math.max(28,Math.min(W-28,nx*W));
+  game.airX=targetX;
+  game.player.x=targetX;
+  game.airVX=0;
+}
 function setAirInput(clientX){
   if(game.mode!=='playing' || game.phase!=='playerUp') return;
   const rect=canvas.getBoundingClientRect();
@@ -219,7 +228,7 @@ function setAirInput(clientX){
 function clearAirInput(){
   game.airInput=0;
 }
-canvas.addEventListener('pointermove',e=>setAirInput(e.clientX));
+canvas.addEventListener('pointermove',e=>{ if(game.phase==='playerUp') setAirDirect(e.clientX); else setAirInput(e.clientX); });
 canvas.addEventListener('pointerdown',e=>{
   if(game.phase==='playerUp') setAirInput(e.clientX);
 });
@@ -511,10 +520,10 @@ function update(dt){
  }
  else if(game.phase==='playerUp'){
    game.player.vy += PHYSICS.playerFallGravity*dt;
-   const airAccel=3000;
-   const airMax=560;
+   const airAccel=6500;
+   const airMax=900;
    game.airVX += game.airInput*airAccel*dt;
-   game.airVX *= Math.pow(.035,dt);
+   game.airVX *= Math.pow(.18,dt);
    game.airVX=Math.max(-airMax,Math.min(airMax,game.airVX));
    game.player.x += game.airVX*dt;
    game.player.x=Math.max(28,Math.min(W-28,game.player.x));
@@ -523,8 +532,8 @@ function update(dt){
    if(game.player.vy>120){
      const dx=R()-game.player.x;
      const near=Math.max(0,Math.min(1,1-Math.abs(dx)/180));
-     game.airVX += dx*1.8*near*dt;
-     game.airVX *= Math.pow(.035,dt);
+     game.airVX += dx*0.65*near*dt;
+     game.airVX *= Math.pow(.18,dt);
    }
 
    const playerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.player.y)*.62));
