@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V67</title>
+<title>널뛰기팡 V68</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -133,6 +133,46 @@ function spawnHazard(){
   const y=Math.max(H*.20,Math.min(H*.52,game.plank.y-100-Math.random()*Math.min(220,Math.max(90,game.score*1.5))));
   game.hazards.push({x,y,life:6,spin:Math.random()*6,hit:false});
 }
+
+function drawBonusItems(){
+  for(const b of game.bonusItems){
+    if(b.got) continue;
+    const a=Math.min(1,b.life<1?b.life:1);
+    ctx.save(); ctx.translate(b.x,b.y);
+    ctx.globalAlpha=a; ctx.shadowColor='rgba(255,220,60,.8)'; ctx.shadowBlur=16;
+    if(b.type==='gem'){
+      ctx.fillStyle='#74d8ff'; ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.moveTo(0,-18);ctx.lineTo(14,-5);ctx.lineTo(8,13);ctx.lineTo(-8,13);ctx.lineTo(-14,-5);ctx.closePath();
+      ctx.fill();ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,.8)';ctx.beginPath();ctx.moveTo(-5,-9);ctx.lineTo(1,-13);ctx.lineTo(-1,-2);ctx.closePath();ctx.fill();
+    }else{
+      ctx.fillStyle='#ffd84a';ctx.strokeStyle='#fff6b0';ctx.lineWidth=3;
+      ctx.beginPath();
+      for(let i=0;i<10;i++){const r=i%2===0?18:8,a2=-Math.PI/2+i*Math.PI/5,x=Math.cos(a2)*r,y=Math.sin(a2)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+      ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-5,-7,3,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+}
+function drawHazards(){
+  for(const z of game.hazards){
+    if(z.hit) continue;
+    const a=Math.min(1,z.life<1?z.life:1);
+    ctx.save();ctx.translate(z.x,z.y);ctx.rotate(z.spin);ctx.globalAlpha=a;
+    ctx.shadowColor='rgba(255,80,30,.9)';ctx.shadowBlur=20;
+    ctx.fillStyle='#ff7447';ctx.strokeStyle='#fff0b0';ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(0,-20);ctx.lineTo(10,-7);ctx.lineTo(18,1);ctx.lineTo(7,6);ctx.lineTo(3,19);ctx.lineTo(-7,8);ctx.lineTo(-18,9);ctx.lineTo(-10,-2);ctx.closePath();
+    ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ffe06a';ctx.beginPath();ctx.arc(-3,-5,5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;ctx.globalAlpha=a*.7;ctx.strokeStyle='#ffb04d';ctx.lineWidth=5;
+    ctx.beginPath();ctx.moveTo(-13,9);ctx.lineTo(-29,21);ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function resetBonuses(){
   game.bonusItems.length=0;
   game.bonusScore=0;
@@ -329,7 +369,7 @@ function update(dt){
   if((game.phase==='playerUp'||game.phase==='partnerUp') && game.bonusSpawnT>1.15 && game.bonusItems.filter(b=>!b.got).length<3){
     game.bonusSpawnT=0;
     spawnBonus();
-    if(game.score>=25 && Math.random()<.24 && game.hazards.filter(z=>!z.hit).length<1) spawnHazard();
+    if(game.score>=25 && Math.random()<.40 && game.hazards.filter(z=>!z.hit).length<1) spawnHazard();
   }
   for(const b of game.bonusItems){ b.life-=dt; b.spin+=dt*3.2; }
   for(const z of game.hazards){ z.life-=dt; z.spin+=dt*4; }
@@ -398,6 +438,9 @@ function update(dt){
    game.partner.x=L();
    game.partner.y=top+(bottom-top)*u*u;
    game.partner.vy=(bottom-top)*2*u/.95;
+   const partnerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.partner.y)*.62));
+   checkBonusCatch(game.partner,partnerDrawY);
+   checkHazardHit(game.partner,partnerDrawY);
    game.player.x=R();
    game.player.y=game.plank.y-40;
    if(game.t>=.95){
@@ -415,6 +458,9 @@ function update(dt){
  else if(game.phase==='playerUp'){
    game.player.x=R();
    game.player.vy += PHYSICS.playerFallGravity*dt; game.player.y += game.player.vy*dt;
+   const playerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.player.y)*.62));
+   checkBonusCatch(game.player,playerDrawY);
+   checkHazardHit(game.player,playerDrawY);
 
    const oldScore=game.score;
    game.score=Math.max(game.score,(game.plank.y-game.player.y)/7);
@@ -626,6 +672,8 @@ function draw(){
  drawFlightTrail();
   drawPlank();
   drawImpactFx();
+ drawBonusItems();
+ drawHazards();
  if(game.phase==='partnerUp'){
    const rise=Math.max(0,game.plank.y-game.partner.y);
    const sy=Math.max(H*.20,Math.min(H*.62,game.plank.y-rise*.62));
