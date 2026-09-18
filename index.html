@@ -85,7 +85,7 @@ function resetPositions(){
  game.plankVel=0;
  game.impact=0; game.impactSide=0;
  game.slowMo=0;game.slowMoTarget=10;game.slowMoTriggered=false; game.risk=0;game.riskFlash=0; game.powerT=0; game.power=1; game.powerResult=''; game.powerFlash=0; game.lastGrade=''; game.launchBoost=1; game.squash=0;
- game.stageCleared=false; resetBonuses(); game.doubleReady=false; game.doubleWindow=0; game.doubleCount=0; updateStageUI();
+ game.stageCleared=false; resetBonuses(); game.doubleReady=false; game.doubleWindow=0; game.doubleCount=0; game.tripleReady=false; game.tripleWindow=0; updateStageUI();
  game.player.x=R();game.player.y=standY(R());game.player.vy=0;game.player.lastImpactSpeed=0;
  game.partner.x=L();game.partner.y=standY(L());game.partner.vy=0;game.partner.lastImpactSpeed=0;
 }
@@ -178,20 +178,21 @@ function tap(){
  game.partner.vy=0;
  game.player.y=standY(R());
  game.combo++;
-  if(if(game.tripleReady){
-      game.tripleReady=false;
-      game.tripleWindow=0;
-      game.score+=30;
-      pop('🔥 TRIPLE +30!');
-      burst(R(),game.plank.y,3);
-    }else game.doubleReady){
+  if(game.tripleReady){
+    game.tripleReady=false;
+    game.tripleWindow=0;
+    game.score+=30;
+    game.comboPulse=.9;
+    pop('🔥 TRIPLE +30!');
+    burst(R(),game.plank.y,3);
+  }else if(game.doubleReady){
     game.doubleCount++;
     game.score+=15;
     game.doubleReady=false;
     game.doubleWindow=0;
     game.comboPulse=.65;
     pop('⚡ DOUBLE +15!');
-    document.getElementById('score').textContent=Math.floor(game.score);
+    burst(R(),game.plank.y,2);
   }
 
  const gaugePos=10+(game.power-.72)/.58*80;
@@ -209,21 +210,21 @@ function tap(){
  game.riskFlash = game.risk;
  game.launchBoost=powerMul;
  game.squash=.18; game.comboPulse=.42;
-  // Consecutive successful taps build toward a DOUBLE window.
-  if(game.combo>=3 && !game.doubleReady){
-    game.doubleReady=true; game.doubleWindow=2.2; game.doubleCount=0;
-    pop('DOUBLE READY!');
-  }
- if(game.combo>=5&&!game.tripleReady&&!game.doubleReady){
+  // Combo chain: 3+ creates DOUBLE, 5+ creates the higher-value TRIPLE.
+  // An active reward is consumed first; a new opportunity is prepared afterward.
+  if(!game.tripleReady && !game.doubleReady){
+    if(game.combo>=5){
       game.tripleReady=true;
       game.tripleWindow=2.2;
       pop('🔥 TRIPLE READY!');
-    }else if(game.combo>=3&&!game.doubleReady&&!game.tripleReady){
+    }else if(game.combo>=3){
       game.doubleReady=true;
       game.doubleWindow=2.2;
+      game.doubleCount=0;
       pop('⚡ DOUBLE READY!');
     }
-    game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
+  }
+ game.player.vy=PHYSICS.playerLaunch*game.power*powerMul*(1+Math.min(game.combo,10)*.035);
  const gradeTilt=grade==='PERFECT'?.19:grade==='GOOD'?.16:grade==='POWER'?.21:.12;
  const gradeKick=grade==='PERFECT'?1.18:grade==='GOOD'?1.05:grade==='POWER'?1.28:.82;
  game.plank.ang=Math.min(PHYSICS.maxPlankAngle,gradeTilt+game.combo*.003);
@@ -268,7 +269,6 @@ tapButton.addEventListener('click',e=>{
 });
 
 function update(dt){
-    if(game.tripleReady){game.tripleWindow-=dt;if(game.tripleWindow<=0){game.tripleReady=false;game.tripleWindow=0;}}
  if(game.mode==='paused') return;
  document.getElementById('tap').style.opacity=game.mode==='playing'?'1':'0.55';
  if(game.mode==='ready'){
@@ -304,6 +304,8 @@ function update(dt){
   game.bonusFlash=Math.max(0,game.bonusFlash-dt);
   if(game.doubleWindow>0) game.doubleWindow=Math.max(0,game.doubleWindow-dt);
   if(game.doubleReady && game.doubleWindow<=0){ game.doubleReady=false; game.doubleCount=0; }
+  if(game.tripleWindow>0) game.tripleWindow=Math.max(0,game.tripleWindow-dt);
+  if(game.tripleReady && game.tripleWindow<=0){ game.tripleReady=false; }
   game.bonusSpawnT+=dt;
   if((game.phase==='playerUp'||game.phase==='partnerUp') && game.bonusSpawnT>1.15 && game.bonusItems.filter(b=>!b.got).length<3){
     game.bonusSpawnT=0;
@@ -345,7 +347,7 @@ function update(dt){
    perfect.style.left=(50-perfectW/2)+'%';
  }
  if(powerText){
-   if(game.phase==='partnerReady') powerText.textContent=game.doubleReady?'⚡ DOUBLE 기회!':(game.powerResult?game.powerResult+' · 다시 조준!':'지금 TAP!');
+   if(game.phase==='partnerReady') powerText.textContent=game.tripleReady?'🔥 TRIPLE 기회!':(game.doubleReady?'⚡ DOUBLE 기회!':(game.powerResult?game.powerResult+' · 다시 조준!':'지금 TAP!'));
    else powerText.textContent='힘 조절';
    powerText.style.transform=game.powerFlash>0?'scale(1.16)':'scale(1)';
    powerText.style.color=game.risk>.7?'#e05a3f':game.risk>.1?'#d18b2c':'';
