@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V70</title>
+<title>널뛰기팡 V71</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -511,20 +511,20 @@ function update(dt){
  }
  else if(game.phase==='playerUp'){
    game.player.vy += PHYSICS.playerFallGravity*dt;
-   const airAccel=1500;
-   const airMax=360;
+   const airAccel=3000;
+   const airMax=560;
    game.airVX += game.airInput*airAccel*dt;
-   game.airVX *= Math.pow(.0008,dt);
+   game.airVX *= Math.pow(.035,dt);
    game.airVX=Math.max(-airMax,Math.min(airMax,game.airVX));
    game.player.x += game.airVX*dt;
-   game.player.x=Math.max(42,Math.min(W-42,game.player.x));
+   game.player.x=Math.max(28,Math.min(W-28,game.player.x));
    game.player.y += game.player.vy*dt;
 
    if(game.player.vy>120){
      const dx=R()-game.player.x;
      const near=Math.max(0,Math.min(1,1-Math.abs(dx)/180));
-     game.airVX += dx*3.0*near*dt;
-     game.airVX *= Math.pow(.002,dt);
+     game.airVX += dx*1.8*near*dt;
+     game.airVX *= Math.pow(.035,dt);
    }
 
    const playerDrawY=Math.max(H*.20,Math.min(H*.62,game.plank.y-Math.max(0,game.plank.y-game.player.y)*.62));
