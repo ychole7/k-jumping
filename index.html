@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>널뛰기팡 V79</title>
+<title>K-JUMPING</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#dff5ff;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
@@ -89,15 +89,35 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
 .kjResultCard{position:relative;width:min(86%,350px);padding:30px 22px;border-radius:28px;background:rgba(30,55,65,.9);border:1px solid rgba(255,255,255,.2);box-shadow:0 18px 40px rgba(0,0,0,.24)}
 .kjResultTitle{font-size:13px;letter-spacing:2px;font-weight:900;opacity:.8}.kjGrade{font-size:42px;font-weight:1000;color:#ffd65b;text-shadow:0 4px 0 rgba(118,69,25,.35);margin:10px 0 22px}
 .kjResultStats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:25px}.kjResultStats span{font-size:8px;opacity:.72}.kjResultStats b{display:block;font-size:15px;color:#fff;margin-top:5px;opacity:1}
+
+/* V93 — title screen visual design */
+.kjTitle{
+  align-items:stretch;justify-content:stretch;flex-direction:column;text-align:center;
+  background:#bfe8f7 url("a_colorful_high_quality_3d_cgi_cartoon_game_title.png") center center/cover no-repeat;
+}
+.kjTitle:before{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(20,37,52,.08) 68%,rgba(20,25,30,.20));
+}
+.kjTitleHotspots{position:absolute;inset:0;z-index:5;pointer-events:none}
+.kjHotspot{position:absolute;border:0;background:transparent;pointer-events:auto;cursor:pointer;touch-action:manipulation}
+.kjStartHotspot{left:50%;top:79.0%;transform:translate(-50%,-50%);width:49%;height:8.8%;border-radius:28px}
+.kjMapHotspot{left:50%;top:89.0%;transform:translate(-50%,-50%);width:42%;height:6.5%;border-radius:24px}
+.kjHotspot:active{background:rgba(255,255,255,.10);transform:translate(-50%,-50%) scale(.96)}
+@media (max-aspect-ratio: 9/16){
+  .kjTitle{background-size:auto 100%;background-position:center center}
+}
+@media (min-aspect-ratio: 10/16){
+  .kjTitle{background-size:auto 100%;background-position:center center}
+}
 </style>
 </head>
 <body>
 <div id="kjFlow" aria-hidden="false">
   <section id="kjTitle" class="kjScreen kjTitle">
-    <div class="kjLogo">K-JUMPING<span>널뛰기팡</span></div>
-    <div class="kjSub">TRADITION MEETS FUN</div>
-    <button id="kjStart" class="kjMainBtn">START</button>
-    <button id="kjMapFromTitle" class="kjTextBtn">STAGE MAP</button>
+    <div class="kjTitleHotspots" aria-label="K-JUMPING title screen">
+      <button id="kjStart" class="kjHotspot kjStartHotspot" aria-label="Start"></button>
+      <button id="kjMapFromTitle" class="kjHotspot kjMapHotspot" aria-label="Stage Map"></button>
+    </div>
   </section>
 
   <section id="kjMap" class="kjScreen kjMap">
