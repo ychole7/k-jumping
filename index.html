@@ -13,8 +13,8 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 .pill{background:#ffffffdf;border-radius:20px;padding:8px 13px;color:#38586a;font-weight:900;font-size:13px}
 .logo{font-size:20px;font-weight:1000;color:#31586c;text-shadow:0 2px #fff}
 #state{position:absolute;top:76px;left:50%;transform:translateX(-50%);background:#315b70ed;color:white;border-radius:20px;padding:8px 15px;font-size:13px;font-weight:900;white-space:nowrap;pointer-events:none}
-#hint{position:absolute;bottom:184px;left:50%;transform:translateX(-50%);color:white;font-size:15px;font-weight:1000;text-shadow:0 2px 4px #315b70;white-space:nowrap;pointer-events:none}
-#tap{position:absolute;z-index:10;left:50%;bottom:105px;transform:translateX(-50%);width:118px;height:62px;border:0;border-radius:32px;background:white;color:#315b70;font-size:20px;font-weight:1000;box-shadow:0 8px 22px #315b7040;cursor:pointer;touch-action:manipulation}
+#hint{display:none !important;position:absolute;bottom:184px;left:50%;transform:translateX(-50%);color:white;font-size:15px;font-weight:1000;text-shadow:0 2px 4px #315b70;white-space:nowrap;pointer-events:none}
+#tap{opacity:.01 !important;position:absolute;z-index:10;left:50%;bottom:105px;transform:translateX(-50%);width:118px;height:62px;border:0;border-radius:32px;background:white;color:#315b70;font-size:20px;font-weight:1000;box-shadow:0 8px 22px #315b7040;cursor:pointer;touch-action:manipulation}
 #tap:active{transform:translateX(-50%) scale(.92);background:#ffe9a8}
 #msg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.7);opacity:0;color:#fff;font-size:35px;font-weight:1000;text-shadow:0 3px #55788a,0 8px 20px #315b7050;transition:.12s;pointer-events:none}
 #msg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -22,6 +22,24 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 #overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#315b7038;backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.15s}
 #overlay.show{opacity:1;pointer-events:auto}
 .card{width:78%;padding:26px 22px;border-radius:24px;background:#fffffff2;text-align:center;box-shadow:0 18px 50px #315b7040}.card h2{margin:0 0 8px;color:#315b70;font-size:25px}.card p{margin:0 0 18px;color:#587180;font-weight:800;font-size:14px}.card button{border:0;border-radius:18px;padding:13px 28px;background:#315b70;color:#fff;font-size:16px;font-weight:1000;cursor:pointer}
+
+/* V89: approved concept is the source of truth.
+   Hide legacy DOM gauge/status layers; the canvas renders the commercial UI. */
+#powerWrap,
+#state,
+#comboStreak,
+#milestone{
+  display:none !important;
+}
+#tap{
+  opacity:.01 !important;
+  background:transparent !important;
+  color:transparent !important;
+  box-shadow:none !important;
+  border:0 !important;
+  pointer-events:auto !important;
+}
+
 </style>
 </head>
 <body>
@@ -1474,7 +1492,7 @@ function drawPolishedLives(){
 
 
 function drawKJumpingFullUI(){
-  // V88 visual composition pass:
+  // V89 visual composition pass:
   // Keep all gameplay/physics untouched; reorganize the visible game screen
   // to match the approved K-JUMPING concept: clean top HUD, open playfield,
   // focused character/collection route, seesaw, then semicircle gauge.
@@ -1644,171 +1662,159 @@ function drawCommercialHUD(){
 function drawCommercialPower(){
   if(game.phase!=='partnerReady') return;
 
-  // K-JUMPING V88: premium semicircle launch-timing gauge.
-  // Visual-only replacement of the old horizontal bar; gameplay power remains unchanged.
+  // TRUE upper-half semicircle:
+  // left 9 o'clock -> top 12 o'clock -> right 3 o'clock.
   const cx=W/2;
-  const cy=H-142;
+  const cy=H*.84;
   const r=Math.min(W*.30,116);
   const startA=Math.PI;
-  const endA=0;
-  const pw=Math.max(0,Math.min(1,game.power||0));
+  const endA=Math.PI*2;
+
+  // Match the actual gameplay oscillator used by the legacy gauge.
+  const difficulty=Math.min(1,Math.max(0,game.score/120));
+  const gaugeSpeed=4.2+difficulty*2.2+(game.risk||0)*.9;
+  const wave=.5+.5*Math.sin((game.powerT||0)*gaugeSpeed);
+  const pw=Math.max(0,Math.min(1,wave));
   const pointerA=startA+(endA-startA)*pw;
+  const pulse=.55+.45*Math.sin((game.t||0)*6);
 
   ctx.save();
-
-  // Soft ground-facing shadow / lift from the seesaw.
-  const shadowW=Math.min(W*.74,310);
-  const grd=ctx.createRadialGradient(cx,cy+31,5,cx,cy+31,shadowW*.5);
-  grd.addColorStop(0,'rgba(20,35,45,.24)');
-  grd.addColorStop(1,'rgba(20,35,45,0)');
-  ctx.fillStyle=grd;
-  ctx.beginPath();
-  ctx.ellipse(cx,cy+31,shadowW*.5,18,0,0,Math.PI*2);
-  ctx.fill();
-
-  // Premium gauge shell.
-  const shellR=r+18;
   ctx.lineCap='round';
 
-  ctx.strokeStyle='rgba(255,255,255,.82)';
-  ctx.lineWidth=30;
+  // Grounded shadow behind the gauge.
+  const shadow=ctx.createRadialGradient(cx,cy+40,5,cx,cy+40,r*1.2);
+  shadow.addColorStop(0,'rgba(25,34,38,.28)');
+  shadow.addColorStop(1,'rgba(25,34,38,0)');
+  ctx.fillStyle=shadow;
   ctx.beginPath();
-  ctx.arc(cx,cy,shellR,startA,endA);
-  ctx.stroke();
+  ctx.ellipse(cx,cy+42,r*1.02,20,0,0,Math.PI*2);
+  ctx.fill();
 
-  ctx.strokeStyle='rgba(74,48,35,.92)';
-  ctx.lineWidth=25;
-  ctx.beginPath();
-  ctx.arc(cx,cy,shellR,startA,endA);
-  ctx.stroke();
+  // Wooden premium outer shell.
+  ctx.strokeStyle='rgba(255,247,224,.95)';
+  ctx.lineWidth=31;
+  ctx.beginPath();ctx.arc(cx,cy,r+10,startA,endA);ctx.stroke();
 
-  // Segmented power colors: blue -> teal/green -> gold -> orange/red.
+  const wood=ctx.createLinearGradient(cx-r,cy,cx+r,cy);
+  wood.addColorStop(0,'#5c3827');
+  wood.addColorStop(.5,'#8d5b38');
+  wood.addColorStop(1,'#5c3827');
+  ctx.strokeStyle=wood;
+  ctx.lineWidth=27;
+  ctx.beginPath();ctx.arc(cx,cy,r+10,startA,endA);ctx.stroke();
+
+  // Inner color arc.
   const segs=[
-    [0,.22,'#2d8fe8'],
-    [.22,.43,'#35c6a1'],
-    [.43,.66,'#8ed14b'],
-    [.66,.82,'#f4c84b'],
-    [.82,.93,'#f28a35'],
-    [.93,1,'#e94d55']
+    [0,.20,'#2d8fe8'],
+    [.20,.40,'#35c6a1'],
+    [.40,.50,'#83cf52'],
+    [.50,.67,'#f5ca4b'],
+    [.67,.84,'#f28b35'],
+    [.84,1,'#e84d55']
   ];
   segs.forEach(([a,b,color])=>{
-    const gap=.025;
+    const gap=.018;
     const aa=startA+(endA-startA)*(a+gap);
     const bb=startA+(endA-startA)*(b-gap);
     ctx.strokeStyle=color;
-    ctx.lineWidth=17;
-    ctx.beginPath();
-    ctx.arc(cx,cy,r,aa,bb);
-    ctx.stroke();
+    ctx.lineWidth=18;
+    ctx.beginPath();ctx.arc(cx,cy,r,aa,bb);ctx.stroke();
   });
 
-  // Inner highlight.
-  ctx.strokeStyle='rgba(255,255,255,.38)';
-  ctx.lineWidth=2.5;
-  ctx.beginPath();
-  ctx.arc(cx,cy,r-9,startA+.03,endA-.03);
-  ctx.stroke();
+  // Fine highlight line.
+  ctx.strokeStyle='rgba(255,255,255,.52)';
+  ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(cx,cy,r-9,startA+.025,endA-.025);ctx.stroke();
 
-  // PERFECT zone emphasis.
-  const p0=.50, p1=.68;
-  const pStart=startA+(endA-startA)*p0;
-  const pEnd=startA+(endA-startA)*p1;
-  const pulse=0.55+0.45*Math.sin((game.time||0)*5.5);
-  ctx.shadowColor='rgba(255,215,70,.75)';
-  ctx.shadowBlur=10+8*pulse;
-  ctx.strokeStyle='rgba(255,220,80,.95)';
-  ctx.lineWidth=20;
-  ctx.beginPath();
-  ctx.arc(cx,cy,r,pStart,pEnd);
-  ctx.stroke();
+  // PERFECT zone: centered at 12 o'clock.
+  const p0=.45, p1=.58;
+  const pa=startA+(endA-startA)*p0;
+  const pb=startA+(endA-startA)*p1;
+  ctx.shadowColor='rgba(255,220,74,.78)';
+  ctx.shadowBlur=12+8*pulse;
+  ctx.strokeStyle='rgba(255,223,83,.98)';
+  ctx.lineWidth=21;
+  ctx.beginPath();ctx.arc(cx,cy,r,pa,pb);ctx.stroke();
   ctx.shadowBlur=0;
 
-  // Gauge end caps with Korean-cloud-inspired soft ornaments.
-  [[startA,'#e8d7bd'],[endA,'#e8d7bd']].forEach(([a,color])=>{
+  // Cloud-like end caps, matching the approved Korean visual language.
+  [[startA,-1],[endA,1]].forEach(([a,side])=>{
     const ex=cx+Math.cos(a)*r, ey=cy+Math.sin(a)*r;
-    ctx.fillStyle=color;
-    ctx.strokeStyle='rgba(79,53,39,.55)';
+    ctx.fillStyle='#f2e0c5';
+    ctx.strokeStyle='#765039';
     ctx.lineWidth=2;
     ctx.beginPath();
-    ctx.arc(ex,ey,11,0,Math.PI*2);
+    ctx.arc(ex,ey,12,0,Math.PI*2);
+    ctx.fill();ctx.stroke();
+
+    ctx.fillStyle='rgba(255,255,255,.65)';
+    ctx.beginPath();
+    ctx.arc(ex-3*side,ey-3,4,0,Math.PI*2);
     ctx.fill();
-    ctx.stroke();
   });
 
-  // Labels.
-  ctx.textAlign='center';
+  // Labels sit OUTSIDE the arc and never overlap the gameplay.
   ctx.textBaseline='middle';
-  ctx.font='900 12px system-ui,sans-serif';
-  ctx.fillStyle='#eaf7ff';
-  ctx.shadowColor='rgba(0,0,0,.55)';
-  ctx.shadowBlur=5;
-  ctx.fillText('GOOD',cx-r*.72,cy-r*.53);
+  ctx.textAlign='center';
 
+  ctx.font='1000 13px system-ui,sans-serif';
+  ctx.fillStyle='#e9f7ff';
+  ctx.shadowColor='rgba(0,0,0,.58)';ctx.shadowBlur=5;
+  ctx.fillText('GOOD',cx-r*.72,cy-r*.70);
+
+  ctx.font='1000 16px system-ui,sans-serif';
   ctx.fillStyle='#ffe36b';
-  ctx.font='1000 15px system-ui,sans-serif';
-  ctx.shadowColor='rgba(255,190,30,.8)';
-  ctx.shadowBlur=9;
-  ctx.fillText('PERFECT',cx,cy-r*.88);
+  ctx.shadowColor='rgba(255,185,35,.85)';ctx.shadowBlur=10;
+  ctx.fillText('PERFECT',cx,cy-r*.92);
 
-  ctx.fillStyle='#ff9d82';
-  ctx.font='900 12px system-ui,sans-serif';
-  ctx.shadowColor='rgba(0,0,0,.55)';
-  ctx.shadowBlur=5;
-  ctx.fillText('MAX',cx+r*.72,cy-r*.53);
+  ctx.font='1000 13px system-ui,sans-serif';
+  ctx.fillStyle='#ff9e88';
+  ctx.shadowColor='rgba(0,0,0,.58)';ctx.shadowBlur=5;
+  ctx.fillText('MAX',cx+r*.72,cy-r*.70);
 
-  // Needle.
+  // Needle: sweeps only across the UPPER arc, 9 -> 12 -> 3 o'clock.
   const nx=cx+Math.cos(pointerA)*(r-2);
   const ny=cy+Math.sin(pointerA)*(r-2);
-  ctx.shadowColor='rgba(255,184,45,.65)';
-  ctx.shadowBlur=12;
+
+  ctx.shadowColor='rgba(255,191,49,.8)';
+  ctx.shadowBlur=14;
   ctx.strokeStyle='#fff8df';
   ctx.lineWidth=7;
-  ctx.beginPath();
-  ctx.moveTo(cx,cy);
-  ctx.lineTo(nx,ny);
-  ctx.stroke();
-
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(nx,ny);ctx.stroke();
   ctx.shadowBlur=0;
-  ctx.strokeStyle='#8d5b27';
+
+  ctx.strokeStyle='#8b5828';
   ctx.lineWidth=2;
-  ctx.beginPath();
-  ctx.moveTo(cx,cy);
-  ctx.lineTo(nx,ny);
-  ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(nx,ny);ctx.stroke();
 
   ctx.fillStyle='#ffd45a';
-  ctx.strokeStyle='#7d4b20';
+  ctx.strokeStyle='#754719';
   ctx.lineWidth=3;
-  ctx.beginPath();
-  ctx.arc(cx,cy,13,0,Math.PI*2);
-  ctx.fill();
-  ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,14,0,Math.PI*2);ctx.fill();ctx.stroke();
 
-  // TAP button.
-  const bw=Math.min(W*.34,150), bh=45, by=cy+19;
+  // Premium TAP button below the semicircle.
+  const bw=Math.min(W*.36,156);
+  const bh=46;
+  const by=cy+42;
+
   const bg=ctx.createLinearGradient(cx,by-bh/2,cx,by+bh/2);
-  bg.addColorStop(0,'#ffcf62');
-  bg.addColorStop(.45,'#ff9e28');
-  bg.addColorStop(1,'#ed6d22');
+  bg.addColorStop(0,'#f8d36e');
+  bg.addColorStop(.45,'#f5a22e');
+  bg.addColorStop(1,'#dc6424');
 
-  ctx.shadowColor='rgba(255,147,35,.72)';
-  ctx.shadowBlur=18+7*pulse;
+  ctx.shadowColor='rgba(255,151,38,.65)';
+  ctx.shadowBlur=16+8*pulse;
   ctx.fillStyle=bg;
-  ctx.beginPath();
-  ctx.roundRect(cx-bw/2,by-bh/2,bw,bh,18);
-  ctx.fill();
-
+  ctx.beginPath();ctx.roundRect(cx-bw/2,by-bh/2,bw,bh,17);ctx.fill();
   ctx.shadowBlur=0;
-  ctx.strokeStyle='rgba(255,244,207,.95)';
+
+  ctx.strokeStyle='#fff0c6';
   ctx.lineWidth=2;
-  ctx.beginPath();
-  ctx.roundRect(cx-bw/2+2,by-bh/2+2,bw-4,bh-4,16);
-  ctx.stroke();
+  ctx.beginPath();ctx.roundRect(cx-bw/2+2,by-bh/2+2,bw-4,bh-4,15);ctx.stroke();
 
   ctx.fillStyle='#fffaf0';
-  ctx.font='1000 19px system-ui,sans-serif';
-  ctx.shadowColor='rgba(112,52,12,.55)';
-  ctx.shadowBlur=4;
+  ctx.font='1000 20px system-ui,sans-serif';
+  ctx.shadowColor='rgba(100,48,13,.55)';ctx.shadowBlur=4;
   ctx.fillText('TAP!',cx,by+1);
 
   ctx.restore();
@@ -1894,7 +1900,6 @@ function draw(){
  ctx.restore();
   drawVignette();
   drawKJumpingFullUI();
-  drawCommercialHUD();
   drawCommercialPower();
   drawCollectionBurst();
 }
