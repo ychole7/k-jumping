@@ -1527,24 +1527,174 @@ function drawCommercialHUD(){
 
 function drawCommercialPower(){
   if(game.phase!=='partnerReady') return;
-  const y=H-128, x=W/2, width=Math.min(W*.72,310);
-  ctx.save();
-  ctx.textAlign='center';
-  ctx.font='900 11px system-ui,sans-serif';
-  ctx.fillStyle='rgba(31,70,87,.72)';
-  ctx.fillText('TAP TIMING',x,y-18);
 
-  ctx.fillStyle='rgba(255,255,255,.82)';
-  ctx.beginPath();ctx.roundRect(x-width/2,y,width,12,6);ctx.fill();
-
+  // K-JUMPING V87: premium semicircle launch-timing gauge.
+  // Visual-only replacement of the old horizontal bar; gameplay power remains unchanged.
+  const cx=W/2;
+  const cy=H-154;
+  const r=Math.min(W*.33,132);
+  const startA=Math.PI;
+  const endA=0;
   const pw=Math.max(0,Math.min(1,game.power||0));
-  ctx.fillStyle='#f6c94c';
-  ctx.beginPath();ctx.roundRect(x-width/2,y,width*pw,12,6);ctx.fill();
+  const pointerA=startA+(endA-startA)*pw;
 
-  ctx.fillStyle='#fff';
-  ctx.font='900 14px system-ui,sans-serif';
-  ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=5;
-  ctx.fillText('TAP!',x,y+39);
+  ctx.save();
+
+  // Soft ground-facing shadow / lift from the seesaw.
+  const shadowW=Math.min(W*.74,310);
+  const grd=ctx.createRadialGradient(cx,cy+31,5,cx,cy+31,shadowW*.5);
+  grd.addColorStop(0,'rgba(20,35,45,.24)');
+  grd.addColorStop(1,'rgba(20,35,45,0)');
+  ctx.fillStyle=grd;
+  ctx.beginPath();
+  ctx.ellipse(cx,cy+31,shadowW*.5,18,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Premium gauge shell.
+  const shellR=r+18;
+  ctx.lineCap='round';
+
+  ctx.strokeStyle='rgba(255,255,255,.82)';
+  ctx.lineWidth=30;
+  ctx.beginPath();
+  ctx.arc(cx,cy,shellR,startA,endA);
+  ctx.stroke();
+
+  ctx.strokeStyle='rgba(74,48,35,.92)';
+  ctx.lineWidth=25;
+  ctx.beginPath();
+  ctx.arc(cx,cy,shellR,startA,endA);
+  ctx.stroke();
+
+  // Segmented power colors: blue -> teal/green -> gold -> orange/red.
+  const segs=[
+    [0,.22,'#2d8fe8'],
+    [.22,.43,'#35c6a1'],
+    [.43,.66,'#8ed14b'],
+    [.66,.82,'#f4c84b'],
+    [.82,.93,'#f28a35'],
+    [.93,1,'#e94d55']
+  ];
+  segs.forEach(([a,b,color])=>{
+    const gap=.025;
+    const aa=startA+(endA-startA)*(a+gap);
+    const bb=startA+(endA-startA)*(b-gap);
+    ctx.strokeStyle=color;
+    ctx.lineWidth=17;
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,aa,bb);
+    ctx.stroke();
+  });
+
+  // Inner highlight.
+  ctx.strokeStyle='rgba(255,255,255,.38)';
+  ctx.lineWidth=2.5;
+  ctx.beginPath();
+  ctx.arc(cx,cy,r-9,startA+.03,endA-.03);
+  ctx.stroke();
+
+  // PERFECT zone emphasis.
+  const p0=.50, p1=.68;
+  const pStart=startA+(endA-startA)*p0;
+  const pEnd=startA+(endA-startA)*p1;
+  const pulse=0.55+0.45*Math.sin((game.time||0)*5.5);
+  ctx.shadowColor='rgba(255,215,70,.75)';
+  ctx.shadowBlur=10+8*pulse;
+  ctx.strokeStyle='rgba(255,220,80,.95)';
+  ctx.lineWidth=20;
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,pStart,pEnd);
+  ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // Gauge end caps with Korean-cloud-inspired soft ornaments.
+  [[startA,'#e8d7bd'],[endA,'#e8d7bd']].forEach(([a,color])=>{
+    const ex=cx+Math.cos(a)*r, ey=cy+Math.sin(a)*r;
+    ctx.fillStyle=color;
+    ctx.strokeStyle='rgba(79,53,39,.55)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(ex,ey,11,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // Labels.
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font='900 12px system-ui,sans-serif';
+  ctx.fillStyle='#eaf7ff';
+  ctx.shadowColor='rgba(0,0,0,.55)';
+  ctx.shadowBlur=5;
+  ctx.fillText('GOOD',cx-r*.72,cy-r*.53);
+
+  ctx.fillStyle='#ffe36b';
+  ctx.font='1000 15px system-ui,sans-serif';
+  ctx.shadowColor='rgba(255,190,30,.8)';
+  ctx.shadowBlur=9;
+  ctx.fillText('PERFECT',cx,cy-r*.88);
+
+  ctx.fillStyle='#ff9d82';
+  ctx.font='900 12px system-ui,sans-serif';
+  ctx.shadowColor='rgba(0,0,0,.55)';
+  ctx.shadowBlur=5;
+  ctx.fillText('MAX',cx+r*.72,cy-r*.53);
+
+  // Needle.
+  const nx=cx+Math.cos(pointerA)*(r-2);
+  const ny=cy+Math.sin(pointerA)*(r-2);
+  ctx.shadowColor='rgba(255,184,45,.65)';
+  ctx.shadowBlur=12;
+  ctx.strokeStyle='#fff8df';
+  ctx.lineWidth=7;
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(nx,ny);
+  ctx.stroke();
+
+  ctx.shadowBlur=0;
+  ctx.strokeStyle='#8d5b27';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(nx,ny);
+  ctx.stroke();
+
+  ctx.fillStyle='#ffd45a';
+  ctx.strokeStyle='#7d4b20';
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.arc(cx,cy,13,0,Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+
+  // TAP button.
+  const bw=Math.min(W*.34,150), bh=45, by=cy+19;
+  const bg=ctx.createLinearGradient(cx,by-bh/2,cx,by+bh/2);
+  bg.addColorStop(0,'#ffcf62');
+  bg.addColorStop(.45,'#ff9e28');
+  bg.addColorStop(1,'#ed6d22');
+
+  ctx.shadowColor='rgba(255,147,35,.72)';
+  ctx.shadowBlur=18+7*pulse;
+  ctx.fillStyle=bg;
+  ctx.beginPath();
+  ctx.roundRect(cx-bw/2,by-bh/2,bw,bh,18);
+  ctx.fill();
+
+  ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(255,244,207,.95)';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.roundRect(cx-bw/2+2,by-bh/2+2,bw-4,bh-4,16);
+  ctx.stroke();
+
+  ctx.fillStyle='#fffaf0';
+  ctx.font='1000 19px system-ui,sans-serif';
+  ctx.shadowColor='rgba(112,52,12,.55)';
+  ctx.shadowBlur=4;
+  ctx.fillText('TAP!',cx,by+1);
+
   ctx.restore();
 }
 
