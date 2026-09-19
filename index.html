@@ -1472,6 +1472,122 @@ function drawPolishedLives(){
 }
 
 
+
+function drawKJumpingFullUI(){
+  // V88 visual composition pass:
+  // Keep all gameplay/physics untouched; reorganize the visible game screen
+  // to match the approved K-JUMPING concept: clean top HUD, open playfield,
+  // focused character/collection route, seesaw, then semicircle gauge.
+  ctx.save();
+
+  // --- top glass HUD ------------------------------------------------------
+  const pad=16;
+  const pill=(x,y,w,h,label,value,accent)=>{
+    const g=ctx.createLinearGradient(x,y,x,y+h);
+    g.addColorStop(0,'rgba(31,55,72,.90)');
+    g.addColorStop(1,'rgba(18,37,50,.80)');
+    ctx.fillStyle=g;
+    ctx.strokeStyle='rgba(255,255,255,.20)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(x,y,w,h,14);ctx.fill();ctx.stroke();
+
+    ctx.textAlign='left';
+    ctx.textBaseline='middle';
+    ctx.font='800 10px system-ui,sans-serif';
+    ctx.fillStyle='rgba(235,247,252,.72)';
+    ctx.fillText(label,x+12,y+13);
+
+    ctx.font='1000 17px system-ui,sans-serif';
+    ctx.fillStyle=accent;
+    ctx.fillText(value,x+12,y+34);
+  };
+
+  // Pause
+  ctx.fillStyle='rgba(31,55,72,.90)';
+  ctx.strokeStyle='rgba(255,255,255,.25)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(29,29,20,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#fff';
+  ctx.fillRect(23,21,4,16);ctx.fillRect(31,21,4,16);
+
+  // Title plate
+  const tx=58, ty=11, tw=Math.min(W*.45,188), th=42;
+  const tg=ctx.createLinearGradient(tx,ty,tx,ty+th);
+  tg.addColorStop(0,'#f6c55d'); tg.addColorStop(.55,'#ee8c32'); tg.addColorStop(1,'#b85a28');
+  ctx.fillStyle='rgba(65,39,25,.93)';
+  ctx.beginPath();ctx.roundRect(tx,ty,tw,th,15);ctx.fill();
+  ctx.strokeStyle='rgba(255,218,130,.8)';ctx.lineWidth=2;ctx.stroke();
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='1000 21px system-ui,sans-serif';
+  ctx.fillStyle=tg;ctx.shadowColor='rgba(255,190,60,.5)';ctx.shadowBlur=8;
+  ctx.fillText('K-JUMPING',tx+tw/2,ty+18);
+  ctx.shadowBlur=0;
+  ctx.font='800 8px system-ui,sans-serif';ctx.fillStyle='#fff2cf';
+  ctx.fillText('널뛰기팡',tx+tw/2,ty+34);
+
+  // Resources
+  const rw=78, rh=40;
+  pill(W-2*rw-24,11,rw,rh,'STARS',String(Math.max(0,game.totalCollected||0)),'#ffd85a');
+  pill(W-rw-12,11,rw,rh,'GEMS',String(Math.max(0,game.bonusScore||0)),'#6ed7ff');
+
+  // Height card
+  const hy=62, hw=Math.min(W*.32,126), hh=58;
+  ctx.fillStyle='rgba(255,255,255,.88)';
+  ctx.strokeStyle='rgba(79,57,43,.20)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(W-hw-12,hy,hw,hh,15);ctx.fill();ctx.stroke();
+  ctx.textAlign='center';
+  ctx.font='800 9px system-ui,sans-serif';ctx.fillStyle='#5a6a72';
+  ctx.fillText('CURRENT HEIGHT',W-hw/2-12,hy+14);
+  ctx.font='1000 22px system-ui,sans-serif';ctx.fillStyle='#274858';
+  const hm=Math.max(0,Math.round(game.peakHeight||game.lastHeight||0));
+  ctx.fillText(hm+' m',W-hw/2-12,hy+36);
+  ctx.font='800 8px system-ui,sans-serif';ctx.fillStyle='#8c6a2b';
+  ctx.fillText('BEST '+Math.max(0,Math.round(game.peakHeight||0))+' m',W-hw/2-12,hy+50);
+
+  // Lives, deliberately compact.
+  const lives=Math.max(0,Math.min(3,game.lives==null?3:game.lives));
+  for(let i=0;i<3;i++){
+    const x=18+i*31, y=78;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.fillStyle=i<lives?'#f45c5c':'rgba(70,79,85,.22)';
+    ctx.strokeStyle='rgba(255,255,255,.9)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(0,5);
+    ctx.bezierCurveTo(-13,-5,-10,-15,0,-8);
+    ctx.bezierCurveTo(10,-15,13,-5,0,5);
+    ctx.fill();ctx.stroke();
+    ctx.restore();
+  }
+
+  // Combo is a small floating card, not a giant competing element.
+  const combo=game.collectStreak||0;
+  if(combo>1 || game.fever){
+    const cw=112,ch=42,cx=W-12-cw,cy=126;
+    ctx.fillStyle='rgba(76,43,27,.82)';
+    ctx.strokeStyle='rgba(255,207,91,.45)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(cx,cy,cw,ch,13);ctx.fill();ctx.stroke();
+    ctx.textAlign='center';
+    ctx.font='900 9px system-ui,sans-serif';ctx.fillStyle='#ffe29a';
+    ctx.fillText('COMBO',cx+cw/2,cy+13);
+    ctx.font='1000 17px system-ui,sans-serif';ctx.fillStyle='#fff';
+    ctx.fillText('x '+Math.max(1,combo),cx+cw/2,cy+30);
+  }
+
+  // Subtle playable-area fade: protects readability without making the
+  // background look like a flat overlay.
+  const fade=ctx.createLinearGradient(0,100,0,Math.min(H*.45,360));
+  fade.addColorStop(0,'rgba(255,255,255,.015)');
+  fade.addColorStop(1,'rgba(255,255,255,.07)');
+  ctx.fillStyle=fade;
+  ctx.fillRect(0,100,W,Math.min(H*.45,360)-100);
+
+  ctx.restore();
+}
+
 function drawCommercialHUD(){
   ctx.save();
 
@@ -1528,11 +1644,11 @@ function drawCommercialHUD(){
 function drawCommercialPower(){
   if(game.phase!=='partnerReady') return;
 
-  // K-JUMPING V87: premium semicircle launch-timing gauge.
+  // K-JUMPING V88: premium semicircle launch-timing gauge.
   // Visual-only replacement of the old horizontal bar; gameplay power remains unchanged.
   const cx=W/2;
-  const cy=H-154;
-  const r=Math.min(W*.33,132);
+  const cy=H-142;
+  const r=Math.min(W*.30,116);
   const startA=Math.PI;
   const endA=0;
   const pw=Math.max(0,Math.min(1,game.power||0));
@@ -1777,6 +1893,7 @@ function draw(){
  ctx.globalAlpha=1;
  ctx.restore();
   drawVignette();
+  drawKJumpingFullUI();
   drawCommercialHUD();
   drawCommercialPower();
   drawCollectionBurst();
