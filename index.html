@@ -1471,10 +1471,110 @@ function drawPolishedLives(){
   ctx.restore();
 }
 
+
+function drawCommercialHUD(){
+  ctx.save();
+
+  // Top-left life card
+  ctx.fillStyle='rgba(24,59,77,.78)';
+  ctx.beginPath();ctx.roundRect(14,18,118,48,18);ctx.fill();
+  ctx.textAlign='left';
+  ctx.font='900 13px system-ui,sans-serif';
+  ctx.fillStyle='#dff5ff';
+  ctx.fillText('STAGE '+game.stage,27,38);
+  ctx.font='900 17px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.fillText('♥ '.repeat(Math.max(0,game.lives||0)),27,57);
+
+  // Height card
+  ctx.fillStyle='rgba(24,59,77,.78)';
+  ctx.beginPath();ctx.roundRect(W/2-66,18,132,48,18);ctx.fill();
+  ctx.textAlign='center';
+  ctx.font='800 11px system-ui,sans-serif';ctx.fillStyle='#ccecf8';
+  ctx.fillText('CURRENT HEIGHT',W/2,36);
+  ctx.font='900 19px system-ui,sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText(Math.round(game.peakHeight||0)+' m',W/2,57);
+
+  // Resource card
+  ctx.fillStyle='rgba(24,59,77,.78)';
+  ctx.beginPath();ctx.roundRect(W-132,18,118,48,18);ctx.fill();
+  ctx.textAlign='right';
+  ctx.font='900 14px system-ui,sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('⭐ '+Math.max(0,game.totalCollected||0),W-27,39);
+  ctx.fillText('💎 '+Math.max(0,Math.floor((game.bonusScore||0)/30)),W-27,58);
+
+  // Combo badge
+  if((game.combo||0)>1){
+    const pulse=1+Math.sin(performance.now()/100)*.035;
+    ctx.translate(W-78,98);ctx.scale(pulse,pulse);
+    ctx.fillStyle='rgba(111,58,28,.88)';
+    ctx.beginPath();ctx.roundRect(-64,-24,128,48,18);ctx.fill();
+    ctx.textAlign='center';ctx.fillStyle='#ffd86b';
+    ctx.font='900 12px system-ui,sans-serif';ctx.fillText('COMBO',0,-3);
+    ctx.fillStyle='#fff';ctx.font='900 20px system-ui,sans-serif';
+    ctx.fillText('× '+game.combo,0,19);
+  }
+
+  // Pause button
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.beginPath();ctx.arc(W-30,140,22,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#31586d';
+  ctx.fillRect(W-37,132,5,16);ctx.fillRect(W-28,132,5,16);
+
+  ctx.restore();
+}
+
+function drawCommercialPower(){
+  if(game.phase!=='partnerReady') return;
+  const y=H-128, x=W/2, width=Math.min(W*.72,310);
+  ctx.save();
+  ctx.textAlign='center';
+  ctx.font='900 11px system-ui,sans-serif';
+  ctx.fillStyle='rgba(31,70,87,.72)';
+  ctx.fillText('TAP TIMING',x,y-18);
+
+  ctx.fillStyle='rgba(255,255,255,.82)';
+  ctx.beginPath();ctx.roundRect(x-width/2,y,width,12,6);ctx.fill();
+
+  const pw=Math.max(0,Math.min(1,game.power||0));
+  ctx.fillStyle='#f6c94c';
+  ctx.beginPath();ctx.roundRect(x-width/2,y,width*pw,12,6);ctx.fill();
+
+  ctx.fillStyle='#fff';
+  ctx.font='900 14px system-ui,sans-serif';
+  ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=5;
+  ctx.fillText('TAP!',x,y+39);
+  ctx.restore();
+}
+
+function drawCollectionBurst(){
+  if((game.bonusFlash||0)<=0) return;
+  const a=Math.min(1,(game.bonusFlash||0)*2);
+  ctx.save();
+  ctx.globalAlpha=a*.35;
+  ctx.fillStyle='#fff4a0';
+  ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=a;
+  ctx.textAlign='center';
+  ctx.font='900 18px system-ui,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(92,62,0,.45)';ctx.shadowBlur=8;
+  ctx.fillText('⭐ COLLECT!',W/2,H*.20);
+  ctx.restore();
+}
+
+
+function drawVignette(){
+  const g=ctx.createRadialGradient(W/2,H*.48,H*.22,W/2,H*.48,H*.78);
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(1,'rgba(20,45,55,.18)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+
 function draw(){
   drawKJumpingBackdrop();
   drawKEnvironmentDetails();
- drawBg();
  drawLandingTargetFX();
   drawSafeLandingZone();
   drawLandingGuide();
@@ -1502,16 +1602,16 @@ function draw(){
  if(game.phase==='partnerUp'){
    const rise=Math.max(0,game.plank.y-game.partner.y);
    const sy=Math.max(H*.20,Math.min(H*.62,game.plank.y-rise*.62));
-   drawChar({...game.partner,y:sy},false);
+   drawKCharacter({...game.partner,y:sy},true,false);
  }else{
    drawKCharacter(game.partner,false,false);
  }
  if(game.phase==='playerUp'){
    const ascent=Math.max(0,game.plank.y-game.player.y);
    const sy=Math.max(H*.20,Math.min(H*.62,game.plank.y-ascent*.62));
-   drawChar({...game.player,y:sy},true);
+   drawKCharacter({...game.player,y:sy},true,true);
  }else{
-   drawKCharacter(game.player,true,true);
+   drawKCharacter(game.player,false,true);
  }
 
  ctx.save();
@@ -1526,6 +1626,10 @@ function draw(){
  ctx.restore();
  ctx.globalAlpha=1;
  ctx.restore();
+  drawVignette();
+  drawCommercialHUD();
+  drawCommercialPower();
+  drawCollectionBurst();
 }
 function loop(t){const dt=Math.min(.033,(t-(loop.last||t))/1000);loop.last=t;update(dt);draw();requestAnimationFrame(loop)}
 addEventListener('resize',resize);
