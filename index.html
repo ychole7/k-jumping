@@ -10,7 +10,8 @@
     font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   #stageEl{position:relative;overflow:hidden;background:#8fd0ff;box-shadow:0 0 40px rgba(0,0,0,.5);}
-  canvas{display:block;position:absolute;inset:0;}
+  canvas{display:block;position:absolute;inset:0;z-index:0;pointer-events:none;}
+  .scene{position:absolute;inset:0;display:none;flex-direction:column;z-index:1;}
   /* ---- shared wood UI ---- */
   .wood{background:linear-gradient(#a6702f,#7c4f1d);border:3px solid #5a3813;border-radius:14px;
     box-shadow:inset 0 2px 3px rgba(255,255,255,.25),0 3px 5px rgba(0,0,0,.3);color:#fff;
@@ -20,7 +21,6 @@
     text-shadow:0 1px 0 rgba(255,255,255,.4);}
   .btn:active{transform:translateY(3px);box-shadow:0 3px 0 #cf8a00;}
   .btn.sub{background:linear-gradient(#e8b877,#c78c3f);box-shadow:0 6px 0 #96631f;color:#3d2600;}
-  .scene{position:absolute;inset:0;display:none;flex-direction:column;}
   .scene.on{display:flex;}
   /* layered bg image slot */
   .bgimg{position:absolute;inset:0;background-size:cover;background-position:center bottom;}
@@ -243,10 +243,11 @@ let tsx=null;
 function down(e){if(current!=='game')return;e.preventDefault();const t=e.touches?e.touches[0]:e;tsx=t.clientX;tapGame();}
 function mv(e){if(current!=='game'||G.over||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
 function upp(){tsx=null;}
-cv.addEventListener('touchstart',down,{passive:false});
-cv.addEventListener('touchmove',mv,{passive:false});
-cv.addEventListener('touchend',upp);
-cv.addEventListener('mousedown',down);cv.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});addEventListener('mouseup',upp);
+const gameScene=$('game');
+gameScene.addEventListener('touchstart',down,{passive:false});
+gameScene.addEventListener('touchmove',mv,{passive:false});
+gameScene.addEventListener('touchend',upp);
+gameScene.addEventListener('mousedown',down);gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});addEventListener('mouseup',upp);
 addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 function showJudge(t,c){const j=$('judge');j.textContent=t;j.style.color=c;j.style.transition='none';j.style.opacity='1';j.style.transform='translate(-50%,-50%) scale(1.15)';requestAnimationFrame(()=>{j.style.transition='all .5s cubic-bezier(.2,.8,.2,1)';j.style.opacity='0';j.style.transform='translate(-50%,-50%) scale(.6)';});}
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
