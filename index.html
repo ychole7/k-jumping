@@ -10,7 +10,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   #stageEl{position:relative;overflow:hidden;background:#8fd0ff;box-shadow:0 0 40px rgba(0,0,0,.5);}
-  canvas{display:block;position:absolute;inset:0;z-index:5;pointer-events:none;}
+  canvas{display:block;position:absolute;inset:0;z-index:0;pointer-events:none;}
   .scene{position:absolute;inset:0;display:none;flex-direction:column;z-index:1;}
   #hud,#depth,#judge,#gaugeArc{z-index:10;}
   /* ---- shared wood UI ---- */
@@ -71,7 +71,6 @@
 </head>
 <body>
 <div id="wrap"><div id="stageEl">
-  <canvas id="c"></canvas>
 
   <!-- 01 TITLE -->
   <div class="scene on" id="title">
@@ -97,6 +96,7 @@
 
   <!-- 03 GAME -->
   <div class="scene" id="game">
+    <canvas id="c"></canvas>
     <div id="hud">
       <div id="hRow">
         <div class="wood" id="hPause">Ⅱ</div>
@@ -211,6 +211,7 @@ const PPM=()=>H*0.05;
 let G={};   // per-run game state
 function startStage(s,endless){
   show('game');
+  resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
   board={cx:W*0.5,y:H*0.78,springY:0,springV:0,w:W*0.44};
