@@ -162,7 +162,7 @@ function resize(){
   if(w/h>aspect)w=h*aspect; else h=w/aspect;
   const oldW=W,oldH=H;
   stageEl.style.width=w+'px';stageEl.style.height=h+'px';
-  W=w;H=h;cv.width=w*DPR;cv.height=h*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  W=w;H=h;cv.style.width=w+'px';cv.style.height=h+'px';cv.width=w*DPR;cv.height=h*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
   // 게임 진행 중이면 좌표를 새 크기에 비례 재배치
   if(current==='game'&&board&&player&&oldW&&oldH){
     const sx=W/oldW, sy=H/oldH;
@@ -211,11 +211,11 @@ const PPM=()=>H*0.05;
 let G={};   // per-run game state
 function startStage(s,endless){
   show('game');
-  resize();
+  if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
   board={cx:W*0.5,y:H*0.78,springY:0,springV:0,w:W*0.44};
-  player={x:W*0.5,y:board.y-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
+  player={x:W*0.5,y:H*0.78-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.6);
