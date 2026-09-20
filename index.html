@@ -207,7 +207,71 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
 .kjMapBottom{padding:10px 14px calc(10px + env(safe-area-inset-bottom)) !important}
 .kjMap .kjMainBtn{min-width:112px;height:48px}
 </style>
-</head>
+
+<style id="v103-final-layout">
+/* V103: clean production layout pass */
+.kjTitle .titleBg,
+.kjTitle .titleImage,
+.kjTitle .kjTitleImage,
+.kjTitle .titleArt { 
+  background-image: none !important;
+}
+.kjTitle{
+  background:#9fdcf0 !important;
+  overflow:hidden !important;
+}
+.kjTitle::before{
+  content:"";
+  position:absolute; inset:0 0 24% 0;
+  background:var(--title-clean-bg, none) center top/cover no-repeat;
+  z-index:0;
+}
+.kjTitle::after{display:none!important}
+
+/* hide baked controls/text inside the poster area; HTML owns controls */
+.kjTitleHotspots{z-index:20!important}
+.kjTitleHotspots > *{z-index:20}
+.kjTitleStart, .titleStart, #titleStart{
+  position:absolute!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  bottom:7%!important;
+  z-index:30!important;
+}
+
+/* Map: background only; HTML owns every stage node */
+.kjMap .mapWorld{
+  background-color:#bfe2c2!important;
+  background-image:var(--map-clean-bg, none)!important;
+  background-position:center bottom!important;
+  background-size:100% auto!important;
+  background-repeat:no-repeat!important;
+}
+.kjMap .mapWorld::before,
+.kjMap .mapWorld::after{display:none!important}
+.kjMap .mapWorld [class*="stage"],
+.kjMap .mapWorld [id*="stage"]{display:none!important}
+
+/* Prevent duplicate/embedded map labels if present */
+.kjMap .mapWorld img{display:none!important}
+
+/* Cleaner stage nodes */
+.kjMap .stageNode{
+  width:68px!important;height:68px!important;
+  font-size:25px!important;
+  margin-left:-34px!important;
+}
+.kjMap .stageNode.active{
+  width:82px!important;height:82px!important;
+  margin-left:-41px!important;
+}
+.kjMap .mapStageLayer{z-index:12!important}
+
+/* gameplay HUD cleanup */
+#game .domHud, #game .gameDomHud, #game .overlayHud{display:none!important}
+</style>
+
+<style>:root{--title-clean-bg:url('assets/title/title-source.png');--map-clean-bg:url('assets/map/map-bg.jpg');}</style></head>
 <body>
 <div id="kjFlow" aria-hidden="false">
   <section id="kjTitle" class="kjScreen kjTitle">
@@ -2354,3 +2418,14 @@ resize();requestAnimationFrame(loop);
 
 /* The semicircle is a timing widget, not the main character. Keep it below the seesaw and smaller. */
 </style>
+
+<script>
+/* V103 small behavioral cleanup */
+(function(){
+  const style=document.createElement('style');
+  style.textContent=`
+    .kjGauge, .powerGauge, .gaugeWrap { transform:scale(.88); transform-origin:center bottom; }
+  `;
+  document.head.appendChild(style);
+})();
+</script>
