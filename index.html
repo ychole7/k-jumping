@@ -818,7 +818,7 @@ function update(dt){
  // Difficulty ramps gently with altitude: the gauge gets faster and the
  // accurate zones become slightly narrower. The early game stays forgiving.
  const difficulty=Math.min(1,Math.max(0,game.score/120));
- const gaugeSpeed=2.35+difficulty*.85 + game.risk*.35;
+ const gaugeSpeed=1.65+difficulty*.55 + game.risk*.22;
  const wave=.5+.5*Math.sin(game.powerT*gaugeSpeed);
  game.power=.72+wave*.58;
  const needle=document.getElementById('powerNeedle');
@@ -1848,19 +1848,19 @@ function drawKJumpingFullUI(){
   pill(W-rw-12,11,rw,rh,'GEMS',String(Math.max(0,game.bonusScore||0)),'#6ed7ff');
 
   // Height card
-  const hy=62, hw=Math.min(W*.32,126), hh=58;
+  const hy=56, hw=Math.min(W*.30,116), hh=50;
   ctx.fillStyle='rgba(255,255,255,.88)';
   ctx.strokeStyle='rgba(79,57,43,.20)';
   ctx.lineWidth=1.5;
   ctx.beginPath();ctx.roundRect(W-hw-12,hy,hw,hh,15);ctx.fill();ctx.stroke();
   ctx.textAlign='center';
   ctx.font='800 9px system-ui,sans-serif';ctx.fillStyle='#5a6a72';
-  ctx.fillText('CURRENT HEIGHT',W-hw/2-12,hy+14);
+  ctx.fillText('HEIGHT',W-hw/2-12,hy+13);
   ctx.font='1000 22px system-ui,sans-serif';ctx.fillStyle='#274858';
   const hm=Math.max(0,Math.round(game.peakHeight||game.lastHeight||0));
-  ctx.fillText(hm+' m',W-hw/2-12,hy+36);
+  ctx.fillText(hm+' m',W-hw/2-12,hy+33);
   ctx.font='800 8px system-ui,sans-serif';ctx.fillStyle='#8c6a2b';
-  ctx.fillText('BEST '+Math.max(0,Math.round(game.peakHeight||0))+' m',W-hw/2-12,hy+50);
+  ctx.fillText('BEST '+Math.max(0,Math.round(game.peakHeight||0))+' m',W-hw/2-12,hy+46);
 
   // Lives, deliberately compact.
   const lives=Math.max(0,Math.min(3,game.lives==null?3:game.lives));
@@ -1965,12 +1965,12 @@ function drawCommercialPower(){
   // A single upper-half semicircle. The needle automatically sweeps
   // 9 o'clock -> 12 o'clock -> 3 o'clock. Player taps to lock the timing.
   const cx=W/2;
-  const cy=H*.835;
-  const r=Math.min(W*.285,112);
+  const cy=H*.78;
+  const r=Math.min(W*.235,92);
   const A0=Math.PI, A1=Math.PI*2;
 
   const difficulty=Math.min(1,Math.max(0,(game.score||0)/120));
-  const speed=2.35+difficulty*.85+(game.risk||0)*.35;
+  const speed=1.65+difficulty*.55+(game.risk||0)*.22;
   const wave=.5+.5*Math.sin((game.powerT||0)*speed);
   const angle=A0+(A1-A0)*wave;
   const pulse=.5+.5*Math.sin((game.powerT||0)*7);
@@ -2082,7 +2082,7 @@ function drawCommercialPower(){
   ctx.beginPath();ctx.arc(cx,cy,14,0,Math.PI*2);ctx.fill();ctx.stroke();
 
   // Tap button — the player's only timing input.
-  const bw=Math.min(W*.36,154), bh=45, by=cy+40;
+  const bw=Math.min(W*.34,145), bh=42, by=cy+34;
   const g=ctx.createLinearGradient(cx,by-bh/2,cx,by+bh/2);
   g.addColorStop(0,'#ffd56f');
   g.addColorStop(.45,'#f5a02e');
@@ -2232,9 +2232,15 @@ resize();requestAnimationFrame(loop);
       b.dataset.stage=n;
       b.textContent=n;
       const pct=(100-n)/99;
-      const wiggle=Math.sin(n*0.62)*34 + Math.sin(n*0.19)*18;
-      b.style.top=(170+pct*5220)+'px';
-      b.style.marginLeft=((n%2?-1:1)*(24+Math.abs(wiggle)*0.35))+'px';
+      // Four 1,320px scenic sections = 25 stages per section.
+      // Stage 1-10 are aligned to the visible path in the first artwork section.
+      const first={1:1210,2:1100,3:985,4:790,5:650,6:535,7:425,8:315,9:205,10:95};
+      let top;
+      if(first[n]!=null){ top=first[n]; }
+      else { top=40 + ((100-n)/90)*5160; }
+      b.style.top=top+'px';
+      const side=(n%2?-1:1);
+      b.style.marginLeft=(side*(18+(Math.sin(n*.41)*18)))+'px';
       b.addEventListener('click',()=>{
         if(n>unlocked)return;
         selectedStage=n;
@@ -2284,8 +2290,11 @@ resize();requestAnimationFrame(loop);
   function showMapAtStage(n=selectedStage){
     show(map);
     requestAnimationFrame(()=>{
-      if(n===1) mapScroller.scrollTop=Math.max(0,mapScroller.scrollHeight-mapScroller.clientHeight);
-      else document.querySelector('[data-stage="'+n+'"]')?.scrollIntoView({block:'center'});
+      const node=document.querySelector('[data-stage="'+n+'"]');
+      if(node){
+        const target=Math.max(0,node.offsetTop-(mapScroller.clientHeight*.72));
+        mapScroller.scrollTo({top:target,behavior:'instant'});
+      }
     });
   }
   show(title);
@@ -2305,4 +2314,43 @@ resize();requestAnimationFrame(loop);
 })();
 </script>
 </body>
-</html>
+</html><style id="v102VisualFix">
+/* V102 — visual cleanup based on the actual device screenshots. */
+.kjTitle{
+  background:#bfe8f7 url("assets/title/title-source.png") center top / auto 100% no-repeat !important;
+}
+.kjTitle::after{
+  content:"";position:absolute;z-index:3;left:0;right:0;bottom:0;height:13%;
+  background:linear-gradient(180deg,rgba(214,190,157,0),rgba(116,82,55,.34));
+  pointer-events:none;box-shadow:none;border-radius:0;
+}
+.kjTitleHotspots{z-index:8}
+.kjStartHotspot{top:82.6%;width:49%;height:8.5%;z-index:10}
+.kjTitleHotspots::after{
+  content:'START';position:absolute;left:50%;top:82.6%;transform:translate(-50%,-50%);
+  width:49%;height:7.1%;display:flex;align-items:center;justify-content:center;
+  border-radius:20px;border:3px solid #f7df9a;
+  background:linear-gradient(#ffd86d,#f09b32 62%,#d96a26);
+  box-shadow:0 7px 0 #7f4927,0 12px 22px rgba(80,48,24,.24),inset 0 2px 0 rgba(255,255,255,.5);
+  color:#fff8e8;font-size:clamp(22px,6vw,30px);font-weight:1000;letter-spacing:1px;
+  text-shadow:0 3px 4px rgba(92,48,18,.45);pointer-events:none;
+}
+
+/* Stage map: use the original scenic artwork at native proportions instead of stretching a blurred cleanup. */
+.kjMapScroll{background:#b9d9ad !important;overflow-y:auto !important}
+.mapWorld{
+  min-height:5280px !important;height:5280px !important;width:100%;
+  background:#c6dfb6 url("assets/map/map-bg-crop.jpg") center top / 100% 1320px repeat-y !important;
+}
+.mapPath,.river,.hanok,.waterfall{display:none !important}
+.kjStageNode{width:54px;height:54px;font-size:16px;z-index:9}
+.kjStageNode.current{width:64px;height:64px}
+.kjMapHeader{flex:0 0 auto}
+.kjMapBottom{flex:0 0 auto}
+
+/* Gameplay HUD: one compact top row; remove the overlapping duplicate legacy UI. */
+.ui,#powerWrap,#state,#hint,#milestone,#comboStreak,#powerText,#powerBar{display:none !important}
+#game{background:#9edcf0}
+
+/* The semicircle is a timing widget, not the main character. Keep it below the seesaw and smaller. */
+</style>
