@@ -6,143 +6,165 @@
 <title>K-JUMPING</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#b8e7f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#b7e7f4;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif}
 button{font:inherit;border:0}
-.app{position:relative;width:100%;height:100%;overflow:hidden}
-.screen{position:absolute;inset:0;display:none;overflow:hidden}
-.screen.active{display:block}
-.title{background:#a9dff0}
-.titleArt{position:absolute;left:0;right:0;top:0;height:calc(100% - 112px);background:url("assets/title/title-bg.jpg") center top/cover no-repeat}
-.titleShade{position:absolute;left:0;right:0;bottom:0;height:145px;background:linear-gradient(transparent,rgba(255,236,204,.92) 38%,#b8e7f5)}
-.startBtn,.playBtn{
- position:absolute;left:50%;transform:translateX(-50%);
- height:76px;border-radius:24px;
- background:linear-gradient(#ffd56b,#f39a2d);
- border:4px solid #ffe7a1;
- box-shadow:0 8px 0 #9b4d20,0 12px 22px rgba(80,45,20,.25);
- color:white;font-weight:900;letter-spacing:.5px;text-shadow:0 3px 3px rgba(120,60,20,.45)
-}
-.startBtn{bottom:50px;width:min(330px,72vw);font-size:32px;z-index:4}
-.map{background:#b7d99f}
-.mapHeader{height:108px;background:linear-gradient(#60412f,#3d291e);color:#fff;position:absolute;top:0;left:0;right:0;z-index:20;padding:18px 18px 12px;display:flex;align-items:center;gap:14px;border-bottom:3px solid #e5b24c}
-.back{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:32px}
-.season h1{margin:0;font-size:24px}.season p{margin:2px 0 0;color:#f2ddbd;font-size:12px}
-.resources{margin-left:auto;display:flex;gap:6px}.res{padding:8px 11px;border-radius:14px;background:rgba(255,255,255,.12);font-weight:800;font-size:13px}
-.mapViewport{position:absolute;left:0;right:0;top:108px;bottom:118px;overflow:hidden}
-.mapWorld{position:absolute;left:0;right:0;top:0;height:2600px;background:url("assets/map/season1-clean.jpg") center top/100% auto repeat-y}
-.mapPath{position:absolute;left:50%;top:0;width:44%;height:100%;transform:translateX(-50%);background:rgba(247,204,123,.10);clip-path:polygon(43% 0,65% 10%,35% 20%,60% 30%,34% 40%,68% 50%,38% 60%,62% 70%,34% 80%,66% 90%,45% 100%);filter:blur(10px)}
-.nodes{position:absolute;inset:0}
-.node{position:absolute;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:21px;background:linear-gradient(#77756e,#514f4a);border:4px solid #eee3c5;box-shadow:0 7px 0 #49433a,0 8px 14px rgba(0,0,0,.2);transform:translate(-50%,-50%)}
-.node.active{width:78px;height:78px;font-size:26px;background:linear-gradient(#52c4ff,#178ee5);box-shadow:0 8px 0 #17619c,0 8px 20px rgba(0,0,0,.28)}
-.mapFooter{position:absolute;left:0;right:0;bottom:0;height:118px;background:#173b43;color:#fff;z-index:30;padding:18px 24px;display:flex;align-items:center}
-.stageInfo h2{margin:0;font-size:22px}.stageInfo p{margin:5px 0 0;color:#c7d7d5;font-size:12px}
-.playBtn{position:relative;left:auto;transform:none;margin-left:auto;width:190px;height:66px;font-size:25px}
-.game{background:#8ed6ec}
-canvas{position:absolute;inset:0;width:100%;height:100%}
-.gameHUD{position:absolute;top:12px;left:12px;right:12px;z-index:10;display:flex;gap:8px;align-items:center}
-.pill{background:#244b5b;color:#fff;border:2px solid rgba(255,255,255,.55);border-radius:17px;padding:9px 14px;font-weight:900}
-.logoPill{background:#593b2a;border-color:#e8bf66;flex:1;text-align:center;color:#ffd36b}
-.stat{min-width:74px;text-align:center}.stat b{display:block;color:#fff;font-size:11px}.stat span{font-size:19px;color:#ffe26e}
-.pause{width:48px;height:48px;border-radius:50%;background:#244b5b;color:white;font-weight:900;font-size:22px}
-.heightBox{position:absolute;top:78px;right:14px;width:142px;padding:10px;border-radius:18px;background:#f7fbfc;color:#244b5b;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.12);z-index:10}.heightBox small{font-weight:800}.heightBox strong{display:block;font-size:28px}
-.gauge{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:min(360px,76vw);z-index:20;display:none}.gauge.show{display:block}
-.gaugeArc{height:118px;border:14px solid #9a593a;border-bottom:0;border-radius:180px 180px 0 0;background:conic-gradient(from 270deg,#2387d9 0 22%,#48c991 22% 42%,#ffd54f 42% 58%,#ff9f2e 58% 78%,#ed5362 78% 100%);position:relative;overflow:hidden}
-.needle{position:absolute;width:4px;height:100px;background:#fff;bottom:-8px;left:50%;transform-origin:50% 100%;box-shadow:0 0 4px #543;transform:rotate(55deg)}
-.gaugeLabel{position:absolute;left:0;right:0;top:47px;text-align:center;color:#fff;font-weight:1000;font-size:18px;text-shadow:0 2px 3px #6c4128}
-.tap{margin:10px auto 0;display:block;width:210px;height:58px;border-radius:20px;background:linear-gradient(#ffd76b,#f39b2c);border:3px solid #ffe8a7;color:#fff;font-weight:1000;font-size:24px;box-shadow:0 6px 0 #95471f}
+.app,.screen{position:relative;width:100%;height:100%;overflow:hidden}
+.screen{position:absolute;inset:0;display:none}.screen.active{display:block}
+
+/* ---------- TITLE ---------- */
+.title{background:#b7e7f4}
+.titleArt{position:absolute;left:0;right:0;top:0;height:min(1060px,70vh);background:url("assets/title/title-bg.jpg") center top/100% auto no-repeat}
+.titleFade{position:absolute;left:0;right:0;top:54%;bottom:0;background:linear-gradient(transparent 0%,rgba(183,231,244,.75) 36%,#b7e7f4 68%)}
+.startBtn,.playBtn{border-radius:22px;background:linear-gradient(#ffd96f,#f29b2d);border:4px solid #ffe9aa;color:#fff;font-weight:900;letter-spacing:.4px;text-shadow:0 3px 3px rgba(120,60,20,.45);box-shadow:0 7px 0 #984c20,0 12px 24px rgba(65,40,20,.25)}
+.startBtn{position:absolute;left:50%;bottom:42px;transform:translateX(-50%);width:min(330px,74vw);height:78px;font-size:32px;z-index:5}
+
+/* ---------- MAP ---------- */
+.map{background:#cfe4b5}
+.mapHeader{position:absolute;left:0;right:0;top:0;height:108px;z-index:30;background:linear-gradient(#63442f,#3e291f);color:#fff;border-bottom:3px solid #e7b64d;display:flex;align-items:center;padding:15px 18px;gap:14px}
+.back{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:34px}
+.season h1{font-size:24px;margin:0}.season p{margin:2px 0 0;color:#f1d8b6;font-size:12px}
+.resources{margin-left:auto;display:flex;gap:6px}.res{padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.12);font-weight:900;font-size:13px}
+.mapViewport{position:absolute;inset:108px 0 116px;overflow:hidden;background:#bcd9a8}
+.mapWorld{position:absolute;left:0;right:0;top:0;height:6020px;background:url("assets/map/season1-clean-long.jpg") center top/100% 6000px no-repeat}
+.mapRoad{position:absolute;left:0;right:0;top:0;height:6020px;pointer-events:none}
+.mapRoad:after{content:"";position:absolute;left:50%;top:0;width:120px;height:100%;transform:translateX(-50%);background:rgba(242,194,113,.18);filter:blur(18px)}
+.nodes{position:absolute;inset:0;z-index:5}
+.node{position:absolute;width:58px;height:58px;border-radius:50%;transform:translate(-50%,-50%);display:grid;place-items:center;color:#fff;font-size:19px;font-weight:950;background:linear-gradient(#77756e,#4e4b46);border:4px solid #eee2c4;box-shadow:0 6px 0 #49433b,0 8px 16px rgba(0,0,0,.22)}
+.node.active{width:76px;height:76px;font-size:25px;background:linear-gradient(#56c7ff,#158fe5);box-shadow:0 8px 0 #16639b,0 9px 20px rgba(0,0,0,.28)}
+.node.done{background:linear-gradient(#ffbd45,#e77e23)}
+.mapFooter{position:absolute;left:0;right:0;bottom:0;height:116px;z-index:30;background:#173c43;color:#fff;border-top:3px solid #e7b64d;display:flex;align-items:center;padding:16px 24px}
+.stageInfo h2{margin:0;font-size:22px}.stageInfo p{margin:5px 0 0;color:#c5d5d2;font-size:12px}
+.playBtn{width:190px;height:66px;margin-left:auto;font-size:25px}
+
+/* ---------- GAME ---------- */
+.game{background:#91d9ef}
+#gameCanvas{position:absolute;inset:0;width:100%;height:100%}
+.gameHUD{position:absolute;top:10px;left:12px;right:12px;z-index:20;display:flex;gap:7px;align-items:center}
+.pause{width:48px;height:48px;border-radius:50%;background:#214a5c;color:#fff;font-size:22px;font-weight:950}
+.pill{border:2px solid rgba(255,255,255,.42);background:#244d5f;color:#fff;border-radius:16px;padding:8px 12px;box-shadow:0 4px 10px rgba(0,0,0,.12)}
+.logoPill{flex:1;text-align:center;background:#5a3c2a;border-color:#e8bd63;color:#ffd56c;font-weight:950}.logoPill small{font-size:11px;color:#fff}
+.stat{min-width:72px;text-align:center}.stat b{display:block;font-size:10px}.stat span{font-size:19px;color:#ffdd55;font-weight:950}
+.heightBox{position:absolute;right:14px;top:75px;width:142px;padding:9px;border-radius:19px;background:rgba(250,253,254,.96);color:#254d5e;text-align:center;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.13)}.heightBox small{font-weight:900;font-size:10px}.heightBox strong{display:block;font-size:28px;line-height:31px}
+.gauge{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(315px,70vw);z-index:25;opacity:0;pointer-events:none;transition:opacity .16s}.gauge.show{opacity:1;pointer-events:auto}
+.arc{height:104px;border:13px solid #70432f;border-bottom:0;border-radius:180px 180px 0 0;background:conic-gradient(from 270deg,#2d8fe1 0 22%,#45c98e 22% 42%,#ffd44f 42% 58%,#ff9b2b 58% 79%,#e85260 79% 100%);position:relative}
+.arc:after{content:"";position:absolute;left:50%;bottom:-7px;width:18px;height:18px;border-radius:50%;background:#ffd33d;border:3px solid #70432f;transform:translateX(-50%)}
+.needle{position:absolute;left:50%;bottom:1px;width:4px;height:90px;background:#fff;border-radius:3px;transform-origin:50% 100%;box-shadow:0 0 4px #463}
+.gLabel{position:absolute;left:0;right:0;top:39px;text-align:center;color:#fff;font-weight:1000;font-size:17px;text-shadow:0 2px 3px #5b3627}
+.tap{display:block;width:190px;height:56px;margin:8px auto 0;border-radius:19px;background:linear-gradient(#ffd66d,#f39a2c);border:3px solid #ffe8a5;color:#fff;font-weight:1000;font-size:23px;box-shadow:0 6px 0 #93481f}
 </style>
 </head>
 <body>
 <div class="app">
-<section id="title" class="screen active title">
- <div class="titleArt"></div><div class="titleShade"></div>
- <button class="startBtn" id="start">START</button>
-</section>
+<section id="title" class="screen active title"><div class="titleArt"></div><div class="titleFade"></div><button class="startBtn" id="start">START</button></section>
 
 <section id="map" class="screen map">
- <header class="mapHeader">
-  <button class="back" id="mapBack">‹</button>
-  <div class="season"><h1>시즌 1</h1><p>봄의 한옥마을</p></div>
-  <div class="resources"><div class="res">♥ 5</div><div class="res">● 0</div><div class="res">◆ 0</div><div class="res">1/100</div></div>
- </header>
- <div class="mapViewport" id="mapViewport"><div class="mapWorld" id="mapWorld"><div class="mapPath"></div><div class="nodes" id="nodes"></div></div></div>
- <footer class="mapFooter"><div class="stageInfo"><h2>STAGE 1</h2><p>첫 번째 널뛰기 도전!</p></div><button class="playBtn" id="play">PLAY ▶</button></footer>
+<header class="mapHeader"><button class="back" id="back">‹</button><div class="season"><h1>시즌 1</h1><p>봄의 한옥마을</p></div><div class="resources"><div class="res">♥ 5</div><div class="res">● 0</div><div class="res">◆ 0</div><div class="res">1/100</div></div></header>
+<div class="mapViewport" id="mapViewport"><div class="mapWorld"><div class="mapRoad"></div><div class="nodes" id="nodes"></div></div></div>
+<footer class="mapFooter"><div class="stageInfo"><h2>STAGE 1</h2><p>첫 번째 널뛰기 도전!</p></div><button class="playBtn" id="play">PLAY ▶</button></footer>
 </section>
 
 <section id="game" class="screen game">
- <canvas id="gameCanvas"></canvas>
- <div class="gameHUD">
-  <button class="pause">Ⅱ</button><div class="pill logoPill">K-JUMPING<br><small>널뛰기팡</small></div>
-  <div class="pill stat"><b>STARS</b><span id="stars">0</span></div><div class="pill stat"><b>GEMS</b><span id="gems">0</span></div>
- </div>
- <div class="heightBox"><small>HEIGHT</small><strong id="height">0 m</strong><small>BEST 0 m</small></div>
- <div class="gauge" id="gauge"><div class="gaugeArc"><div class="needle" id="needle"></div><div class="gaugeLabel">PERFECT</div></div><button class="tap" id="tap">TAP!</button></div>
+<canvas id="gameCanvas"></canvas>
+<div class="gameHUD"><button class="pause">Ⅱ</button><div class="pill logoPill">K-JUMPING<br><small>널뛰기팡</small></div><div class="pill stat"><b>STARS</b><span id="stars">0</span></div><div class="pill stat"><b>GEMS</b><span id="gems">0</span></div></div>
+<div class="heightBox"><small>HEIGHT</small><strong id="height">0 m</strong><small>BEST 0 m</small></div>
+<div class="gauge" id="gauge"><div class="arc"><div class="needle" id="needle"></div><div class="gLabel" id="grade">PERFECT</div></div><button class="tap" id="tap">TAP!</button></div>
 </section>
 </div>
+
 <script>
 const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
-function show(id){screens.forEach(x=>x.classList.toggle('active',x.id===id))}
-$('#start').onclick=()=>{show('map'); requestAnimationFrame(()=>$('#mapViewport').scrollTop=$('#mapWorld').scrollHeight-$('#mapViewport').clientHeight)};
-$('#mapBack').onclick=()=>show('title');
-$('#play').onclick=()=>{show('game'); resetGame(); requestAnimationFrame(gameLoop)};
+function show(id){screens.forEach(s=>s.classList.toggle('active',s.id===id))}
+$('#start').onclick=()=>{show('map');setTimeout(()=>{$('#mapViewport').scrollTop=5360},40)}
+$('#back').onclick=()=>show('title'); $('#play').onclick=()=>startGame();
 
 const nodes=$('#nodes');
-const pts=[];
 for(let i=1;i<=100;i++){
- const t=(i-1)/99;
- const y=90+t*2440;
- const x=50 + Math.sin(t*9.2)*15 + Math.sin(t*2.4)*9;
- pts.push({x,y});
- const n=document.createElement('button'); n.className='node'+(i===1?' active':''); n.textContent=i;
- n.style.left=x+'%'; n.style.top=y+'px'; n.onclick=()=>{if(i===1) {$('#play').click()}};
+ const t=(i-1)/99, y=45+t*5925;
+ const x=50 + Math.sin(t*8.1)*17 + Math.sin(t*2.7)*7;
+ const n=document.createElement('button');
+ n.className='node'+(i===1?' active':'');
+ n.textContent=i;n.style.left=x+'%';n.style.top=y+'px';
+ if(i<1)n.classList.add('done');
+ n.onclick=()=>{if(i===1)startGame()};
  nodes.appendChild(n);
 }
 
-const canvas=$('#gameCanvas'),ctx=canvas.getContext('2d'); let W,H,dpr;
-let state={t:0,phase:'ready',playerX:0,playerY:0,vy:0,stars:0,gems:0,height:0,gauge:0};
-function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
-addEventListener('resize',resize);resize();
+/* GAME ENGINE */
+const c=$('#gameCanvas'),ctx=c.getContext('2d');let W,H,D=1;
+let G={phase:'ready',t:0,x:0,y:0,vy:0,cam:0,height:0,stars:0,gems:0,gauge:0,combo:0,trail:[]};
+function resize(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;ctx.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();
 
-function resetGame(){state={t:0,phase:'ready',playerX:W*.5,playerY:H*.68,vy:0,stars:0,gems:0,height:0,gauge:0};$('#gauge').classList.add('show');$('#stars').textContent=0;$('#gems').textContent=0;$('#height').textContent='0 m'}
-function drawBG(){
- const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#8fdaf1');g.addColorStop(.62,'#b8e5ee');g.addColorStop(1,'#7fa9c2');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- ctx.fillStyle='rgba(255,255,255,.65)';
- [[.12,.22,110,28],[.72,.3,170,38],[.42,.52,140,30]].forEach(c=>{ctx.beginPath();ctx.ellipse(W*c[0],H*c[1],c[2],c[3],0,0,Math.PI*2);ctx.fill()});
- ctx.fillStyle='rgba(74,119,131,.42)';for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(i*W/5,H*.62);ctx.lineTo(i*W/5+W*.12,H*.4);ctx.lineTo(i*W/5+W*.24,H*.62);ctx.fill()}
+function startGame(){show('game');G={phase:'ready',t:performance.now()/1000,x:W*.5,y:H*.70,vy:0,cam:0,height:0,stars:0,gems:0,gauge:0,combo:0,trail:[]};$('#stars').textContent=0;$('#gems').textContent=0;$('#height').textContent='0 m';$('#gauge').classList.add('show');requestAnimationFrame(loop)}
+
+function rounded(x,y,w,h,r,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function sky(){
+ const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#83d7ef');g.addColorStop(.65,'#b8e7f1');g.addColorStop(1,'#739eb5');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='rgba(255,255,255,.58)';
+ [[.12,.23,115,27],[.73,.30,175,37],[.43,.55,140,28]].forEach(a=>{ctx.beginPath();ctx.ellipse(W*a[0],H*a[1],a[2],a[3],0,0,Math.PI*2);ctx.fill()});
+ // layered mountains
+ for(let layer=0;layer<3;layer++){ctx.fillStyle=['rgba(74,131,145,.25)','rgba(65,119,132,.32)','rgba(49,103,119,.40)'][layer];ctx.beginPath();ctx.moveTo(0,H*.66+layer*35);for(let i=0;i<8;i++){ctx.lineTo(i*W/7,H*(.48+((i+layer)%2)*.12)+layer*25);ctx.lineTo((i+1)*W/7,H*.66+layer*35)}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill()}
 }
-function drawWorld(){
- // seesaw
- const sy=H*.76;ctx.save();ctx.translate(W/2,sy);ctx.rotate(Math.sin(state.t*1.5)*.05);
- ctx.fillStyle='#9b5b2e';ctx.fillRect(-W*.34,-12,W*.68,24);ctx.fillStyle='#71452e';ctx.beginPath();ctx.moveTo(-35,12);ctx.lineTo(0,70);ctx.lineTo(35,12);ctx.fill();ctx.restore();
+function drawSeesaw(){
+ const sy=H*.77+G.cam*.18;ctx.save();ctx.translate(W/2,sy);
+ const ang=Math.max(-.18,Math.min(.18,-G.vy*.00007));ctx.rotate(ang);
+ ctx.fillStyle='#6c3e26';ctx.beginPath();ctx.roundRect(-W*.36,-13,W*.72,26,12);ctx.fill();
+ ctx.fillStyle='#a9622d';ctx.beginPath();ctx.roundRect(-W*.36,-8,W*.72,16,8);ctx.fill();
+ ctx.fillStyle='#75462f';ctx.beginPath();ctx.moveTo(-34,13);ctx.lineTo(0,74);ctx.lineTo(34,13);ctx.closePath();ctx.fill();
  // partner
- ctx.fillStyle='#3c2b2b';ctx.beginPath();ctx.arc(W*.2,sy-48,22,0,Math.PI*2);ctx.fill();ctx.fillStyle='#4aa4d7';ctx.fillRect(W*.2-28,sy-25,56,42);
+ ctx.fillStyle='#3b282a';ctx.beginPath();ctx.arc(-W*.22,-47,22,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#49a9d7';ctx.beginPath();ctx.roundRect(-W*.27,-25,55,46,14);ctx.fill();
+ ctx.fillStyle='#f7f0df';ctx.beginPath();ctx.roundRect(-W*.255,-15,44,25,9);ctx.fill();
+ ctx.restore()
 }
 function drawPlayer(){
- const x=state.playerX,y=state.playerY;
- ctx.save();ctx.translate(x,y);ctx.fillStyle='#34252a';ctx.beginPath();ctx.arc(0,-35,24,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#f7f1df';ctx.fillRect(-28,-12,56,48);ctx.fillStyle='#d64e67';ctx.fillRect(-34,0,68,14);
- ctx.fillStyle='#4e79bb';ctx.fillRect(-10,30,20,34);ctx.restore();
+ const x=G.x,y=G.y-G.cam*.72;ctx.save();ctx.translate(x,y);
+ // shadow
+ ctx.fillStyle='rgba(35,72,82,.16)';ctx.beginPath();ctx.ellipse(0,45,35,9,0,0,Math.PI*2);ctx.fill();
+ // hair/head
+ ctx.fillStyle='#34252a';ctx.beginPath();ctx.arc(0,-40,27,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#f5d2bd';ctx.beginPath();ctx.arc(0,-30,22,0,Math.PI*2);ctx.fill();
+ // hanbok body
+ ctx.fillStyle='#fff3df';ctx.beginPath();ctx.roundRect(-26,-8,52,54,14);ctx.fill();
+ ctx.fillStyle='#d95772';ctx.beginPath();ctx.moveTo(-31,8);ctx.lineTo(0,20);ctx.lineTo(31,8);ctx.lineTo(26,22);ctx.lineTo(0,36);ctx.lineTo(-26,22);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#477fbc';ctx.fillRect(-7,6,14,39);
+ // limbs
+ ctx.strokeStyle='#f5d2bd';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-20,4);ctx.lineTo(-42,-18);ctx.moveTo(20,4);ctx.lineTo(43,-14);ctx.stroke();
+ ctx.strokeStyle='#4c5b7d';ctx.lineWidth=11;ctx.beginPath();ctx.moveTo(-12,43);ctx.lineTo(-23,65);ctx.moveTo(12,43);ctx.lineTo(25,62);ctx.stroke();
+ ctx.restore()
 }
-function drawStars(){
- const baseX=state.playerX+70,baseY=state.playerY-100;
- for(let i=0;i<8;i++){const a=-2.3+i*.38;const r=80+i*12;const x=baseX+Math.cos(a)*r,y=baseY+Math.sin(a)*r;
-  ctx.save();ctx.translate(x,y);ctx.fillStyle='#ffd43b';ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();
-  for(let k=0;k<10;k++){const rr=k%2?8:20;const aa=-Math.PI/2+k*Math.PI/5;ctx.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr)}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+function drawTrail(){
+ if(G.phase!=='flight')return;
+ const sx=G.x+80, sy=G.y-G.cam*.72-85;
+ for(let i=0;i<10;i++){const a=-2.45+i*.27,r=75+i*8,x=sx+Math.cos(a)*r,y=sy+Math.sin(a)*r;ctx.save();ctx.translate(x,y);ctx.rotate(.2*i);ctx.fillStyle=i%3===0?'#4dcfff':'#ffd43c';ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();for(let k=0;k<10;k++){const rr=k%2?7:18,aa=-Math.PI/2+k*Math.PI/5;ctx.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr)}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
 }
-function gameLoop(ts){
+function loop(ts){
  if(!$('#game').classList.contains('active'))return;
- state.t=ts/1000;
- drawBG();drawWorld();drawStars();
- if(state.phase==='flight'){state.vy+=1450/60;state.playerY+=state.vy/60;state.height=Math.max(0,Math.round((H*.76-state.playerY)*.42));$('#height').textContent=state.height+' m';
-   if(state.playerY<120) state.playerY=120;
-   if(state.playerY>=H*.76-80){state.phase='ready';state.playerY=H*.68;state.vy=0;$('#gauge').classList.add('show')}
+ const now=ts/1000,dt=Math.min(.033,Math.max(.001,now-G.t));G.t=now;
+ sky();
+ if(G.phase==='ready'){
+   G.gauge=.5+.5*Math.sin(now*2.35);
+   const deg=-72+G.gauge*144;$('#needle').style.transform=`rotate(${deg}deg)`;
+ } else if(G.phase==='flight'){
+   G.vy+=1550*dt;G.y+=G.vy*dt;
+   const altitude=Math.max(0,H*.70-G.y);
+   G.cam=Math.max(0,Math.min(560,altitude*.55));
+   G.height=Math.round(G.cam*.52);
+   $('#height').textContent=G.height+' m';
+   if(G.y<125){G.y=125;G.vy=80}
+   if(G.y>=H*.70){G.y=H*.70;G.vy=0;G.phase='ready';G.cam=0;$('#gauge').classList.add('show')}
  }
- drawPlayer();
- if(state.phase==='ready'){state.gauge=(Math.sin(state.t*2.2)*.5+.5);const deg=-72+state.gauge*144;$('#needle').style.transform=`rotate(${deg}deg)`}
- requestAnimationFrame(gameLoop)
+ drawTrail();drawSeesaw();drawPlayer();
+ requestAnimationFrame(loop)
 }
 $('#tap').onclick=()=>{
- if(state.phase==='ready'){state.phase='flight';state.vy=-1150;$('#gauge').classList.remove('show');state.stars+=5;state.gems+=1;$('#stars').textContent=state.stars;$('#gems').textContent=state.gems}
+ if(G.phase!=='ready')return;
+ const pos=G.gauge; const dist=Math.abs(pos-.5);
+ if(dist<.08){G.combo++;G.stars+=5;G.gems+=1;$('#grade').textContent='PERFECT!'}
+ else if(dist<.20){G.combo++;G.stars+=3;$('#grade').textContent='GOOD!'}
+ else {G.combo=0;$('#grade').textContent='POWER'}
+ $('#stars').textContent=G.stars;$('#gems').textContent=G.gems;
+ G.phase='flight';G.vy=-1120;$('#gauge').classList.remove('show')
 };
 </script>
-</body></html>
+</body>
+</html>
