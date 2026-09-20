@@ -156,13 +156,27 @@ const $=id=>document.getElementById(id);
 let W,H,DPR;
 function resize(){
   DPR=Math.min(devicePixelRatio||1,2);
-  const aspect=9/16.5;let w=innerWidth,h=innerHeight;
-  if(w/h>aspect)w=h*aspect;
+  const aspect=9/16;let w=innerWidth,h=innerHeight;
+  // 화면을 넘지 않게 폭·높이 모두 비율에 맞춤
+  if(w/h>aspect)w=h*aspect; else h=w/aspect;
+  const oldW=W,oldH=H;
   stageEl.style.width=w+'px';stageEl.style.height=h+'px';
   W=w;H=h;cv.width=w*DPR;cv.height=h*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  // 게임 진행 중이면 좌표를 새 크기에 비례 재배치
+  if(current==='game'&&board&&player&&oldW&&oldH){
+    const sx=W/oldW, sy=H/oldH;
+    board.cx*=sx;board.y=H*0.78;board.w=W*0.44;board.springY*=sy;
+    player.x*=sx;player.r=W*0.05;
+    if(player.onBoard)player.y=board.y-board.springY-player.r-2;else player.y*=sy;
+    G.cam*=sy;
+    items.forEach(i=>{i.wx*=sx;i.wy*=sy;});
+    rocks.forEach(r=>{r.wx*=sx;r.wy*=sy;r.r*=sx;});
+    powerups.forEach(p=>{p.wx*=sx;p.wy*=sy;});
+  }
   buildMap();
 }
 addEventListener('resize',resize);
+addEventListener('orientationchange',()=>setTimeout(resize,100));
 
 /* ============ progress (localStorage) ============ */
 const SAVE='kjump_v1';
@@ -198,7 +212,7 @@ function startStage(s,endless){
   show('game');
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
-  board={cx:W*0.5,y:H*0.80,springY:0,springV:0,w:W*0.44};
+  board={cx:W*0.5,y:H*0.78,springY:0,springV:0,w:W*0.44};
   player={x:W*0.5,y:board.y-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
