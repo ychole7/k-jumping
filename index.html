@@ -208,70 +208,32 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
 .kjMap .kjMainBtn{min-width:112px;height:48px}
 </style>
 
-<style id="v103-final-layout">
-/* V103: clean production layout pass */
-.kjTitle .titleBg,
-.kjTitle .titleImage,
-.kjTitle .kjTitleImage,
-.kjTitle .titleArt { 
-  background-image: none !important;
-}
-.kjTitle{
-  background:#9fdcf0 !important;
-  overflow:hidden !important;
-}
-.kjTitle::before{
-  content:"";
-  position:absolute; inset:0 0 24% 0;
-  background:var(--title-clean-bg, none) center top/cover no-repeat;
-  z-index:0;
-}
+<style id="v104ProductionLayout">
+/* V104 production pass: real asset separation + single live map layer */
+.kjTitle{background:#bfe8f7 !important;}
+.kjTitle::before{content:"";position:absolute;inset:0 0 16%;background:url("assets/title/title-bg.jpg") center top/100% 100% no-repeat !important;z-index:0;}
 .kjTitle::after{display:none!important}
-
-/* hide baked controls/text inside the poster area; HTML owns controls */
-.kjTitleHotspots{z-index:20!important}
-.kjTitleHotspots > *{z-index:20}
-.kjTitleStart, .titleStart, #titleStart{
-  position:absolute!important;
-  left:50%!important;
-  transform:translateX(-50%)!important;
-  bottom:7%!important;
-  z-index:30!important;
-}
-
-/* Map: background only; HTML owns every stage node */
+.kjTitleHotspots{z-index:10!important}
+.kjStartHotspot{top:90%!important;width:54%!important;height:10%!important;}
+.kjTitleHotspots::after{top:90%!important;width:54%!important;height:8.2%!important;}
+.kjMap{background:#b9dfbd!important}
+.kjMap .mapSky{display:none!important}
+.kjMapScroll{background:#c2ddb5!important}
 .kjMap .mapWorld{
-  background-color:#bfe2c2!important;
-  background-image:var(--map-clean-bg, none)!important;
-  background-position:center bottom!important;
-  background-size:100% auto!important;
-  background-repeat:no-repeat!important;
+  min-height:6000px!important;
+  background:url("assets/map/season1-bg.jpg") center top/100% 100% no-repeat!important;
 }
-.kjMap .mapWorld::before,
-.kjMap .mapWorld::after{display:none!important}
-.kjMap .mapWorld [class*="stage"],
-.kjMap .mapWorld [id*="stage"]{display:none!important}
-
-/* Prevent duplicate/embedded map labels if present */
-.kjMap .mapWorld img{display:none!important}
-
-/* Cleaner stage nodes */
-.kjMap .stageNode{
-  width:68px!important;height:68px!important;
-  font-size:25px!important;
-  margin-left:-34px!important;
-}
-.kjMap .stageNode.active{
-  width:82px!important;height:82px!important;
-  margin-left:-41px!important;
-}
-.kjMap .mapStageLayer{z-index:12!important}
-
-/* gameplay HUD cleanup */
-#game .domHud, #game .gameDomHud, #game .overlayHud{display:none!important}
+.kjMap .mapPath,.kjMap .river,.kjMap .hanok,.kjMap .waterfall{display:none!important}
+#mapTrail{position:absolute;left:0;top:0;width:100%;height:6000px;z-index:3;pointer-events:none;overflow:visible}
+#stageNodes{z-index:8!important}
+.kjStageNode{width:58px!important;height:58px!important;font-size:17px!important;border-width:3px!important}
+.kjStageNode.current{width:76px!important;height:76px!important;font-size:22px!important}
+.kjStageNode:nth-child(odd),.kjStageNode:nth-child(even){margin-left:0!important}
+.kjStageStars{top:47px!important}
+.kjStageNode.current .kjStageStars{top:62px!important}
+.kjMapBottom{min-height:78px!important}
 </style>
-
-<style>:root{--title-clean-bg:url('assets/title/title-source.png');--map-clean-bg:url('assets/map/map-bg.jpg');}</style></head>
+</head>
 <body>
 <div id="kjFlow" aria-hidden="false">
   <section id="kjTitle" class="kjScreen kjTitle">
@@ -297,7 +259,7 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
         <div class="hanok h1">🏯</div><div class="hanok h2">🏠</div><div class="hanok h3">🏡</div>
         <div class="waterfall">〰〰</div>
         <div class="mapPath"></div>
-        <div id="stageNodes"></div>
+        <svg id="mapTrail" viewBox="0 0 1000 6000" preserveAspectRatio="none" aria-hidden="true"><path id="mapTrailShadow" fill="none" stroke="#8a633d" stroke-width="150" stroke-linecap="round" stroke-linejoin="round" opacity=".30"/><path id="mapTrailPath" fill="none" stroke="#e8c27b" stroke-width="112" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="stageNodes"></div>
       </div>
     </div>
     <div class="kjMapBottom">
@@ -2287,6 +2249,25 @@ resize();requestAnimationFrame(loop);
   const selectedDesc=document.getElementById('mapSelectedDesc');
   let selectedStage=1, unlocked=1;
 
+  function buildMapTrail(){
+    const pts=[];
+    for(let i=0;i<=100;i++){
+      const p=i/100;
+      const y=5660-(p*5480);
+      const x=500 + Math.sin(p*Math.PI*5.2)*155 + Math.sin(p*Math.PI*10.7)*48;
+      pts.push([x,y]);
+    }
+    let d=`M ${pts[0][0]} ${pts[0][1]}`;
+    for(let i=1;i<pts.length;i++){
+      const [x0,y0]=pts[i-1], [x1,y1]=pts[i];
+      const dy=(y1-y0)*.34;
+      d+=` C ${x0} ${y0+dy} ${x1} ${y1-dy} ${x1} ${y1}`;
+    }
+    const path=document.getElementById('mapTrailPath');
+    const shadow=document.getElementById('mapTrailShadow');
+    if(path) path.setAttribute('d',d);
+    if(shadow) shadow.setAttribute('d',d);
+  }
   function buildStages(){
     nodes.innerHTML='';
     for(let n=100;n>=1;n--){
@@ -2295,16 +2276,11 @@ resize();requestAnimationFrame(loop);
       b.className='kjStageNode '+(n<unlocked?'done':n===unlocked?'current':'locked');
       b.dataset.stage=n;
       b.textContent=n;
-      const pct=(100-n)/99;
-      // Four 1,320px scenic sections = 25 stages per section.
-      // Stage 1-10 are aligned to the visible path in the first artwork section.
-      const first={1:1210,2:1100,3:985,4:790,5:650,6:535,7:425,8:315,9:205,10:95};
-      let top;
-      if(first[n]!=null){ top=first[n]; }
-      else { top=40 + ((100-n)/90)*5160; }
+      const progress=(n-1)/99;
+      const top=5660-(progress*5480);
+      const x=500 + Math.sin(progress*Math.PI*5.2)*155 + Math.sin(progress*Math.PI*10.7)*48;
       b.style.top=top+'px';
-      const side=(n%2?-1:1);
-      b.style.marginLeft=(side*(18+(Math.sin(n*.41)*18)))+'px';
+      b.style.left=(x/10)+'%';
       b.addEventListener('click',()=>{
         if(n>unlocked)return;
         selectedStage=n;
@@ -2349,6 +2325,7 @@ resize();requestAnimationFrame(loop);
   });
   document.getElementById('kjBackMap').addEventListener('click',()=>showMapAtStage(selectedStage));
 
+  buildMapTrail();
   buildStages();
   const mapScroller=document.getElementById('kjMapScroll');
   function showMapAtStage(n=selectedStage){
@@ -2418,14 +2395,3 @@ resize();requestAnimationFrame(loop);
 
 /* The semicircle is a timing widget, not the main character. Keep it below the seesaw and smaller. */
 </style>
-
-<script>
-/* V103 small behavioral cleanup */
-(function(){
-  const style=document.createElement('style');
-  style.textContent=`
-    .kjGauge, .powerGauge, .gaugeWrap { transform:scale(.88); transform-origin:center bottom; }
-  `;
-  document.head.appendChild(style);
-})();
-</script>
