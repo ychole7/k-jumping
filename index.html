@@ -216,7 +216,7 @@ function startStage(s,endless){
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
   board={cx:W*0.5,y:H*0.78,springY:0,springV:0,w:W*0.44};
-  player={x:W*0.5,y:H*0.78-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
+  player={x:W*0.5-W*0.44*0.42,y:H*0.78-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.6);
@@ -284,7 +284,10 @@ function updateGame(){
   if(current!=='game'||G.over)return;
   if(player.onBoard){
     board.springV+=(H*0.11-board.springY)*0.05;board.springV*=0.86;board.springY+=board.springV;
-    player.x+=(board.cx-player.x)*0.15;player.y=board.y-board.springY-player.r-2;squash+=(0-squash)*0.2;
+    const tilt=Math.min(0.5,board.springY/(H*0.09)*0.5), halfW=board.w/2;
+    player.x=board.cx-Math.cos(tilt)*halfW*0.85;
+    player.y=board.y-Math.sin(tilt)*halfW*0.85-player.r-2;
+    squash+=(0-squash)*0.2;
   }else{
     player.vy+=H*0.00072;player.y+=player.vy;player.rot+=0.08;squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.14;
@@ -292,7 +295,7 @@ function updateGame(){
       if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
     const bw=G.cam+board.y;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-board.cx)<board.w*0.5+player.r*0.6){
-      player.onBoard=true;player.vy=0;player.y=board.y-board.springY-player.r-2;board.springV=H*0.05;
+      player.onBoard=true;player.vy=0;player.x=board.cx-board.w*0.42;board.springV=H*0.06;
       if(G.lastJudge){bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;}
     }
     if(player.y-G.cam>H+player.r*2)loseHeart('fall');
@@ -321,7 +324,7 @@ function loseHeart(){
   G.hearts--;updateHud();
   if(G.hearts<=0){endStage(false);return;}
   // 리스폰: 널판지 위로
-  player.onBoard=true;player.vy=0;player.x=board.cx;player.y=board.y-player.r-2;board.springY=0;board.springV=0;
+  player.onBoard=true;player.vy=0;player.x=board.cx-board.w*0.42;player.y=board.y-player.r-2;board.springY=0;board.springV=0;
   showJudge('-1 ❤️','#ff5a5a');
 }
 function endStage(win){
@@ -384,10 +387,22 @@ function drawGame(){
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,15,'#ffd23f');else drawGem(s.wx,sy,13);}
   for(const p of powerups){if(p.got)continue;const py=p.wy-G.cam;if(py<-40||py>H+40)continue;ctx.font='26px sans-serif';ctx.textAlign='center';ctx.fillText(p.kind==='magnet'?'🧲':'🚀',p.wx,py+9);}
   for(const r of rocks){const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
-  const by=board.y-board.springY,bend=board.springY;ctx.save();ctx.lineCap='round';
-  ctx.strokeStyle='#8a5a2b';ctx.lineWidth=H*0.024;ctx.beginPath();ctx.moveTo(board.cx-board.w/2,by);ctx.quadraticCurveTo(board.cx,by+bend*0.6+8,board.cx+board.w/2,by);ctx.stroke();
-  ctx.strokeStyle='#b98040';ctx.lineWidth=H*0.010;ctx.beginPath();ctx.moveTo(board.cx-board.w/2,by);ctx.quadraticCurveTo(board.cx,by+bend*0.6+8,board.cx+board.w/2,by);ctx.stroke();
-  ctx.fillStyle='#6b7280';ctx.beginPath();ctx.ellipse(board.cx,by+20,W*0.06,W*0.03,0,0,7);ctx.fill();ctx.restore();
+  // 시소: 받침점(board.cx) 기준으로 기울어지는 뻣뻣한 판
+  const pivotX=board.cx, pivotY=board.y;
+  const tilt=Math.min(0.5,board.springY/(H*0.09)*0.5);   // 눌림→기울기(라디안)
+  const halfW=board.w/2;
+  ctx.save();
+  // 받침돌
+  ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#5f636b';ctx.beginPath();ctx.ellipse(pivotX,pivotY+H*0.02,W*0.06,W*0.02,0,0,7);ctx.fill();
+  // 판(캐릭터가 앉은 왼쪽 끝이 내려감)
+  ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
+  ctx.fillStyle='#a9743a';ctx.fillRect(-halfW,-H*0.012,board.w,H*0.024);
+  ctx.fillStyle='#8a5a2b';ctx.fillRect(-halfW,H*0.006,board.w,H*0.006);
+  ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
+  ctx.restore();
+  // 캐릭터가 앉는 판 끝(왼쪽) 좌표 저장 → 대기 시 여기에 위치
+  board.tilt=tilt;board.endX=pivotX-Math.cos(tilt)*halfW;board.endY=pivotY-Math.sin(tilt)*halfW;
   drawPlayer(player.x,player.y,player.r,player.onBoard,player.rot,G.fever);
   if(G.magnet>0){ctx.save();ctx.globalAlpha=0.35;ctx.strokeStyle='#39b7ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(player.x,player.y,player.r*4,0,7);ctx.stroke();ctx.restore();}
   if(!player.onBoard&&player.vy<-H*0.012){ctx.save();ctx.globalAlpha=0.5;ctx.fillStyle='#bfe6ff';for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(player.x,player.y+player.r*i*0.9,player.r*(0.6-i*0.12),0,7);ctx.fill();}ctx.restore();}
