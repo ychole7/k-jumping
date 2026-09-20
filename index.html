@@ -93,7 +93,7 @@ canvas{width:100%;height:100%;display:block;touch-action:manipulation}
 
 /* V96 — polished Season 1 map using the generated art direction */
 .kjMap{background:#9ed9d0}
-.mapSky{background:#9ed9d0 url("assets/map/map.png") center center/cover no-repeat;filter:saturate(1.02)}
+.mapSky{background:#9ed9d0 url("assets/map/map-clean.png") center center/cover no-repeat;filter:saturate(1.02)}
 .kjMapHeader{background:linear-gradient(180deg,#5a351ff2,#3e251af0);backdrop-filter:blur(2px)}
 .kjMapScroll{background:rgba(255,255,255,.05)}
 .mapWorld{background:transparent;min-height:4300px}
@@ -139,7 +139,7 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
 /* V93 — title screen visual design */
 .kjTitle{
   align-items:stretch;justify-content:stretch;flex-direction:column;text-align:center;
-  background:#bfe8f7 url("assets/title/title.png") center center/cover no-repeat;
+  background:#bfe8f7 url("assets/title/title-source.png") center center/cover no-repeat;
 }
 .kjTitle:before{
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(20,37,52,.08) 68%,rgba(20,25,30,.20));
@@ -164,6 +164,48 @@ linear-gradient(115deg,transparent 0 28%,rgba(139,104,65,.88) 29% 35%,transparen
 .kjMap .mapPath{opacity:1}
 .kjMap .hanok,.kjMap .waterfall,.kjMap .river{opacity:1}
 /* Stronger physical jump read: jumper rises first, then the seesaw drops out of frame while the camera/world climbs. */
+</style>
+
+<style id="v101Structure">
+/* V101 — separate title/map artwork from live UI. */
+.kjTitle{
+  background:#9fd8e9 url("assets/title/title-source.png") center top/120% auto no-repeat !important;
+}
+.kjTitle::before{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(17,38,48,.05) 68%,rgba(25,32,35,.12)) !important;z-index:1}
+/* Blur only the baked lower UI area so the old START artwork disappears into the scene. */
+.kjTitle::after{
+  content:"";position:absolute;z-index:3;left:0;right:0;bottom:0;height:23%;
+  background:linear-gradient(180deg,rgba(190,215,195,.08),rgba(221,190,151,.42));
+  backdrop-filter:blur(11px);-webkit-backdrop-filter:blur(11px);
+  border-radius:0;box-shadow:none;pointer-events:none;
+}
+.kjTitleHotspots{z-index:8}
+.kjStartHotspot{left:50%;top:82%;width:48%;height:9%;}
+/* Real START button — not baked into the artwork. */
+.kjTitleHotspots::after{
+  content:'START';position:absolute;left:50%;top:82%;transform:translate(-50%,-50%);
+  width:48%;height:7.2%;display:flex;align-items:center;justify-content:center;
+  border-radius:20px;border:3px solid #f7df9a;
+  background:linear-gradient(#ffd86d,#f09b32 62%,#d96a26);
+  box-shadow:0 7px 0 #7f4927,0 12px 22px rgba(80,48,24,.24),inset 0 2px 0 rgba(255,255,255,.5);
+  color:#fff8e8;font-size:clamp(22px,6vw,30px);font-weight:1000;letter-spacing:1px;
+  text-shadow:0 3px 4px rgba(92,48,18,.45);pointer-events:none;
+}
+/* Map: use the actual scenic artwork as the world background; remove the old synthetic road. */
+.kjMap .mapSky{display:none !important}
+.kjMapScroll{background:#b9d9ad !important}
+.mapWorld{
+  min-height:5600px !important;
+  background:#c6dfb6 url("assets/map/map-clean.png") center top / 100% 100% no-repeat !important;
+}
+.mapPath,.river,.hanok,.waterfall{display:none !important}
+#stageNodes{z-index:8}
+.kjStageNode{width:56px;height:56px;font-size:16px}
+.kjStageNode:nth-child(odd){margin-left:-44px}
+.kjStageNode:nth-child(even){margin-left:44px}
+.kjStageStars{top:45px;font-size:10px}
+.kjMapBottom{padding:10px 14px calc(10px + env(safe-area-inset-bottom)) !important}
+.kjMap .kjMainBtn{min-width:112px;height:48px}
 </style>
 </head>
 <body>
@@ -2191,7 +2233,7 @@ resize();requestAnimationFrame(loop);
       b.textContent=n;
       const pct=(100-n)/99;
       const wiggle=Math.sin(n*0.62)*34 + Math.sin(n*0.19)*18;
-      b.style.top=(150+pct*3980)+'px';
+      b.style.top=(170+pct*5220)+'px';
       b.style.marginLeft=((n%2?-1:1)*(24+Math.abs(wiggle)*0.35))+'px';
       b.addEventListener('click',()=>{
         if(n>unlocked)return;
