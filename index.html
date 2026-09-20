@@ -1,170 +1,38 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>K-JUMPING</title>
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>K-JUMPING Gameplay Test</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#b7e7f4;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif}
-button{font:inherit;border:0}
-.app,.screen{position:relative;width:100%;height:100%;overflow:hidden}
-.screen{position:absolute;inset:0;display:none}.screen.active{display:block}
-
-/* ---------- TITLE ---------- */
-.title{background:#b7e7f4}
-.titleArt{position:absolute;left:0;right:0;top:0;height:min(1060px,70vh);background:url("assets/title/title-bg.jpg") center top/100% auto no-repeat}
-.titleFade{position:absolute;left:0;right:0;top:54%;bottom:0;background:linear-gradient(transparent 0%,rgba(183,231,244,.75) 36%,#b7e7f4 68%)}
-.startBtn,.playBtn{border-radius:22px;background:linear-gradient(#ffd96f,#f29b2d);border:4px solid #ffe9aa;color:#fff;font-weight:900;letter-spacing:.4px;text-shadow:0 3px 3px rgba(120,60,20,.45);box-shadow:0 7px 0 #984c20,0 12px 24px rgba(65,40,20,.25)}
-.startBtn{position:absolute;left:50%;bottom:42px;transform:translateX(-50%);width:min(330px,74vw);height:78px;font-size:32px;z-index:5}
-
-/* ---------- MAP ---------- */
-.map{background:#cfe4b5}
-.mapHeader{position:absolute;left:0;right:0;top:0;height:108px;z-index:30;background:linear-gradient(#63442f,#3e291f);color:#fff;border-bottom:3px solid #e7b64d;display:flex;align-items:center;padding:15px 18px;gap:14px}
-.back{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:34px}
-.season h1{font-size:24px;margin:0}.season p{margin:2px 0 0;color:#f1d8b6;font-size:12px}
-.resources{margin-left:auto;display:flex;gap:6px}.res{padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.12);font-weight:900;font-size:13px}
-.mapViewport{position:absolute;inset:108px 0 116px;overflow:hidden;background:#bcd9a8}
-.mapWorld{position:absolute;left:0;right:0;top:0;height:6020px;background:url("assets/map/season1-clean-long.jpg") center top/100% 6000px no-repeat}
-.mapRoad{position:absolute;left:0;right:0;top:0;height:6020px;pointer-events:none}
-.mapRoad:after{content:"";position:absolute;left:50%;top:0;width:120px;height:100%;transform:translateX(-50%);background:rgba(242,194,113,.18);filter:blur(18px)}
-.nodes{position:absolute;inset:0;z-index:5}
-.node{position:absolute;width:58px;height:58px;border-radius:50%;transform:translate(-50%,-50%);display:grid;place-items:center;color:#fff;font-size:19px;font-weight:950;background:linear-gradient(#77756e,#4e4b46);border:4px solid #eee2c4;box-shadow:0 6px 0 #49433b,0 8px 16px rgba(0,0,0,.22)}
-.node.active{width:76px;height:76px;font-size:25px;background:linear-gradient(#56c7ff,#158fe5);box-shadow:0 8px 0 #16639b,0 9px 20px rgba(0,0,0,.28)}
-.node.done{background:linear-gradient(#ffbd45,#e77e23)}
-.mapFooter{position:absolute;left:0;right:0;bottom:0;height:116px;z-index:30;background:#173c43;color:#fff;border-top:3px solid #e7b64d;display:flex;align-items:center;padding:16px 24px}
-.stageInfo h2{margin:0;font-size:22px}.stageInfo p{margin:5px 0 0;color:#c5d5d2;font-size:12px}
-.playBtn{width:190px;height:66px;margin-left:auto;font-size:25px}
-
-/* ---------- GAME ---------- */
-.game{background:#91d9ef}
-#gameCanvas{position:absolute;inset:0;width:100%;height:100%}
-.gameHUD{position:absolute;top:10px;left:12px;right:12px;z-index:20;display:flex;gap:7px;align-items:center}
-.pause{width:48px;height:48px;border-radius:50%;background:#214a5c;color:#fff;font-size:22px;font-weight:950}
-.pill{border:2px solid rgba(255,255,255,.42);background:#244d5f;color:#fff;border-radius:16px;padding:8px 12px;box-shadow:0 4px 10px rgba(0,0,0,.12)}
-.logoPill{flex:1;text-align:center;background:#5a3c2a;border-color:#e8bd63;color:#ffd56c;font-weight:950}.logoPill small{font-size:11px;color:#fff}
-.stat{min-width:72px;text-align:center}.stat b{display:block;font-size:10px}.stat span{font-size:19px;color:#ffdd55;font-weight:950}
-.heightBox{position:absolute;right:14px;top:75px;width:142px;padding:9px;border-radius:19px;background:rgba(250,253,254,.96);color:#254d5e;text-align:center;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.13)}.heightBox small{font-weight:900;font-size:10px}.heightBox strong{display:block;font-size:28px;line-height:31px}
-.gauge{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(315px,70vw);z-index:25;opacity:0;pointer-events:none;transition:opacity .16s}.gauge.show{opacity:1;pointer-events:auto}
-.arc{height:104px;border:13px solid #70432f;border-bottom:0;border-radius:180px 180px 0 0;background:conic-gradient(from 270deg,#2d8fe1 0 22%,#45c98e 22% 42%,#ffd44f 42% 58%,#ff9b2b 58% 79%,#e85260 79% 100%);position:relative}
-.arc:after{content:"";position:absolute;left:50%;bottom:-7px;width:18px;height:18px;border-radius:50%;background:#ffd33d;border:3px solid #70432f;transform:translateX(-50%)}
-.needle{position:absolute;left:50%;bottom:1px;width:4px;height:90px;background:#fff;border-radius:3px;transform-origin:50% 100%;box-shadow:0 0 4px #463}
-.gLabel{position:absolute;left:0;right:0;top:39px;text-align:center;color:#fff;font-weight:1000;font-size:17px;text-shadow:0 2px 3px #5b3627}
-.tap{display:block;width:190px;height:56px;margin:8px auto 0;border-radius:19px;background:linear-gradient(#ffd66d,#f39a2c);border:3px solid #ffe8a5;color:#fff;font-weight:1000;font-size:23px;box-shadow:0 6px 0 #93481f}
-</style>
-</head>
-<body>
-<div class="app">
-<section id="title" class="screen active title"><div class="titleArt"></div><div class="titleFade"></div><button class="startBtn" id="start">START</button></section>
-
-<section id="map" class="screen map">
-<header class="mapHeader"><button class="back" id="back">‹</button><div class="season"><h1>시즌 1</h1><p>봄의 한옥마을</p></div><div class="resources"><div class="res">♥ 5</div><div class="res">● 0</div><div class="res">◆ 0</div><div class="res">1/100</div></div></header>
-<div class="mapViewport" id="mapViewport"><div class="mapWorld"><div class="mapRoad"></div><div class="nodes" id="nodes"></div></div></div>
-<footer class="mapFooter"><div class="stageInfo"><h2>STAGE 1</h2><p>첫 번째 널뛰기 도전!</p></div><button class="playBtn" id="play">PLAY ▶</button></footer>
-</section>
-
-<section id="game" class="screen game">
-<canvas id="gameCanvas"></canvas>
-<div class="gameHUD"><button class="pause">Ⅱ</button><div class="pill logoPill">K-JUMPING<br><small>널뛰기팡</small></div><div class="pill stat"><b>STARS</b><span id="stars">0</span></div><div class="pill stat"><b>GEMS</b><span id="gems">0</span></div></div>
-<div class="heightBox"><small>HEIGHT</small><strong id="height">0 m</strong><small>BEST 0 m</small></div>
-<div class="gauge" id="gauge"><div class="arc"><div class="needle" id="needle"></div><div class="gLabel" id="grade">PERFECT</div></div><button class="tap" id="tap">TAP!</button></div>
-</section>
-</div>
-
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8ed7ec;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif}
+#game{position:fixed;inset:0;overflow:hidden}canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;top:10px;left:12px;right:12px;display:flex;gap:7px;align-items:center;z-index:5;pointer-events:none}
+.pause{width:48px;height:48px;border:0;border-radius:50%;background:#234b5c;color:white;font-weight:900;font-size:22px}
+.logo{height:48px;min-width:145px;padding:5px 15px;border-radius:16px;background:#5a3d2b;border:3px solid #e7bd62;color:#ffd66a;text-align:center;font-weight:1000;font-size:17px;box-shadow:0 4px 10px #0002}.logo small{display:block;color:#fff;font-size:9px}
+.stat{height:48px;min-width:72px;border-radius:16px;background:#244e60;border:2px solid #6b9bad;color:#fff;text-align:center;padding:5px 8px}.stat b{display:block;font-size:9px}.stat span{font-size:18px;color:#ffd84d;font-weight:1000}
+.height{position:absolute;right:14px;top:72px;width:145px;border-radius:18px;background:#f7fbfc;color:#285364;text-align:center;padding:8px 6px;box-shadow:0 7px 18px #0002}.height small{font-size:9px;font-weight:900}.height strong{display:block;font-size:27px;line-height:31px}
+.hint{position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);color:#fff;font-weight:1000;text-shadow:0 2px 4px #234;opacity:0;z-index:6}.hint.show{opacity:1}
+.gauge{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:min(290px,70vw);z-index:8;opacity:0;transition:.18s}.gauge.show{opacity:1}
+.arc{height:92px;border:11px solid #70432f;border-bottom:0;border-radius:170px 170px 0 0;background:conic-gradient(from 270deg,#3c9ce5 0 24%,#49c995 24% 43%,#ffd34e 43% 57%,#ff9e2c 57% 78%,#e95764 78% 100%);position:relative}
+.needle{position:absolute;left:50%;bottom:0;width:4px;height:77px;background:#fff;border-radius:4px;transform-origin:50% 100%;box-shadow:0 0 4px #332}
+.grade{position:absolute;left:0;right:0;top:31px;text-align:center;color:#fff;font-weight:1000;font-size:15px;text-shadow:0 2px 3px #513}
+.tap{display:block;width:178px;height:52px;margin:7px auto 0;border-radius:18px;border:3px solid #ffe7a0;background:linear-gradient(#ffd66c,#f29a2d);color:#fff;font-weight:1000;font-size:22px;box-shadow:0 5px 0 #92491f}
+</style></head><body><div id="game"><canvas id="c"></canvas>
+<div class="hud"><div class="pause">Ⅱ</div><div class="logo">K-JUMPING<small>널뛰기팡</small></div><div class="stat"><b>STARS</b><span id="stars">0</span></div><div class="stat"><b>GEMS</b><span id="gems">0</span></div></div>
+<div class="height"><small>HEIGHT</small><strong id="height">0 m</strong><small>BEST 0 m</small></div><div class="hint" id="hint">TAP으로 출발!</div>
+<div class="gauge" id="gauge"><div class="arc"><div class="needle" id="needle"></div><div class="grade" id="grade">PERFECT</div></div><button class="tap" id="tap">TAP!</button></div></div>
 <script>
-const $=s=>document.querySelector(s), screens=[...document.querySelectorAll('.screen')];
-function show(id){screens.forEach(s=>s.classList.toggle('active',s.id===id))}
-$('#start').onclick=()=>{show('map');setTimeout(()=>{$('#mapViewport').scrollTop=5360},40)}
-$('#back').onclick=()=>show('title'); $('#play').onclick=()=>startGame();
-
-const nodes=$('#nodes');
-for(let i=1;i<=100;i++){
- const t=(i-1)/99, y=45+t*5925;
- const x=50 + Math.sin(t*8.1)*17 + Math.sin(t*2.7)*7;
- const n=document.createElement('button');
- n.className='node'+(i===1?' active':'');
- n.textContent=i;n.style.left=x+'%';n.style.top=y+'px';
- if(i<1)n.classList.add('done');
- n.onclick=()=>{if(i===1)startGame()};
- nodes.appendChild(n);
-}
-
-/* GAME ENGINE */
-const c=$('#gameCanvas'),ctx=c.getContext('2d');let W,H,D=1;
-let G={phase:'ready',t:0,x:0,y:0,vy:0,cam:0,height:0,stars:0,gems:0,gauge:0,combo:0,trail:[]};
-function resize(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;ctx.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();
-
-function startGame(){show('game');G={phase:'ready',t:performance.now()/1000,x:W*.5,y:H*.70,vy:0,cam:0,height:0,stars:0,gems:0,gauge:0,combo:0,trail:[]};$('#stars').textContent=0;$('#gems').textContent=0;$('#height').textContent='0 m';$('#gauge').classList.add('show');requestAnimationFrame(loop)}
-
-function rounded(x,y,w,h,r,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
-function sky(){
- const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#83d7ef');g.addColorStop(.65,'#b8e7f1');g.addColorStop(1,'#739eb5');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- ctx.fillStyle='rgba(255,255,255,.58)';
- [[.12,.23,115,27],[.73,.30,175,37],[.43,.55,140,28]].forEach(a=>{ctx.beginPath();ctx.ellipse(W*a[0],H*a[1],a[2],a[3],0,0,Math.PI*2);ctx.fill()});
- // layered mountains
- for(let layer=0;layer<3;layer++){ctx.fillStyle=['rgba(74,131,145,.25)','rgba(65,119,132,.32)','rgba(49,103,119,.40)'][layer];ctx.beginPath();ctx.moveTo(0,H*.66+layer*35);for(let i=0;i<8;i++){ctx.lineTo(i*W/7,H*(.48+((i+layer)%2)*.12)+layer*25);ctx.lineTo((i+1)*W/7,H*.66+layer*35)}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill()}
-}
-function drawSeesaw(){
- const sy=H*.77+G.cam*.18;ctx.save();ctx.translate(W/2,sy);
- const ang=Math.max(-.18,Math.min(.18,-G.vy*.00007));ctx.rotate(ang);
- ctx.fillStyle='#6c3e26';ctx.beginPath();ctx.roundRect(-W*.36,-13,W*.72,26,12);ctx.fill();
- ctx.fillStyle='#a9622d';ctx.beginPath();ctx.roundRect(-W*.36,-8,W*.72,16,8);ctx.fill();
- ctx.fillStyle='#75462f';ctx.beginPath();ctx.moveTo(-34,13);ctx.lineTo(0,74);ctx.lineTo(34,13);ctx.closePath();ctx.fill();
- // partner
- ctx.fillStyle='#3b282a';ctx.beginPath();ctx.arc(-W*.22,-47,22,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#49a9d7';ctx.beginPath();ctx.roundRect(-W*.27,-25,55,46,14);ctx.fill();
- ctx.fillStyle='#f7f0df';ctx.beginPath();ctx.roundRect(-W*.255,-15,44,25,9);ctx.fill();
- ctx.restore()
-}
-function drawPlayer(){
- const x=G.x,y=G.y-G.cam*.72;ctx.save();ctx.translate(x,y);
- // shadow
- ctx.fillStyle='rgba(35,72,82,.16)';ctx.beginPath();ctx.ellipse(0,45,35,9,0,0,Math.PI*2);ctx.fill();
- // hair/head
- ctx.fillStyle='#34252a';ctx.beginPath();ctx.arc(0,-40,27,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#f5d2bd';ctx.beginPath();ctx.arc(0,-30,22,0,Math.PI*2);ctx.fill();
- // hanbok body
- ctx.fillStyle='#fff3df';ctx.beginPath();ctx.roundRect(-26,-8,52,54,14);ctx.fill();
- ctx.fillStyle='#d95772';ctx.beginPath();ctx.moveTo(-31,8);ctx.lineTo(0,20);ctx.lineTo(31,8);ctx.lineTo(26,22);ctx.lineTo(0,36);ctx.lineTo(-26,22);ctx.closePath();ctx.fill();
- ctx.fillStyle='#477fbc';ctx.fillRect(-7,6,14,39);
- // limbs
- ctx.strokeStyle='#f5d2bd';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-20,4);ctx.lineTo(-42,-18);ctx.moveTo(20,4);ctx.lineTo(43,-14);ctx.stroke();
- ctx.strokeStyle='#4c5b7d';ctx.lineWidth=11;ctx.beginPath();ctx.moveTo(-12,43);ctx.lineTo(-23,65);ctx.moveTo(12,43);ctx.lineTo(25,62);ctx.stroke();
- ctx.restore()
-}
-function drawTrail(){
- if(G.phase!=='flight')return;
- const sx=G.x+80, sy=G.y-G.cam*.72-85;
- for(let i=0;i<10;i++){const a=-2.45+i*.27,r=75+i*8,x=sx+Math.cos(a)*r,y=sy+Math.sin(a)*r;ctx.save();ctx.translate(x,y);ctx.rotate(.2*i);ctx.fillStyle=i%3===0?'#4dcfff':'#ffd43c';ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();for(let k=0;k<10;k++){const rr=k%2?7:18,aa=-Math.PI/2+k*Math.PI/5;ctx.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr)}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
-}
-function loop(ts){
- if(!$('#game').classList.contains('active'))return;
- const now=ts/1000,dt=Math.min(.033,Math.max(.001,now-G.t));G.t=now;
- sky();
- if(G.phase==='ready'){
-   G.gauge=.5+.5*Math.sin(now*2.35);
-   const deg=-72+G.gauge*144;$('#needle').style.transform=`rotate(${deg}deg)`;
- } else if(G.phase==='flight'){
-   G.vy+=1550*dt;G.y+=G.vy*dt;
-   const altitude=Math.max(0,H*.70-G.y);
-   G.cam=Math.max(0,Math.min(560,altitude*.55));
-   G.height=Math.round(G.cam*.52);
-   $('#height').textContent=G.height+' m';
-   if(G.y<125){G.y=125;G.vy=80}
-   if(G.y>=H*.70){G.y=H*.70;G.vy=0;G.phase='ready';G.cam=0;$('#gauge').classList.add('show')}
- }
- drawTrail();drawSeesaw();drawPlayer();
- requestAnimationFrame(loop)
-}
-$('#tap').onclick=()=>{
- if(G.phase!=='ready')return;
- const pos=G.gauge; const dist=Math.abs(pos-.5);
- if(dist<.08){G.combo++;G.stars+=5;G.gems+=1;$('#grade').textContent='PERFECT!'}
- else if(dist<.20){G.combo++;G.stars+=3;$('#grade').textContent='GOOD!'}
- else {G.combo=0;$('#grade').textContent='POWER'}
- $('#stars').textContent=G.stars;$('#gems').textContent=G.gems;
- G.phase='flight';G.vy=-1120;$('#gauge').classList.remove('show')
-};
-</script>
-</body>
-</html>
+const c=document.getElementById('c'),x=c.getContext('2d'),$=s=>document.querySelector(s);let W,H,D;
+function resize(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();
+const P={gravity:1650,launch:-1180,airMax:650,cameraStart:230,cameraLead:.48,cameraSmooth:7.5,gaugeSpeed:1.9};
+let g={phase:'ready',t:0,x:0,y:0,vy:0,vx:0,cam:0,gauge:.5,stars:0,gems:0};
+let stars=[];for(let i=0;i<18;i++){let a=i/17*Math.PI*1.35;stars.push({x:Math.sin(a)*150+(i%2?18:-10),y:-170-i*105,gem:i==5||i==13})}
+function reset(){g={phase:'ready',t:performance.now()/1000,x:0,y:0,vy:0,vx:0,cam:0,gauge:.5,stars:0,gems:0};stars.forEach(s=>s.got=false);$('#gauge').classList.add('show');$('#hint').classList.add('show')}reset();
+function lerp(a,b,t){return a+(b-a)*t}function sy(y){return H*.73+y-g.cam}
+function sky(){let q=x.createLinearGradient(0,0,0,H);q.addColorStop(0,'#86d8ee');q.addColorStop(.65,'#b8e8f1');q.addColorStop(1,'#6c9bb1');x.fillStyle=q;x.fillRect(0,0,W,H);x.fillStyle='rgba(255,255,255,.56)';[[.16,170,125,28],[.72,285,180,36],[.42,530,150,28]].forEach(a=>{x.beginPath();x.ellipse(W*a[0],a[1]+g.cam*.12,a[2],a[3],0,0,7);x.fill()});for(let l=0;l<3;l++){x.fillStyle=['rgba(71,135,151,.2)','rgba(61,119,136,.27)','rgba(48,103,120,.34)'][l];x.beginPath();x.moveTo(0,H*.67);for(let i=-1;i<8;i++){let xx=i*W/6;x.lineTo(xx,H*(.49+((i+l)&1)*.13)-g.cam*(.08+l*.04));x.lineTo(xx+W/12,H*.67)}x.lineTo(W,H);x.lineTo(0,H);x.fill()}}
+function seesaw(){let Y=sy(0);if(Y<-100||Y>H+120)return;x.save();x.translate(W/2,Y);x.rotate(Math.max(-.16,Math.min(.16,-g.vy*.000055)));x.fillStyle='#6b3e27';x.beginPath();x.roundRect(-W*.37,-15,W*.74,30,13);x.fill();x.fillStyle='#aa632f';x.beginPath();x.roundRect(-W*.37,-9,W*.74,18,9);x.fill();x.fillStyle='#75452d';x.beginPath();x.moveTo(-30,15);x.lineTo(0,82);x.lineTo(30,15);x.closePath();x.fill();x.fillStyle='#342529';x.beginPath();x.arc(-W*.235,-51,22,0,7);x.fill();x.fillStyle='#4ba9d6';x.beginPath();x.roundRect(-W*.275,-29,62,47,14);x.fill();x.restore()}
+function player(){let Y=sy(g.y),X=W/2+g.x;if(Y<-140||Y>H+140)return;x.save();x.translate(X,Y);x.rotate(Math.max(-.25,Math.min(.25,g.vx*.00025)));x.fillStyle='#38272b';x.beginPath();x.arc(0,-42,28,0,7);x.fill();x.fillStyle='#f3cdb9';x.beginPath();x.arc(0,-31,22,0,7);x.fill();x.fillStyle='#fff0dc';x.beginPath();x.roundRect(-27,-7,54,54,14);x.fill();x.fillStyle='#d75470';x.beginPath();x.moveTo(-32,8);x.lineTo(0,22);x.lineTo(32,8);x.lineTo(26,24);x.lineTo(0,38);x.lineTo(-26,24);x.closePath();x.fill();x.fillStyle='#477fbd';x.fillRect(-7,5,14,43);x.strokeStyle='#f3cdb9';x.lineWidth=9;x.lineCap='round';x.beginPath();x.moveTo(-20,5);x.lineTo(-43,g.phase==='flight'?-20:18);x.moveTo(20,5);x.lineTo(43,g.phase==='flight'?-18:18);x.stroke();x.strokeStyle='#4a5b80';x.lineWidth=11;x.beginPath();x.moveTo(-12,44);x.lineTo(-23,g.phase==='flight'?68:61);x.moveTo(12,44);x.lineTo(25,g.phase==='flight'?62:61);x.stroke();x.restore()}
+function collect(){for(let s of stars){let X=W/2+s.x,Y=sy(s.y);if(Y<-70||Y>H+70||s.got)continue;x.save();x.translate(X,Y);x.rotate(Math.PI/10);x.fillStyle=s.gem?'#65d8ff':'#ffd53e';x.strokeStyle='#fff';x.lineWidth=3;x.beginPath();for(let i=0;i<10;i++){let r=i%2?7:18,a=-Math.PI/2+i*Math.PI/5;x.lineTo(Math.cos(a)*r,Math.sin(a)*r)}x.closePath();x.fill();x.stroke();x.restore()}}
+function loop(t){let now=t/1000,dt=Math.min(.033,Math.max(.001,now-g.t));g.t=now;if(g.phase==='ready'){g.gauge=.5+.5*Math.sin(now*P.gaugeSpeed);$('#needle').style.transform='rotate('+(-72+g.gauge*144)+'deg)'}else{g.vy+=P.gravity*dt;g.y+=g.vy*dt;g.vx*=Math.pow(.18,dt);g.x+=g.vx*dt;g.x=Math.max(-W*.36,Math.min(W*.36,g.x));let alt=Math.max(0,-g.y),target=Math.max(0,alt-P.cameraStart)*P.cameraLead;g.cam=lerp(g.cam,target,1-Math.exp(-P.cameraSmooth*dt));$('#height').textContent=Math.round(alt*.55)+' m';for(let s of stars)if(!s.got&&Math.hypot(g.x-s.x,g.y-s.y)<54){s.got=true;s.gem?g.gems++:g.stars++;$('#stars').textContent=g.stars;$('#gems').textContent=g.gems}if(g.y>=0&&g.vy>0){g.y=0;g.vy=0;g.vx=0;g.cam=0;g.phase='ready';$('#gauge').classList.add('show');stars.forEach(s=>s.got=false)}}sky();collect();seesaw();player();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+function launch(){if(g.phase!=='ready')return;let d=Math.abs(g.gauge-.5);$('#grade').textContent=d<.07?'PERFECT!':d<.19?'GOOD!':'POWER';g.phase='flight';g.vy=P.launch;g.vx=(g.gauge-.5)*P.airMax*2.1;$('#gauge').classList.remove('show');$('#hint').classList.remove('show')}
+$('#tap').onclick=launch;c.onpointerdown=e=>{if(g.phase==='ready')launch()}
+</script></body></html>
