@@ -117,7 +117,7 @@ function startGame(){
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx+board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
-  items=[];rocks=[];floats=[];
+  items=[];rocks=[];floats=[];particles=[];shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.4);
   updateHud();
@@ -172,6 +172,34 @@ function updateHud(){
 }
 
 let squash=0;
+let particles=[];   // 먼지·반짝임 파티클
+let shake=0;         // 화면 흔들림 강도
+function spawnDust(x,y,n,power){
+  for(let i=0;i<n;i++){
+    const a=Math.PI+Math.random()*Math.PI;   // 위쪽 반원으로 퍼짐
+    const sp=(0.5+Math.random()*1.5)*power;
+    particles.push({x,y,vx:Math.cos(a)*sp*3,vy:Math.sin(a)*sp*3,life:1,type:'dust',size:3+Math.random()*4});
+  }
+}
+function spawnSparkle(x,y,color){
+  for(let i=0;i<6;i++){
+    const a=Math.random()*Math.PI*2;
+    particles.push({x,y,vx:Math.cos(a)*2,vy:Math.sin(a)*2-1,life:1,type:'sparkle',color,size:2+Math.random()*2});
+  }
+}
+function updateParticles(){
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life-=p.type==='dust'?0.035:0.045;});
+  particles=particles.filter(p=>p.life>0);
+  if(shake>0)shake*=0.85; if(shake<0.05)shake=0;
+}
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.globalAlpha=Math.max(0,p.life);
+    if(p.type==='dust'){ctx.fillStyle='#d8c9a8';ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,7);ctx.fill();}
+    else{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill();}
+  });
+  ctx.globalAlpha=1;
+}
 function updateGame(){
   if(current!=='game'||G.over)return;
   const halfW=board.w/2;
@@ -194,15 +222,20 @@ function updateGame(){
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
       player.onBoard=true;player.vy=0;player.x=landX;board.gaugePhase=0;
-      if(G.lastJudge){bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;}
+      if(G.lastJudge){
+        const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
+        spawnDust(landX,board.y,Math.round(6*power),power);
+        shake=Math.min(1,shake+0.5*power);
+        bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
+      }
     }
     if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
     if(player.y-G.cam>H+player.r*2)gameOver();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
     if(Math.hypot(s.wx-player.x,sy-player.y)<player.r+16){s.got=true;
-      if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');}
-      else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');}
+      if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');spawnSparkle(s.wx,sy,'#ffd166');}
+      else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');spawnSparkle(s.wx,sy,'#e56bff');}
       updateHud();}}
   for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
     if(!player.onBoard&&Math.hypot(r.wx-player.x,ry-player.y)<player.r+r.r*0.7){r.hit=true;
@@ -210,6 +243,7 @@ function updateGame(){
   const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
+  updateParticles();
 }
 function bigJudge(t,c){
   const j=$('judge');j.textContent=t;j.style.color=c;
@@ -279,6 +313,11 @@ function drawPartner(px,py,r){
 }
 
 function drawGame(){
+  ctx.save();
+  if(shake>0.02){
+    const sx=(Math.random()-0.5)*shake*W*0.03, sy=(Math.random()-0.5)*shake*W*0.03;
+    ctx.translate(sx,sy);
+  }
   drawBG();
   ctx.fillStyle='rgba(255,183,197,.85)';petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);}
@@ -317,6 +356,8 @@ function drawGame(){
     ctx.fillStyle='#ffb733';ctx.beginPath();ctx.arc(bx,by,7,0,7);ctx.fill();
     ctx.restore();
   }
+  drawParticles();
+  ctx.restore();   // shake translate 닫기
 }
 function loop(){
   if(current==='game'){updateGame();drawGame();}
