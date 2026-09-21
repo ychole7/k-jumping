@@ -216,7 +216,7 @@ function startStage(s,endless){
   if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
-  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,partnerBounce:0,partnerV:0};
+  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,tilt:0,partnerBounce:0,partnerV:0};
   player={x:W*0.5+W*0.78*0.42,y:H*0.72-W*0.12-2,vy:0,r:W*0.12,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
@@ -283,18 +283,22 @@ function addCombo(){G.combo++;G.comboT=90;if(G.combo>=7&&!G.fever){G.fever=true;
 let squash=0;
 function updateGame(){
   if(current!=='game'||G.over)return;
-  // 파트너 반동(시소 티키타카): 착지 충격으로 튀어올랐다가 중력으로 복귀
-  board.partnerV+=H*0.0016;board.partnerBounce+=board.partnerV;
-  if(board.partnerBounce>0){board.partnerBounce=0;board.partnerV=0;}
+  const halfW=board.w/2;
   if(player.onBoard){
     board.springV+=(H*0.11-board.springY)*0.05;board.springV*=0.86;board.springY+=board.springV;
-    const tilt=Math.min(0.45,board.springY/(H*0.09)*0.45), halfW=board.w/2;
+    board.tilt=Math.min(0.45,board.springY/(H*0.09)*0.45);
     // 오른쪽 끝(플레이어 쪽)이 눌려 내려감: y = +sin
-    player.x=board.cx+Math.cos(tilt)*halfW*0.8;
-    player.y=board.y+Math.sin(tilt)*halfW*0.8-player.r*0.5;
+    player.x=board.cx+Math.cos(board.tilt)*halfW*0.8;
+    player.y=board.y+Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
   }else{
-    player.vy+=H*0.00072;player.y+=player.vy;player.rot+=0.08;squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
+    // 플레이어가 공중에 있는 동안: 판은 파트너 쪽 반동으로 결정됨
+    board.partnerV+=H*0.0016;board.partnerBounce+=board.partnerV;
+    if(board.partnerBounce>0){board.partnerBounce=0;board.partnerV=0;}
+    // partnerBounce(0 이하, 위로 튄 만큼 음수)를 반대쪽 기울기로 변환: 파트너가 높이 튈수록 -tilt(왼쪽이 내려감)
+    const partnerTilt=Math.max(-0.45,board.partnerBounce/(H*0.09)*0.45);
+    board.tilt+=(partnerTilt-board.tilt)*0.25;   // 부드럽게 수렴(급격한 순간이동 방지)
+    player.vy+=H*0.00072;player.y+=player.vy;squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.14;
     const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();
       if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
@@ -423,7 +427,7 @@ function drawGame(){
   for(const r of rocks){const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
   // 시소: 받침점(board.cx) 기준으로 기울어지는 뻣뻣한 판
   const pivotX=board.cx, pivotY=board.y;
-  const tilt=Math.min(0.45,board.springY/(H*0.09)*0.45);   // update와 동일 계수
+  const tilt=board.tilt||0;   // update에서 계산된 통합 각도(플레이어 무게 + 파트너 반동)
   const halfW=board.w/2;
   ctx.save();
   // 받침돌
@@ -435,9 +439,8 @@ function drawGame(){
   ctx.fillStyle='#8a5a2b';ctx.fillRect(-halfW,H*0.006,board.w,H*0.006);
   ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
   ctx.restore();
-  board.tilt=tilt;
-  // 파트너: 왼쪽 끝(오른쪽이 내려가면 왼쪽은 올라감 = y 작아짐)
-  const partX=pivotX-Math.cos(tilt)*halfW*0.8, partY=pivotY-Math.sin(tilt)*halfW*0.8+board.partnerBounce;
+  // 파트너: 왼쪽 끝, 판과 같은 각도로 얹힘(오른쪽이 내려가면 왼쪽은 자연히 올라감)
+  const partX=pivotX-Math.cos(tilt)*halfW*0.8, partY=pivotY-Math.sin(tilt)*halfW*0.8;
   drawPartner(partX,partY-W*0.11,W*0.11);
   drawPlayer(player.x,player.y,player.r,player.onBoard,player.rot,G.fever);
   if(G.magnet>0){ctx.save();ctx.globalAlpha=0.35;ctx.strokeStyle='#39b7ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(player.x,player.y,player.r*4,0,7);ctx.stroke();ctx.restore();}
