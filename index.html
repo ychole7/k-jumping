@@ -215,8 +215,8 @@ function startStage(s,endless){
   show('game');
   if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
-     hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
-  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,tilt:0,partnerBounce:0,partnerV:0};
+     hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0,perfectStreak:0};
+  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,tilt:0,partnerBounce:0,partnerV:0,gaugePhase:0};
   player={x:W*0.5+W*0.78*0.42,y:H*0.72-W*0.12-2,vy:0,r:W*0.12,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
@@ -250,11 +250,15 @@ function updateHud(){
 }
 function tapGame(){
   if(current!=='game'||G.over||!player.onBoard)return;
-  const q=Math.max(0,Math.min(1,board.springY/(H*0.09)));
+  const q=Math.max(0,Math.min(1,board.springY/(H*0.11)));
   let power,label,col;
-  if(q>0.8){power=1.0;label='PERFECT!';col='#ff4d6d';}
-  else if(q>0.5){power=0.8;label='GOOD';col='#ffb703';}
-  else{power=0.55;label='...';col='#8ecae6';}
+  if(q>0.8){
+    power=1.0;G.perfectStreak++;
+    const mult=1+Math.min(G.perfectStreak-1,4)*0.15;   // 연속 PERFECT마다 15%씩, 최대 +60%
+    power*=mult;
+    label=G.perfectStreak>1?('PERFECT x'+G.perfectStreak+'!'):'PERFECT!';col='#ff4d6d';
+  }else if(q>0.55){power=0.8;label='GOOD';col='#ffb703';G.perfectStreak=0;}
+  else{power=0.5;label='...';col='#8ecae6';G.perfectStreak=0;}
   player.onBoard=false;player.vy=-(H*0.024)*(0.78+power*0.5);board.springV+=H*0.03;
   G.lastJudge={label,col};
 }
@@ -285,8 +289,10 @@ function updateGame(){
   if(current!=='game'||G.over)return;
   const halfW=board.w/2;
   if(player.onBoard){
-    board.springV+=(H*0.11-board.springY)*0.05;board.springV*=0.86;board.springY+=board.springV;
-    board.tilt=Math.min(0.45,board.springY/(H*0.09)*0.45);
+    board.gaugePhase+=0.045;   // 진동 속도: 이 값이 빠를수록 타이밍이 촉박해짐
+    const wave=(Math.sin(board.gaugePhase-Math.PI/2)+1)/2;   // 0(안눌림)~1(최대눌림) 왕복
+    board.springY=wave*H*0.11;
+    board.tilt=wave*0.45;
     // 오른쪽 끝(플레이어 쪽)이 눌려 내려감: y = +sin
     player.x=board.cx+Math.cos(board.tilt)*halfW*0.8;
     player.y=board.y+Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
@@ -303,12 +309,14 @@ function updateGame(){
     const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();
       if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
     const bw=G.cam+board.y;
-    if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-board.cx)<board.w*0.5+player.r*0.6){
+    const landX=board.cx+Math.cos(board.tilt)*halfW*0.8;   // 플레이어 착지 지점(오른쪽 끝)
+    if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.9){
       const impact=Math.min(1,player.vy/(H*0.03));
-      player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;board.springV=H*0.06;
+      player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;board.springV=H*0.06;board.gaugePhase=0;
       board.partnerV=-H*0.03*(0.6+impact*0.6);   // 세게 착지할수록 파트너가 더 높이 튐
       if(G.lastJudge){bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;}
     }
+    if(player.vy>0&&player.y+player.r>bw+player.r*1.5)loseHeart('miss');
     if(player.y-G.cam>H+player.r*2)loseHeart('fall');
   }
   if(G.comboT>0){G.comboT--;if(G.comboT===0){G.combo=0;}}
@@ -335,7 +343,8 @@ function loseHeart(){
   G.hearts--;updateHud();
   if(G.hearts<=0){endStage(false);return;}
   // 리스폰: 널판지 위로
-  player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;player.y=board.y-player.r-2;board.springY=0;board.springV=0;
+  player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;player.y=board.y-player.r-2;board.springY=0;board.springV=0;board.gaugePhase=0;
+  G.perfectStreak=0;
   showJudge('-1 ❤️','#ff5a5a');
 }
 function endStage(win){
@@ -406,7 +415,7 @@ function drawPlayer(px,py,r,onBoard,rot,fever){
 }
 function drawGauge(){
   if(!player||!player.onBoard)return;   // 점프 중엔 완전히 숨김
-  const q=Math.max(0,Math.min(1,board.springY/(H*0.09)));
+  const q=Math.max(0,Math.min(1,board.springY/(H*0.11)));
   const bx=W*0.5,by=H*0.955,rr=W*0.13;
   ctx.save();ctx.lineWidth=W*0.05;ctx.lineCap='round';
   ctx.strokeStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.arc(bx,by,rr,Math.PI,0);ctx.stroke();
