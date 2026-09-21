@@ -216,7 +216,7 @@ function startStage(s,endless){
   if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
-  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78};
+  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,partnerBounce:0,partnerV:0};
   player={x:W*0.5+W*0.78*0.42,y:H*0.72-W*0.12-2,vy:0,r:W*0.12,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
@@ -283,6 +283,9 @@ function addCombo(){G.combo++;G.comboT=90;if(G.combo>=7&&!G.fever){G.fever=true;
 let squash=0;
 function updateGame(){
   if(current!=='game'||G.over)return;
+  // 파트너 반동(시소 티키타카): 착지 충격으로 튀어올랐다가 중력으로 복귀
+  board.partnerV+=H*0.0016;board.partnerBounce+=board.partnerV;
+  if(board.partnerBounce>0){board.partnerBounce=0;board.partnerV=0;}
   if(player.onBoard){
     board.springV+=(H*0.11-board.springY)*0.05;board.springV*=0.86;board.springY+=board.springV;
     const tilt=Math.min(0.45,board.springY/(H*0.09)*0.45), halfW=board.w/2;
@@ -297,7 +300,9 @@ function updateGame(){
       if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
     const bw=G.cam+board.y;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-board.cx)<board.w*0.5+player.r*0.6){
+      const impact=Math.min(1,player.vy/(H*0.03));
       player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;board.springV=H*0.06;
+      board.partnerV=-H*0.03*(0.6+impact*0.6);   // 세게 착지할수록 파트너가 더 높이 튐
       if(G.lastJudge){bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;}
     }
     if(player.y-G.cam>H+player.r*2)loseHeart('fall');
@@ -378,7 +383,7 @@ function drawPlayer(px,py,r,onBoard,rot,fever){
   const st_=playerState(onBoard);
   const url=ASSETS.player[st_]||ASSETS.player.idle;
   const im=url?getImg(url):null;
-  ctx.save();ctx.translate(px,py);if(!onBoard)ctx.rotate(rot*0.15);ctx.scale(st,sq);
+  ctx.save();ctx.translate(px,py);ctx.scale(st,sq);
   if(im&&im.complete&&im.naturalWidth){
     const d=r*2.1;ctx.drawImage(im,-d/2,-d*0.82,d,d);   // 발이 판에 닿게 아래로 정렬
   }else{
@@ -432,7 +437,7 @@ function drawGame(){
   ctx.restore();
   board.tilt=tilt;
   // 파트너: 왼쪽 끝(오른쪽이 내려가면 왼쪽은 올라감 = y 작아짐)
-  const partX=pivotX-Math.cos(tilt)*halfW*0.8, partY=pivotY-Math.sin(tilt)*halfW*0.8;
+  const partX=pivotX-Math.cos(tilt)*halfW*0.8, partY=pivotY-Math.sin(tilt)*halfW*0.8+board.partnerBounce;
   drawPartner(partX,partY-W*0.11,W*0.11);
   drawPlayer(player.x,player.y,player.r,player.onBoard,player.rot,G.fever);
   if(G.magnet>0){ctx.save();ctx.globalAlpha=0.35;ctx.strokeStyle='#39b7ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(player.x,player.y,player.r*4,0,7);ctx.stroke();ctx.restore();}
