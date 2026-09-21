@@ -109,6 +109,7 @@
       </div>
     </div>
     <div id="depth">0 m</div>
+    <div id="landingCount" style="position:absolute;top:22%;left:0;width:100%;text-align:center;color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 0 rgba(0,0,0,.3);"></div>
     <div id="judge"></div>
     <div id="gaugeArc"></div>
   </div>
@@ -186,7 +187,7 @@ const SAVE='kjump_v1';
 let prog=JSON.parse(localStorage.getItem(SAVE)||'null')||{cleared:0,bestM:0,gems:0,stageStars:{}};
 function saveProg(){localStorage.setItem(SAVE,JSON.stringify(prog));}
 const TOTAL_STAGES=8;
-const stageGoal=s=>100+s*60;   // 스테이지별 목표 높이(m) — 1단계 160m (한 번의 큰 점프로는 부족, 몇 번은 뛰어야 함)
+const stageGoal=s=>50+s*25;   // 스테이지별 목표 높이(m) — 1단계 75m
 
 /* ============ STAGE MAP build ============ */
 function buildMap(){
@@ -215,7 +216,8 @@ function startStage(s,endless){
   show('game');
   if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
-     hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0,perfectStreak:0};
+     hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0,
+     perfectStreak:0,goodLandings:0,goalLandings:endless?Infinity:Math.max(3,Math.round(s*1.5))};
   board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78,tilt:0,partnerBounce:0,partnerV:0,gaugePhase:0,landX:0,landR:0};
   player={x:W*0.5+W*0.78*0.42,y:H*0.72-W*0.12-2,vy:0,r:W*0.12,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
@@ -247,6 +249,7 @@ function updateHud(){
   $('gStar').textContent=G.star;$('gGem').textContent=G.gem;
   $('hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
   $('depth').textContent=G.curM+' m';
+  $('landingCount').textContent=G.endless?'':('🎯 정확착지 '+G.goodLandings+'/'+G.goalLandings);
 }
 function tapGame(){
   if(current!=='game'||G.over||!player.onBoard)return;
@@ -259,7 +262,11 @@ function tapGame(){
     label=G.perfectStreak>1?('PERFECT x'+G.perfectStreak+'!'):'PERFECT!';col='#ff4d6d';
   }else if(q>0.55){power=0.8;label='GOOD';col='#ffb703';G.perfectStreak=0;}
   else{power=0.5;label='...';col='#8ecae6';G.perfectStreak=0;}
-  player.onBoard=false;player.vy=-(H*0.039)*(0.78+power*0.5);board.springV+=H*0.03;
+  // 반동 보너스: 파트너가 아직 튀어있는 상태(reboundEnergy)에서 발사하면 그 힘을 받아 더 세게 튕겨나감
+  const reboundBonus=1+(board.reboundEnergy||0)*0.4;   // 최대 +40%
+  power*=reboundBonus;
+  if(reboundBonus>1.15)label+=' 🔥반동!';
+  player.onBoard=false;player.vy=-(H*0.028)*(0.78+power*0.5);board.springV+=H*0.03;
   G.lastJudge={label,col};
 }
 let tsx=null;
@@ -297,6 +304,10 @@ function updateGame(){
     player.x=board.cx+Math.cos(board.tilt)*halfW*0.8;
     player.y=board.y+Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
+    // 파트너 반동 잔향: 착지 직후 튀어오른 파트너가 서서히 가라앉으며, 그 에너지가 판을 통해 되돌아옴(반동 보너스로 저장)
+    board.partnerV+=H*0.0016;board.partnerBounce+=board.partnerV;
+    if(board.partnerBounce>0){board.partnerBounce=0;board.partnerV=0;}
+    board.reboundEnergy=Math.abs(board.partnerBounce)/(H*0.09);   // 0~1: 파트너가 지금 얼마나 튀어있는지
   }else{
     // 플레이어가 공중에 있는 동안: 판은 파트너 쪽 반동으로 결정됨
     board.partnerV+=H*0.0016;board.partnerBounce+=board.partnerV;
@@ -306,8 +317,7 @@ function updateGame(){
     board.tilt+=(partnerTilt-board.tilt)*0.25;   // 부드럽게 수렴(급격한 순간이동 방지)
     player.vy+=H*0.00072;player.y+=player.vy;squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.22;
-    const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();
-      if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
+    const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();}
     const bw=G.cam+board.y;
     const landX=board.cx+Math.cos(board.tilt)*halfW*0.8;   // 플레이어 착지 지점(오른쪽 끝)
     board.landX=landX;board.landR=player.r*0.9;
@@ -315,7 +325,14 @@ function updateGame(){
       const impact=Math.min(1,player.vy/(H*0.03));
       player.onBoard=true;player.vy=0;player.x=board.cx+board.w*0.42;board.springV=H*0.06;board.gaugePhase=0;
       board.partnerV=-H*0.03*(0.6+impact*0.6);   // 세게 착지할수록 파트너가 더 높이 튐
-      if(G.lastJudge){bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;}
+      if(G.lastJudge){
+        if(G.lastJudge.label.includes('PERFECT')||G.lastJudge.label==='GOOD')G.goodLandings++;
+        updateHud();
+        bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
+      }
+      if(!G.cleared&&G.curM>=G.goalM&&G.goodLandings>=G.goalLandings){
+        G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);
+      }
     }
     if(player.vy>0&&player.y+player.r>bw+player.r*1.5)loseHeart('miss');
     if(player.y-G.cam>H+player.r*2)loseHeart('fall');
