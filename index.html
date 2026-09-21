@@ -105,7 +105,8 @@ function show(name){scenes.forEach(s=>$(s).classList.toggle('on',s===name));curr
 
 let best=+(localStorage.getItem('kjump_best_m')||0);
 
-const PPM=()=>H*0.05;
+const PPM=()=>H*0.085;
+  const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:6.5,landingTolerance:()=>H*.13};
 let G={};
 let board,player,items,rocks,floats,petals;
 
@@ -371,7 +372,7 @@ $('startBtn').onclick=()=>{
 };
 $('retryBtn').onclick=startGame;
 
-resize();$('bestNum').textContent=best;show('title');loop();
+resize();$('bestNum').textContent=best;show('title');requestAnimationFrame(loop);
 </script>
 </body>
 </html>
