@@ -167,8 +167,8 @@ function resize(){
   // 게임 진행 중이면 좌표를 새 크기에 비례 재배치
   if(current==='game'&&board&&player&&oldW&&oldH){
     const sx=W/oldW, sy=H/oldH;
-    board.cx*=sx;board.y=H*0.72;board.w=W*0.44;board.springY*=sy;
-    player.x*=sx;player.r=W*0.05;
+    board.cx*=sx;board.y=H*0.72;board.w=W*0.78;board.springY*=sy;
+    player.x*=sx;player.r=W*0.12;
     if(player.onBoard)player.y=board.y-board.springY-player.r-2;else player.y*=sy;
     G.cam*=sy;
     items.forEach(i=>{i.wx*=sx;i.wy*=sy;});
@@ -215,8 +215,8 @@ function startStage(s,endless){
   if(!W||!H)resize();
   G={stage:s,endless:!!endless,goalM:endless?Infinity:stageGoal(s),cam:0,curM:0,star:0,gem:0,
      hearts:3,combo:0,comboT:0,fever:false,feverT:0,over:false,cleared:false,magnet:0,boost:0};
-  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.44};
-  player={x:W*0.5+W*0.44*0.42,y:H*0.72-W*0.05-2,vy:0,r:W*0.05,rot:0,onBoard:true};
+  board={cx:W*0.5,y:H*0.72,springY:0,springV:0,w:W*0.78};
+  player={x:W*0.5+W*0.78*0.42,y:H*0.72-W*0.12-2,vy:0,r:W*0.12,rot:0,onBoard:true};
   items=[];rocks=[];floats=[];powerups=[];
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.6);
@@ -239,7 +239,7 @@ function spawnAhead(fromY){
       items.push({wx:Math.max(30,Math.min(W-30,ox)),wy:y+oy,type,got:false});
     }
     if(Math.random()<0.25)powerups.push({wx:baseX+spanX*0.5,wy:y-H*0.05,kind:Math.random()<0.5?'magnet':'boost',got:false});
-    if(Math.random()<0.4)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.14,vx:(Math.random()*.6+.4)*(Math.random()<.5?1:-1),r:W*0.05+Math.random()*W*0.02});
+    if(Math.random()<0.4)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.14,vx:(Math.random()*.6+.4)*(Math.random()<.5?1:-1),r:W*0.07+Math.random()*W*0.02});
   }
 }
 function updateHud(){
@@ -410,7 +410,7 @@ function drawGame(){
   if(ASSETS.bg.game){const im=getImg(ASSETS.bg.game);if(im&&im.complete)ctx.drawImage(im,0,0,W,H);else drawBGsky();}else drawBGsky();
   ctx.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<6;i++){const cy=((i*H*0.6-G.cam*0.4)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
   ctx.fillStyle='rgba(255,183,197,.9)';petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,p.y*0.05,0,7);ctx.fill();});
-  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,15,'#ffd23f');else drawGem(s.wx,sy,13);}
+  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);}
   for(const p of powerups){if(p.got)continue;const py=p.wy-G.cam;if(py<-40||py>H+40)continue;ctx.font='26px sans-serif';ctx.textAlign='center';ctx.fillText(p.kind==='magnet'?'🧲':'🚀',p.wx,py+9);}
   for(const r of rocks){const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
   // 시소: 받침점(board.cx) 기준으로 기울어지는 뻣뻣한 판
@@ -430,7 +430,7 @@ function drawGame(){
   board.tilt=tilt;
   // 파트너: 왼쪽 끝(오른쪽이 내려가면 왼쪽은 올라감 = y 작아짐)
   const partX=pivotX-Math.cos(tilt)*halfW*0.8, partY=pivotY-Math.sin(tilt)*halfW*0.8;
-  drawPartner(partX,partY-W*0.04,W*0.04);
+  drawPartner(partX,partY-W*0.09,W*0.09);
   drawPlayer(player.x,player.y,player.r,player.onBoard,player.rot,G.fever);
   if(G.magnet>0){ctx.save();ctx.globalAlpha=0.35;ctx.strokeStyle='#39b7ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(player.x,player.y,player.r*4,0,7);ctx.stroke();ctx.restore();}
   if(!player.onBoard&&player.vy<-H*0.012){ctx.save();ctx.globalAlpha=0.5;ctx.fillStyle='#bfe6ff';for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(player.x,player.y+player.r*i*0.9,player.r*(0.6-i*0.12),0,7);ctx.fill();}ctx.restore();}
