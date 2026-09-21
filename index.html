@@ -186,7 +186,7 @@ const SAVE='kjump_v1';
 let prog=JSON.parse(localStorage.getItem(SAVE)||'null')||{cleared:0,bestM:0,gems:0,stageStars:{}};
 function saveProg(){localStorage.setItem(SAVE,JSON.stringify(prog));}
 const TOTAL_STAGES=8;
-const stageGoal=s=>40+s*15;   // 스테이지별 목표 높이(m) — 1단계 55m
+const stageGoal=s=>100+s*60;   // 스테이지별 목표 높이(m) — 1단계 160m (한 번의 큰 점프로는 부족, 몇 번은 뛰어야 함)
 
 /* ============ STAGE MAP build ============ */
 function buildMap(){
@@ -226,8 +226,8 @@ function startStage(s,endless){
 let board,player,items,rocks,floats,petals,powerups;
 function spawnAhead(fromY){
   let y=fromY;
-  for(let seg=0;seg<10;seg++){
-    y-=H*0.24+Math.random()*H*0.16;
+  for(let seg=0;seg<20;seg++){
+    y-=H*0.10+Math.random()*H*0.08;
     const n=5+Math.floor(Math.random()*4);
     const shape=Math.floor(Math.random()*3);
     const baseX=W*(0.2+Math.random()*0.6), spanX=W*0.5*(Math.random()<.5?1:-1);
@@ -240,7 +240,7 @@ function spawnAhead(fromY){
       items.push({wx:Math.max(30,Math.min(W-30,ox)),wy:y+oy,type,got:false});
     }
     if(Math.random()<0.25)powerups.push({wx:baseX+spanX*0.5,wy:y-H*0.05,kind:Math.random()<0.5?'magnet':'boost',got:false});
-    if(Math.random()<0.28)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.14,vx:(Math.random()*.6+.4)*(Math.random()<.5?1:-1),r:W*0.07+Math.random()*W*0.02});
+    if(Math.random()<0.28)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.06,vx:(Math.random()*.6+.4)*(Math.random()<.5?1:-1),r:W*0.07+Math.random()*W*0.02});
   }
 }
 function updateHud(){
@@ -259,7 +259,7 @@ function tapGame(){
     label=G.perfectStreak>1?('PERFECT x'+G.perfectStreak+'!'):'PERFECT!';col='#ff4d6d';
   }else if(q>0.55){power=0.8;label='GOOD';col='#ffb703';G.perfectStreak=0;}
   else{power=0.5;label='...';col='#8ecae6';G.perfectStreak=0;}
-  player.onBoard=false;player.vy=-(H*0.024)*(0.78+power*0.5);board.springV+=H*0.03;
+  player.onBoard=false;player.vy=-(H*0.039)*(0.78+power*0.5);board.springV+=H*0.03;
   G.lastJudge={label,col};
 }
 let tsx=null;
@@ -305,7 +305,7 @@ function updateGame(){
     const partnerTilt=Math.max(-0.45,board.partnerBounce/(H*0.09)*0.45);
     board.tilt+=(partnerTilt-board.tilt)*0.25;   // 부드럽게 수렴(급격한 순간이동 방지)
     player.vy+=H*0.00072;player.y+=player.vy;squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.14;
+    const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.22;
     const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();
       if(G.curM>=G.goalM&&!G.cleared){G.cleared=true;bigJudge('CLEAR!','#7CFC5A');setTimeout(()=>endStage(true),900);}}
     const bw=G.cam+board.y;
@@ -331,7 +331,7 @@ function updateGame(){
       addCombo();updateHud();}}
   for(const p of powerups){if(p.got)continue;const py=p.wy-G.cam;if(py<-60||py>H+60)continue;
     if(Math.hypot(p.wx-player.x,py-player.y)<player.r+18){p.got=true;
-      if(p.kind==='magnet'){G.magnet=360;showJudge('🧲 자석!','#39b7ff');}
+      if(p.kind==='magnet'){G.magnet=480;showJudge('🧲 자석!','#39b7ff');}
       else{G.boost=1;player.vy-=H*0.018;showJudge('🚀 부스트!','#ff8a3c');}}}
   if(G.magnet>0)G.magnet--;
   for(const r of rocks){r.wx+=r.vx*(H*0.004);const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
