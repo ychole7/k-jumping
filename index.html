@@ -44,6 +44,31 @@
   #resM{font-size:44px;font-weight:900;color:#c0392b;}
   #resCard .line{display:flex;justify-content:space-between;font-weight:800;font-size:16px;padding:6px 4px;border-bottom:1px dashed #b99a63;}
   .hide{display:none!important;}
+
+  /* K-JUMPING final gameplay UI */
+  #regionBadge{position:absolute;top:calc(env(safe-area-inset-top,0px)+82px);left:14px;z-index:10;
+    min-width:145px;padding:8px 12px 9px;border:3px solid #5a3813;border-radius:13px;
+    background:linear-gradient(#f1dfb5,#d5b77d);color:#5a3d1a;text-align:center;
+    box-shadow:0 4px 7px rgba(0,0,0,.25);text-shadow:none;pointer-events:none;}
+  #regionBadge b{display:block;font-size:19px;line-height:1.05;}
+  #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
+  #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:25px;line-height:1;}
+  #progressStrip{position:absolute;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom,0px)+10px);height:58px;z-index:10;
+    background:rgba(17,38,68,.9);border:3px solid rgba(255,255,255,.35);border-radius:18px;
+    box-shadow:0 6px 14px rgba(0,0,0,.25);pointer-events:none;padding:8px 12px;}
+  #progressLine{position:absolute;left:35px;right:35px;top:20px;height:5px;background:rgba(255,255,255,.4);border-radius:8px;}
+  #progressFill{height:100%;width:0%;background:#ffe06a;border-radius:8px;box-shadow:0 0 7px rgba(255,224,106,.8);}
+  .mile{position:absolute;top:10px;transform:translateX(-50%);text-align:center;color:#fff;font-size:9px;font-weight:900;text-shadow:0 2px 2px #000;}
+  .mile i{display:block;width:16px;height:16px;margin:0 auto 2px;border-radius:50%;background:#fff;border:3px solid #f5d56a;box-shadow:0 0 4px #000;}
+  .mile.active i{background:#ffe06a;box-shadow:0 0 10px #ffe06a;}
+  .mile em{font-style:normal;white-space:nowrap;}
+  #progressStrip .m0{left:5%;}.m1{left:28%;}.m2{left:50%;}.m3{left:72%;}.m4{left:95%;}
+  #pauseOverlay{position:absolute;inset:0;background:rgba(7,20,40,.62);z-index:30;display:none;align-items:center;justify-content:center;}
+  #pauseOverlay.on{display:flex;}
+  #pauseCard{width:min(80%,310px);padding:24px;text-align:center;background:linear-gradient(#f3e3c0,#e6cf9c);
+    border:5px solid #a6702f;border-radius:24px;color:#5a3d1a;box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  #pauseCard h2{font-size:28px;margin-bottom:16px;}
+  #pauseCard .btn{margin:5px;font-size:18px;padding:12px 26px;}
 </style>
 </head>
 <body>
@@ -51,7 +76,7 @@
   <canvas id="c"></canvas>
 
   <div class="scene on" id="title">
-    <div id="logo">K-JUMPING<small>널뛰기팡</small></div>
+    <div id="logo">K-JUMPING<small>널뛰기팡</small></div><div style="color:#fff;font-weight:900;font-size:19px;text-shadow:0 2px 3px rgba(0,0,0,.45);margin-bottom:-8px;">하늘 끝까지, 더 높이!</div>
     <div id="best-title">최고 기록: <span id="bestNum">0</span>m</div>
     <button class="btn" id="startBtn">시작하기</button>
   </div>
@@ -62,10 +87,21 @@
       <div id="hStat">
         <div class="wood">⭐ <span id="gStar">0</span></div>
         <div class="wood">💎 <span id="gGem">0</span></div>
+        <button class="wood" id="pauseBtn" aria-label="일시정지">Ⅱ</button>
       </div>
     </div>
+    <div id="regionBadge"><b id="regionName">하늘마을</b><span id="regionSub">현재 구간 · 0m</span></div>
     <div id="depth">0 m</div>
     <div id="judge"></div>
+    <div id="progressStrip">
+      <div id="progressLine"><div id="progressFill"></div></div>
+      <div class="mile m0 active"><i></i><em>0m</em></div>
+      <div class="mile m1"><i></i><em>100m</em></div>
+      <div class="mile m2"><i></i><em>250m</em></div>
+      <div class="mile m3"><i></i><em>500m</em></div>
+      <div class="mile m4"><i></i><em>1000m</em></div>
+    </div>
+    <div id="pauseOverlay"><div id="pauseCard"><h2>잠시 쉬어가기</h2><button class="btn" id="resumeBtn">계속하기</button><button class="btn" id="pauseRetryBtn">다시 시작</button></div></div>
   </div>
 
   <div class="scene" id="result">
@@ -108,12 +144,29 @@ let best=+(localStorage.getItem('kjump_best_m')||0);
 const PPM=()=>H*0.085;
   const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:6.5,landingTolerance:()=>H*.13};
 let G={};
+const REGIONS=[
+  {max:100,name:'하늘마을',sub:'따뜻한 봄 하늘'},
+  {max:250,name:'구름마을',sub:'구름 위로 더 높이'},
+  {max:400,name:'노을하늘',sub:'붉게 물드는 하늘'},
+  {max:600,name:'달빛하늘',sub:'달빛이 비추는 밤'},
+  {max:1000,name:'별의 하늘',sub:'별빛을 따라 점프'},
+  {max:Infinity,name:'천상계',sub:'하늘 끝까지 도전'}
+];
+function getRegion(m){return REGIONS.find(r=>m<r.max)||REGIONS[REGIONS.length-1];}
+function updateRegion(){
+  const r=getRegion(G.curM);
+  $('regionName').textContent=r.name; $('regionSub').textContent=`현재 구간 · ${G.curM}m`;
+  const points=[0,100,250,500,1000];
+  const max=1000; const pct=Math.min(100,(G.curM/max)*100);
+  $('progressFill').style.width=pct+'%';
+  document.querySelectorAll('.mile').forEach((el,i)=>el.classList.toggle('active',G.curM>=points[i]));
+}
 let board,player,items,rocks,floats,petals;
 
 function startGame(){
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,star:0,gem:0,hearts:3,over:false};
+  G={cam:0,curM:0,star:0,gem:0,hearts:3,over:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx+board.w*0.42*0.8;
@@ -155,21 +208,22 @@ function tapGame(){
   G.lastJudge={label,col};
 }
 let tsx=null;
-function down(e){if(current!=='game')return;e.preventDefault();const t=e.touches?e.touches[0]:e;tsx=t.clientX;tapGame();}
-function mv(e){if(current!=='game'||G.over||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
+let paused=false;
+function down(e){if(current!=='game'||paused)return;e.preventDefault();const t=e.touches?e.touches[0]:e;tsx=t.clientX;tapGame();}
+function mv(e){if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
 function up(){tsx=null;}
 const gameScene=$('game');
 gameScene.addEventListener('touchstart',down,{passive:false});
 gameScene.addEventListener('touchmove',mv,{passive:false});
 gameScene.addEventListener('touchend',up);
 gameScene.addEventListener('mousedown',down);gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});addEventListener('mouseup',up);
-addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
+addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
 function updateHud(){
   $('gStar').textContent=G.star;$('gGem').textContent=G.gem;
   $('hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
-  $('depth').textContent=G.curM+' m';
+  $('depth').textContent=G.curM+' m'; updateRegion();
 }
 
 let squash=0;
@@ -202,7 +256,7 @@ function drawParticles(){
   ctx.globalAlpha=1;
 }
 function updateGame(){
-  if(current!=='game'||G.over)return;
+  if(current!=='game'||G.over||paused)return;
   const halfW=board.w/2;
   if(player.onBoard){
     board.gaugePhase+=0.045;
@@ -284,6 +338,18 @@ function drawBG(){
     ctx.fillStyle=`rgba(255,255,255,${Math.min(1,(G.curM-300)/200)})`;
     for(let i=0;i<30;i++){const sx=(i*137+G.cam*0.1)%W,sy=(i*197)%H;ctx.beginPath();ctx.arc(sx,sy,1.5,0,7);ctx.fill();}
   }
+  // distant floating islands / Korean silhouettes
+  const night=G.curM>380;
+  ctx.save(); ctx.globalAlpha=.28;
+  for(let i=0;i<7;i++){
+    const ix=(i*171+Math.sin(i*2.3)*60)%W;
+    const iy=((i*119-G.cam*.18)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
+    ctx.fillStyle=night?'#27365f':'#477d8a';
+    ctx.beginPath();ctx.ellipse(ix,iy,W*.09,H*.018,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.moveTo(ix-W*.065,iy);ctx.lineTo(ix+W*.065,iy);ctx.lineTo(ix+W*.025,iy+H*.065);ctx.lineTo(ix-W*.03,iy+H*.08);ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+
   ctx.fillStyle='rgba(255,255,255,.9)';
   for(let i=0;i<6;i++){const cy=((i*H*0.6-G.cam*0.4)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
 }
@@ -365,6 +431,11 @@ function loop(){
   else ctx.clearRect(0,0,W,H);
   requestAnimationFrame(loop);
 }
+
+
+$('pauseBtn').onclick=(e)=>{e.stopPropagation(); if(G.over)return; paused=true; $('pauseOverlay').classList.add('on');};
+$('resumeBtn').onclick=()=>{paused=false; $('pauseOverlay').classList.remove('on');};
+$('pauseRetryBtn').onclick=()=>{paused=false; $('pauseOverlay').classList.remove('on'); startGame();};
 
 $('startBtn').onclick=()=>{
   if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{});
