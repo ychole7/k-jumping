@@ -27,12 +27,12 @@
   #logo small{display:block;font-size:24px;color:#fff;-webkit-text-stroke:1px #7c4f1d;margin-top:4px;}
   #best-title{color:#fff;font-weight:800;font-size:16px;text-shadow:0 2px 0 rgba(0,0,0,.3);}
 
-  #hud{position:absolute;top:calc(env(safe-area-inset-top,0px)+10px);left:0;width:100%;padding:0 12px;
+  #hud{position:absolute;top:calc(env(safe-area-inset-top,0px)+8px);left:0;width:100%;padding:0 12px;
     pointer-events:none;font-weight:800;display:flex;justify-content:space-between;align-items:center;z-index:10;}
-  #hearts{font-size:24px;}
-  #hStat{display:flex;gap:8px;}
-  #hStat .wood{padding:6px 14px;font-size:16px;}
-  #depth{position:absolute;top:16%;left:0;width:100%;text-align:center;color:#fff;font-weight:900;font-size:38px;
+  #hearts{font-size:22px;letter-spacing:1px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.28));}
+  #hStat{display:flex;gap:7px;align-items:center;}
+  #hStat .wood{padding:7px 12px;font-size:16px;min-width:66px;text-align:center;}
+  #depth{position:absolute;top:calc(env(safe-area-inset-top,0px)+16px);left:50%;transform:translateX(-50%);width:auto;min-width:96px;padding:4px 12px;text-align:center;color:#fff;font-weight:900;font-size:38px;
     text-shadow:0 3px 0 rgba(0,0,0,.35);pointer-events:none;z-index:10;}
   #judge{position:absolute;top:38%;left:50%;font-size:46px;font-weight:900;opacity:0;transform:translate(-50%,-50%);
     text-shadow:0 3px 0 rgba(0,0,0,.2);-webkit-text-stroke:2px rgba(255,255,255,.9);pointer-events:none;z-index:10;}
@@ -47,12 +47,12 @@
 
   /* K-JUMPING final gameplay UI */
   #regionBadge{position:absolute;top:calc(env(safe-area-inset-top,0px)+82px);left:14px;z-index:10;
-    min-width:145px;padding:8px 12px 9px;border:3px solid #5a3813;border-radius:13px;
+    min-width:136px;padding:7px 11px 8px;border:3px solid #5a3813;border-radius:13px;
     background:linear-gradient(#f1dfb5,#d5b77d);color:#5a3d1a;text-align:center;
     box-shadow:0 4px 7px rgba(0,0,0,.25);text-shadow:none;pointer-events:none;}
-  #regionBadge b{display:block;font-size:19px;line-height:1.05;}
+  #regionBadge b{display:block;font-size:18px;line-height:1.05;}
   #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
-  #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:25px;line-height:1;}
+  #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:23px;line-height:1;}
   #game{position:relative;}
   #progressHUD{
     position:absolute!important;
