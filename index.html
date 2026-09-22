@@ -54,7 +54,7 @@
   #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
   #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:25px;line-height:1;}
   #game{position:relative;}
-  #progressStrip{position:absolute!important;left:14px;right:14px;top:auto!important;bottom:calc(env(safe-area-inset-bottom,0px)+10px)!important;height:58px;z-index:10;
+  #progressStrip{position:absolute!important;left:14px;right:14px;top:auto!important;bottom:10px!important;height:58px;z-index:10;
     background:rgba(17,38,68,.9);border:3px solid rgba(255,255,255,.35);border-radius:18px;
     box-shadow:0 6px 14px rgba(0,0,0,.25);pointer-events:none;padding:8px 12px;}
   #progressLine{position:absolute;left:35px;right:35px;top:20px;height:5px;background:rgba(255,255,255,.4);border-radius:8px;}
@@ -94,7 +94,7 @@
     <div id="regionBadge"><b id="regionName">하늘마을</b><span id="regionSub">현재 구간 · 0m</span></div>
     <div id="depth">0 m</div>
     <div id="judge"></div>
-    <div id="progressStrip">
+    <div id="progressStrip" style="position:absolute;top:auto;bottom:10px;left:14px;right:14px;">
       <div id="progressLine"><div id="progressFill"></div></div>
       <div class="mile m0 active"><i></i><em>0m</em></div>
       <div class="mile m1"><i></i><em>100m</em></div>
@@ -126,12 +126,16 @@ const imgCache={};
 function getImg(u){if(!u)return null;if(imgCache[u])return imgCache[u];const im=new Image();im.src=u;imgCache[u]=im;return im;}
 
 let W,H,DPR;
+function positionProgress(){
+  // 진행도 바는 CSS로 게임 화면 최하단에 고정한다.
+}
+
 function resize(){
   DPR=Math.min(devicePixelRatio||1,2);
-  const aspect=9/16;let w=innerWidth,h=innerHeight;
+  const aspect=9/20;let w=innerWidth,h=innerHeight;
   if(w/h>aspect)w=h*aspect; else h=w/aspect;
   stageEl.style.width=w+'px';stageEl.style.height=h+'px';
-  W=w;H=h;cv.style.width=w+'px';cv.style.height=h+'px';cv.width=w*DPR;cv.height=h*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  W=w;H=h;cv.style.width=w+'px';cv.style.height=h+'px';cv.width=w*DPR;cv.height=h*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);positionProgress();
 }
 addEventListener('resize',resize);
 addEventListener('orientationchange',()=>setTimeout(resize,100));
