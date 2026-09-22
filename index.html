@@ -54,17 +54,47 @@
   #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
   #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:25px;line-height:1;}
   #game{position:relative;}
-  #progressStrip{contain:layout paint;}
-  #progressStrip{position:absolute!important;left:14px!important;right:14px!important;top:auto!important;bottom:4px!important;height:52px!important;z-index:50!important;display:block!important;visibility:visible!important;opacity:1!important;
-    background:rgba(17,38,68,.9);border:3px solid rgba(255,255,255,.35);border-radius:18px;
-    box-shadow:0 6px 14px rgba(0,0,0,.25);pointer-events:none;padding:8px 12px;}
-  #progressLine{position:absolute;left:35px;right:35px;top:17px;height:5px;background:rgba(255,255,255,.4);border-radius:8px;}
-  #progressFill{height:100%;width:0%;background:#ffe06a;border-radius:8px;box-shadow:0 0 7px rgba(255,224,106,.8);}
-  .mile{position:absolute;top:7px;transform:translateX(-50%);text-align:center;color:#fff;font-size:9px;font-weight:900;text-shadow:0 2px 2px #000;}
-  .mile i{display:block;width:16px;height:16px;margin:0 auto 2px;border-radius:50%;background:#fff;border:3px solid #f5d56a;box-shadow:0 0 4px #000;}
-  .mile.active i{background:#ffe06a;box-shadow:0 0 10px #ffe06a;}
-  .mile em{font-style:normal;white-space:nowrap;}
-  #progressStrip .m0{left:5%;}.m1{left:28%;}.m2{left:50%;}.m3{left:72%;}.m4{left:95%;}
+  #progressHUD{
+    position:absolute!important;
+    left:10px!important;
+    right:10px!important;
+    bottom:8px!important;
+    height:58px!important;
+    z-index:100!important;
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    background:rgba(17,38,68,.94);
+    border:3px solid rgba(255,255,255,.45);
+    border-radius:18px;
+    box-shadow:0 6px 14px rgba(0,0,0,.28);
+    pointer-events:none;
+    padding:8px 12px;
+  }
+  #progressHUD #progressLine{
+    position:absolute;
+    left:35px;right:35px;top:20px;height:5px;
+    background:rgba(255,255,255,.42);border-radius:8px;
+  }
+  #progressHUD #progressFill{
+    height:100%;width:0%;background:#ffe06a;border-radius:8px;
+    box-shadow:0 0 7px rgba(255,224,106,.8);
+  }
+  #progressHUD .mile{
+    position:absolute;top:10px;transform:translateX(-50%);
+    text-align:center;color:#fff;font-size:9px;font-weight:900;
+    text-shadow:0 2px 2px #000;
+  }
+  #progressHUD .mile i{
+    display:block;width:16px;height:16px;margin:0 auto 2px;
+    border-radius:50%;background:#fff;border:3px solid #f5d56a;
+    box-shadow:0 0 4px #000;
+  }
+  #progressHUD .mile.active i{
+    background:#ffe06a;box-shadow:0 0 10px #ffe06a;
+  }
+  #progressHUD .mile em{font-style:normal;white-space:nowrap;}
+  #progressHUD .m0{left:5%}.m1{left:28%}.m2{left:50%}.m3{left:72%}.m4{left:95%}
   #pauseOverlay{position:absolute;inset:0;background:rgba(7,20,40,.62);z-index:30;display:none;align-items:center;justify-content:center;}
   #pauseOverlay.on{display:flex;}
   #pauseCard{width:min(80%,310px);padding:24px;text-align:center;background:linear-gradient(#f3e3c0,#e6cf9c);
@@ -95,15 +125,16 @@
     <div id="regionBadge"><b id="regionName">하늘마을</b><span id="regionSub">현재 구간 · 0m</span></div>
     <div id="depth">0 m</div>
     <div id="judge"></div>
-    <div id="progressStrip" style="position:absolute;top:auto;bottom:10px;left:14px;right:14px;">
-      <div id="progressLine"><div id="progressFill"></div></div>
-      <div class="mile m0 active"><i></i><em>0m</em></div>
-      <div class="mile m1"><i></i><em>100m</em></div>
-      <div class="mile m2"><i></i><em>250m</em></div>
-      <div class="mile m3"><i></i><em>500m</em></div>
-      <div class="mile m4"><i></i><em>1000m</em></div>
-    </div>
     <div id="pauseOverlay"><div id="pauseCard"><h2>잠시 쉬어가기</h2><button class="btn" id="resumeBtn">계속하기</button><button class="btn" id="pauseRetryBtn">다시 시작</button></div></div>
+  </div>
+
+  <div id="progressHUD" aria-hidden="true">
+    <div id="progressLine"><div id="progressFill"></div></div>
+    <div class="mile m0 active"><i></i><em>0m</em></div>
+    <div class="mile m1"><i></i><em>100m</em></div>
+    <div class="mile m2"><i></i><em>250m</em></div>
+    <div class="mile m3"><i></i><em>500m</em></div>
+    <div class="mile m4"><i></i><em>1000m</em></div>
   </div>
 
   <div class="scene" id="result">
