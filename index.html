@@ -54,12 +54,13 @@
   #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
   #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:25px;line-height:1;}
   #game{position:relative;}
-  #progressStrip{position:absolute!important;left:14px;right:14px;top:auto!important;bottom:10px!important;height:58px;z-index:10;
+  #progressStrip{contain:layout paint;}
+  #progressStrip{position:absolute!important;left:14px!important;right:14px!important;top:auto!important;bottom:4px!important;height:52px!important;z-index:50!important;display:block!important;visibility:visible!important;opacity:1!important;
     background:rgba(17,38,68,.9);border:3px solid rgba(255,255,255,.35);border-radius:18px;
     box-shadow:0 6px 14px rgba(0,0,0,.25);pointer-events:none;padding:8px 12px;}
-  #progressLine{position:absolute;left:35px;right:35px;top:20px;height:5px;background:rgba(255,255,255,.4);border-radius:8px;}
+  #progressLine{position:absolute;left:35px;right:35px;top:17px;height:5px;background:rgba(255,255,255,.4);border-radius:8px;}
   #progressFill{height:100%;width:0%;background:#ffe06a;border-radius:8px;box-shadow:0 0 7px rgba(255,224,106,.8);}
-  .mile{position:absolute;top:10px;transform:translateX(-50%);text-align:center;color:#fff;font-size:9px;font-weight:900;text-shadow:0 2px 2px #000;}
+  .mile{position:absolute;top:7px;transform:translateX(-50%);text-align:center;color:#fff;font-size:9px;font-weight:900;text-shadow:0 2px 2px #000;}
   .mile i{display:block;width:16px;height:16px;margin:0 auto 2px;border-radius:50%;background:#fff;border:3px solid #f5d56a;box-shadow:0 0 4px #000;}
   .mile.active i{background:#ffe06a;box-shadow:0 0 10px #ffe06a;}
   .mile em{font-style:normal;white-space:nowrap;}
