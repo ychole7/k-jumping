@@ -159,9 +159,31 @@ gameScene.addEventListener('click',e=>{
 addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
+function ensureLifeHud(){
+  let el=$('hearts');
+  if(!el){
+    el=document.createElement('div'); el.id='hearts';
+    const game=$('game')||stageEl; game.appendChild(el);
+  }
+  // HUD가 다른 레이어에 가려지지 않도록 게임 화면에 직접 고정한다.
+  el.style.position='absolute';
+  el.style.top='calc(env(safe-area-inset-top, 0px) + 10px)';
+  el.style.left='12px';
+  el.style.zIndex='50';
+  el.style.display='block';
+  el.style.visibility='visible';
+  el.style.opacity='1';
+  el.style.pointerEvents='none';
+  el.style.fontSize='24px';
+  el.style.lineHeight='1';
+  el.style.letterSpacing='1px';
+  el.style.filter='drop-shadow(0 2px 2px rgba(0,0,0,.35))';
+  return el;
+}
 function updateHud(){
   $('gStar').textContent=G.star;$('gGem').textContent=G.gem;
-  $('hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
+  const heartEl=ensureLifeHud();
+  heartEl.textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
   $('depth').textContent=G.curM+' m'; updateRegion();
 }
 
