@@ -45,10 +45,11 @@ const REGIONS=[
 ];
 function getRegion(m){return REGIONS.find(r=>m<r.max)||REGIONS[REGIONS.length-1];}
 function updateRegion(){
-  const r=getRegion(G.curM);
-  $('regionName').textContent=r.name; $('regionSub').textContent=`현재 구간 · ${G.curM}m`;
+  // 구간/진행도는 현재 높이가 아니라 이번 플레이에서 달성한 최고 높이를 기준으로 한다.
+  const r=getRegion(G.peakM);
+  $('regionName').textContent=r.name; $('regionSub').textContent=`최고 높이 · ${G.peakM}m`;
   const points=[0,100,250,500,1000];
-  const max=1000; const pct=Math.min(100,(G.curM/max)*100);
+  const max=1000; const pct=Math.min(100,(G.peakM/max)*100);
   $('progressFill').style.width=pct+'%';
   document.querySelectorAll('.mile').forEach((el,i)=>el.classList.toggle('active',G.curM>=points[i]));
 }
@@ -58,7 +59,7 @@ let board,player,items,rocks,floats,petals;
 function startGame(){
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,star:0,gem:0,hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,gem:0,hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -229,8 +230,15 @@ function updateGame(){
     const cameraTarget=player.y-H*0.40;
     G.cam += (cameraTarget-G.cam)*0.16;
     if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
-    const m=Math.max(0,Math.floor(-G.cam/PPM()));
-    if(m>G.curM){G.curM=m;G.peakM=Math.max(G.peakM,m);updateHud();}
+    // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
+    // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
+    const heightNow=Math.max(0,(board.y-player.y)/PPM());
+    const m=Math.max(0,Math.floor(heightNow));
+    const changed=(m!==G.curM);
+    G.curM=m;
+    if(m>G.peakM)G.peakM=m;
+    if(m>G.lastJumpM)G.lastJumpM=m;
+    if(changed)updateHud();
     if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
 
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
@@ -240,6 +248,9 @@ function updateGame(){
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&Math.abs(player.x-board.cx)<landHalf){
       player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
+      // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
+      G.curM=0;
+      updateHud();
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
@@ -282,7 +293,7 @@ function clearGame(){
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
   $('resTitle').textContent='CLEAR!';
-  $('resM').textContent=G.curM;
+  $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
   $('resGem').textContent=G.gem;
   show('result');
@@ -291,7 +302,7 @@ function gameOver(){
   if(G.over)return;G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
   $('resTitle').textContent=G.curM>=best?'최고 기록!':'기록';
-  $('resM').textContent=G.curM;$('resStar').textContent=G.star;$('resGem').textContent=G.gem;
+  $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resGem').textContent=G.gem;
   show('result');
 }
 
