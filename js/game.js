@@ -119,6 +119,8 @@ function updateHud(){
 
 let squash=0;
 let particles=[];   // 먼지·반짝임 파티클
+let jumpTrail=[];   // 점프 궤적
+let launchFlash=0;
 let shake=0;         // 화면 흔들림 강도
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
@@ -137,6 +139,7 @@ function updateParticles(){
   particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life-=p.type==='dust'?0.035:0.045;});
   particles=particles.filter(p=>p.life>0);
   if(shake>0)shake*=0.85; if(shake<0.05)shake=0;
+  if(launchFlash>0)launchFlash*=0.82; if(launchFlash<0.02)launchFlash=0;
 }
 function drawParticles(){
   particles.forEach(p=>{
@@ -157,6 +160,10 @@ function updateGame(){
     player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
   }else{
+    jumpTrail.push({x:player.x,y:player.y-G.cam,life:1});
+    if(jumpTrail.length>18)jumpTrail.shift();
+    jumpTrail.forEach(p=>p.life-=0.055);
+    jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
@@ -168,6 +175,7 @@ function updateGame(){
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
       player.onBoard=true;player.vy=0;player.x=landX;board.gaugePhase=0;
+      jumpTrail=[];
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
         spawnDust(landX,board.y,Math.round(6*power),power);
@@ -250,6 +258,23 @@ function drawStar(x,y,r,c){ctx.save();ctx.translate(x,y);ctx.fillStyle=c;ctx.sha
 function drawGem(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#39b7ff';ctx.strokeStyle='#bfeaff';ctx.lineWidth=2;ctx.shadowColor='#39b7ff';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.8,-r*.2);ctx.lineTo(r*.5,r);ctx.lineTo(-r*.5,r);ctx.lineTo(-r*.8,-r*.2);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 function drawRock(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#3a2a22';ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();ctx.fillStyle='#ff7a1a';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc((i*0.6-0.9)*r*0.5,(i%2?0.4:-0.4)*r,r*.18,0,7);ctx.fill();}ctx.restore();}
 
+
+function drawJumpTrail(){
+  if(jumpTrail.length<2)return;
+  ctx.save();
+  ctx.lineCap='round';
+  for(let i=1;i<jumpTrail.length;i++){
+    const a=jumpTrail[i-1],b=jumpTrail[i];
+    const t=i/jumpTrail.length;
+    ctx.globalAlpha=t*0.34;
+    ctx.strokeStyle='#ffffff';
+    ctx.lineWidth=Math.max(2,W*0.018*t);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
 function drawPlayer(px,py,r){
   const sq=1-squash,st=1+squash;
   const im=getImg(ASSETS.player);
@@ -298,6 +323,13 @@ function drawGame(){
   ctx.restore();
   const partX=pivotX+Math.cos(tilt)*halfW*0.8,partY=pivotY+Math.sin(tilt)*halfW*0.8;
   drawPartner(partX,partY-W*0.11,W*0.11);
+  if(!player.onBoard){
+    drawJumpTrail();
+    if(launchFlash>0.05){
+      ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
+    }
+  }
   drawPlayer(player.x,player.y,player.r);
 
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
