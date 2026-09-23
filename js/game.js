@@ -448,30 +448,70 @@ function skyColor(m){
 function drawBG(){
   const [c1,c2,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.5,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
+  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.48,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(G.curM>300){
-    ctx.fillStyle=`rgba(255,255,255,${Math.min(1,(G.curM-300)/200)})`;
-    for(let i=0;i<30;i++){const sx=(i*137)%W,sy=(i*197)%H;ctx.beginPath();ctx.arc(sx,sy,1.5,0,7);ctx.fill();}
-  }
-  // distant floating islands / Korean silhouettes
+
+  // 따뜻한 태양빛과 하늘 깊이감을 위한 소프트 글로우
+  const sun=ctx.createRadialGradient(W*.18,H*.15,0,W*.18,H*.15,W*.38);
+  sun.addColorStop(0,'rgba(255,248,205,.48)');sun.addColorStop(.45,'rgba(255,244,194,.16)');sun.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
+
+  // 멀리 떠 있는 섬과 작은 폭포
   const night=G.curM>380;
-  ctx.save(); ctx.globalAlpha=.28;
+  ctx.save();ctx.globalAlpha=night?.34:.38;
   for(let i=0;i<7;i++){
     const ix=(i*171+Math.sin(i*2.3)*60)%W;
     const iy=((i*119)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
-    ctx.fillStyle=night?'#27365f':'#477d8a';
-    ctx.beginPath();ctx.ellipse(ix,iy,W*.09,H*.018,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.moveTo(ix-W*.065,iy);ctx.lineTo(ix+W*.065,iy);ctx.lineTo(ix+W*.025,iy+H*.065);ctx.lineTo(ix-W*.03,iy+H*.08);ctx.closePath();ctx.fill();
+    ctx.fillStyle=night?'#26365e':'#4d8d94';
+    ctx.beginPath();ctx.ellipse(ix,iy,W*.095,H*.018,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.moveTo(ix-W*.068,iy);ctx.lineTo(ix+W*.068,iy);ctx.lineTo(ix+W*.026,iy+H*.062);ctx.lineTo(ix-W*.03,iy+H*.078);ctx.closePath();ctx.fill();
+    if(!night){
+      ctx.strokeStyle='rgba(190,240,255,.34)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(ix,iy+H*.045);ctx.lineTo(ix+W*.005,iy+H*.075);ctx.stroke();
+    }
   }
   ctx.restore();
 
-  ctx.fillStyle='rgba(255,255,255,.9)';
-  for(let i=0;i<6;i++){const cy=((i*H*0.6)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
-}
-function cloud(x,y,r){ctx.beginPath();ctx.arc(x,y,r*.6,0,7);ctx.arc(x+r*.5,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.45,0,7);ctx.arc(x,y+r*.3,r*.6,0,7);ctx.fill();}
+  // 부드러운 구름층
+  ctx.save();ctx.fillStyle='rgba(255,255,255,.86)';
+  for(let i=0;i<7;i++){
+    const cy=((i*H*.58)%(H*2.3)+H*2.3)%(H*2.3)-H*.42;
+    cloud((i*151)%W,cy,W*(.13+(i%3)*.018));
+  }
+  ctx.restore();
 
-function drawStar(x,y,r,c){ctx.save();ctx.translate(x,y);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.beginPath();for(let i=0;i<5;i++){ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*r,-Math.sin((18+i*72)/180*Math.PI)*r);ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*r*.45,-Math.sin((54+i*72)/180*Math.PI)*r*.45);}ctx.closePath();ctx.fill();ctx.restore();}
+  // 100m 아래쪽에서 한국 마을이 살짝 보이도록 레이어링
+  if((G.curM||0)<140){
+    const base=H*.94;
+    ctx.save();ctx.globalAlpha=.72;
+    ctx.fillStyle='#78a85c';ctx.beginPath();ctx.ellipse(W*.18,base,W*.42,H*.09,0,0,7);ctx.fill();
+    ctx.fillStyle='#659451';ctx.beginPath();ctx.ellipse(W*.78,base+H*.02,W*.48,H*.11,0,0,7);ctx.fill();
+    for(let i=0;i<4;i++){
+      const x=W*(.07+i*.27), y=base-H*(.02+(i%2)*.015), w=W*.15, h=H*.045;
+      ctx.fillStyle='#e7c17a';ctx.fillRect(x,y,w,h);
+      ctx.fillStyle='#56412f';ctx.beginPath();ctx.moveTo(x-W*.015,y);ctx.lineTo(x+w/2,y-H*.035);ctx.lineTo(x+w+W*.015,y);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#6b4d2e';ctx.fillRect(x+w*.44,y+h*.35,w*.11,h*.65);
+    }
+    ctx.restore();
+  }
+}
+function cloud(x,y,r){
+  ctx.beginPath();
+  ctx.arc(x,y,r*.62,0,7);ctx.arc(x+r*.48,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.46,0,7);ctx.arc(x,y+r*.28,r*.62,0,7);ctx.fill();
+}
+
+function drawStar(x,y,r,c){
+  ctx.save();ctx.translate(x,y);ctx.rotate(-.08);
+  ctx.fillStyle=c;ctx.shadowColor='rgba(255,213,67,.9)';ctx.shadowBlur=10;
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*r,-Math.sin((18+i*72)/180*Math.PI)*r);
+    ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*r*.44,-Math.sin((54+i*72)/180*Math.PI)*r*.44);
+  }
+  ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,.72)';ctx.beginPath();ctx.arc(-r*.2,-r*.22,r*.18,0,7);ctx.fill();
+  ctx.restore();
+}
 function drawGem(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#39b7ff';ctx.strokeStyle='#bfeaff';ctx.lineWidth=2;ctx.shadowColor='#39b7ff';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.8,-r*.2);ctx.lineTo(r*.5,r);ctx.lineTo(-r*.5,r);ctx.lineTo(-r*.8,-r*.2);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 function drawRock(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#3a2a22';ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();ctx.fillStyle='#ff7a1a';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc((i*0.6-0.9)*r*0.5,(i%2?0.4:-0.4)*r,r*.18,0,7);ctx.fill();}ctx.restore();}
 
