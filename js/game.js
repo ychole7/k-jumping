@@ -199,7 +199,7 @@ let landingSquash=0;
 let landingKick=0;
 let shake=0;         // 화면 흔들림 강도
 let missFlash=0;
-let judgeFx={text:'',color:'#fff',life:0,max:0.78,x:W*.5,y:H*.35};
+let judgeFx={text:'',color:'#fff',life:0,max:0.78,x:0,y:0};
 let missText='';
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
@@ -222,7 +222,7 @@ function updateParticles(){
   if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
   if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
   if(missFlash>0)missFlash-=0.035; if(missFlash<0)missFlash=0;
-  if(judgeFx.life>0)judgeFx.life-=dt;
+  if(judgeFx.life>0){ judgeFx.life-=0.035; if(judgeFx.life<0)judgeFx.life=0; }
 }
 function drawParticles(){
   particles.forEach(p=>{
