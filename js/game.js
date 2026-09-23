@@ -224,12 +224,10 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // 카메라는 '플레이어의 월드 Y'를 직접 따라간다.
-    // 화면 추적선 방식보다 확실하게 동작하도록 상승/하강 모두 같은 기준을 사용한다.
-    // 플레이어는 화면 높이의 약 55% 지점에 머물고, 널판지는 월드에 고정된다.
-    const cameraTarget=player.y-H*0.55;
-    G.cam += (cameraTarget-G.cam)*0.38;
-    if(G.cam<0)G.cam=0;
+    // V21: 카메라는 플레이어의 월드 Y를 직접 추적한다.
+    // 월드 좌표와 화면 좌표를 섞지 않고, 실제 렌더링에서 한 번만 -G.cam을 적용한다.
+    const cameraTarget=Math.max(0,player.y-H*0.55);
+    G.cam=cameraTarget;
 
     // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
     const m=Math.max(0,Math.floor((board.y-player.y)/PPM()));
@@ -256,16 +254,15 @@ function updateGame(){
       if(G.targetReached)clearGame();
     }
     // 목표를 달성하지 못한 상태에서 널판지를 놓치면 게임 오버.
-    if(!G.targetReached&&player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
-    if(!G.targetReached&&player.y-G.cam>H+player.r*2)gameOver();
+    if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
-    if(Math.hypot(s.wx-player.x,sy-player.y)<player.r+16){s.got=true;
+    if(Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+16){s.got=true;
       if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');spawnSparkle(s.wx,sy,'#ffd166');}
       else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');spawnSparkle(s.wx,sy,'#e56bff');}
       updateHud();}}
   for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
-    if(!player.onBoard&&Math.hypot(r.wx-player.x,ry-player.y)<player.r+r.r*0.7){r.hit=true;
+    if(!player.onBoard&&Math.hypot(r.wx-player.x,r.wy-player.y)<player.r+r.r*0.7){r.hit=true;
       G.hearts--;updateHud();if(G.hearts<=0)gameOver();}}
   const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
@@ -385,16 +382,39 @@ function drawGame(){
     const sx=(Math.random()-0.5)*shake*W*0.03, sy=(Math.random()-0.5)*shake*W*0.03;
     ctx.translate(sx,sy);
   }
-  drawBG();
-  ctx.fillStyle='rgba(255,183,197,.85)';petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
-  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);}
-  for(const r of rocks){if(r.hit)continue;const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
 
-  // 월드 좌표를 카메라 좌표로 변환한다.
-  // 점프가 높아지면 카메라가 따라오고, 널판지는 화면 아래로 내려간다.
-  const pivotX=board.cx,pivotY=board.y-G.cam,halfW=board.w/2,tilt=board.tilt||0;
+  // 배경은 화면 기준으로 그린다. 실제 월드 오브젝트만 카메라 변환을 적용한다.
+  drawBG();
+  ctx.fillStyle='rgba(255,183,197,.85)';
+  petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
+
+  // ===== WORLD SPACE =====
+  // 여기부터는 모든 좌표가 '월드 좌표'다.
+  // 카메라는 이 블록에 딱 한 번만 적용한다.
   ctx.save();
-  ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
+  ctx.translate(0,-G.cam);
+
+  for(const s of items){
+    if(s.got)continue;
+    if(s.wy<-40||s.wy>G.cam+H+40)continue;
+    if(s.type==='star')drawStar(s.wx,s.wy,W*0.045,'#ffd23f');
+    else drawGem(s.wx,s.wy,W*0.04);
+  }
+  for(const r of rocks){
+    if(r.hit)continue;
+    if(r.wy<-80||r.wy>G.cam+H+80)continue;
+    drawRock(r.wx,r.wy,r.r);
+  }
+
+  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
+
+  ctx.save();
+  ctx.fillStyle='#7a7f87';
+  ctx.beginPath();
+  ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);
+  ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);
+  ctx.lineTo(pivotX,pivotY-H*0.01);
+  ctx.closePath();ctx.fill();
   ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
   ctx.fillStyle='#a9743a';ctx.fillRect(-halfW,-H*0.012,board.w,H*0.024);
   ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
@@ -411,25 +431,26 @@ function drawGame(){
   if(landingKick>0.03){
     ctx.save();
     ctx.globalAlpha=landingKick*0.45;
-    ctx.strokeStyle='#fff3b0';
-    ctx.lineWidth=2;
+    ctx.strokeStyle='#fff3b0';ctx.lineWidth=2;
     ctx.beginPath();
     ctx.ellipse(pivotX+halfW*0.8,pivotY+2,player.r*(0.8+landingKick*1.4),player.r*(0.22+landingKick*0.18),0,0,7);
-    ctx.stroke();
-    ctx.restore();
+    ctx.stroke();ctx.restore();
   }
 
-  const partX=pivotX+Math.cos(tilt)*halfW*0.8,partY=pivotY+Math.sin(tilt)*halfW*0.8;
+  const partX=pivotX+Math.cos(tilt)*halfW*0.8;
+  const partY=pivotY+Math.sin(tilt)*halfW*0.8;
   drawPartner(partX,partY-W*0.11,W*0.11);
-  if(!player.onBoard){
-    drawJumpTrail();
-    if(launchFlash>0.05){
-      ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
-      ctx.beginPath();ctx.arc(player.x,player.y-G.cam,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
-    }
-  }
-  drawPlayer(player.x,player.y-G.cam,player.r);
 
+  if(!player.onBoard)drawJumpTrail();
+  if(!player.onBoard&&launchFlash>0.05){
+    ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
+  }
+  drawPlayer(player.x,player.y,player.r);
+
+  ctx.restore();
+
+  // ===== SCREEN SPACE UI =====
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y);ctx.globalAlpha=1;});
 
@@ -444,8 +465,6 @@ function drawGame(){
     ctx.fillStyle='#ffb733';ctx.beginPath();ctx.arc(bx,by,7,0,7);ctx.fill();
     ctx.restore();
   }
-  drawParticles();
-  ctx.restore();   // shake translate 닫기
 }
 function loop(){
   if(current==='game'){updateGame();drawGame();}
