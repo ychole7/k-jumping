@@ -487,5 +487,41 @@ $('retryBtn').onclick=startGame;
 
 resize();$('bestNum').textContent=best;show('title');requestAnimationFrame(loop);
 </script>
+
+<style id="v13-board-style">
+#boardWoodOverlay{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:18}
+#boardWoodOverlay .plank{
+ position:absolute;transform-origin:50% 50%;box-sizing:border-box;
+ border-radius:5px;border:2px solid #613510;
+ background:
+  linear-gradient(180deg,rgba(255,220,145,.58) 0 12%,transparent 13% 78%,rgba(80,38,12,.30) 79% 100%),
+  repeating-linear-gradient(12deg,rgba(110,58,20,.20) 0 3px,rgba(210,142,63,.18) 3px 8px,rgba(95,48,17,.14) 8px 12px),
+  linear-gradient(180deg,#b97832,#8e5423);
+ box-shadow:0 5px 0 #5a3215,0 8px 12px rgba(0,0,0,.22);
+}
+#boardWoodOverlay .plank:before,#boardWoodOverlay .plank:after{
+ content:"";position:absolute;top:50%;width:10px;height:10px;transform:translateY(-50%);
+ border-radius:50%;background:radial-gradient(circle at 35% 30%,#e8c78b 0 18%,#7b4a1e 20% 58%,#4b2910 60%);
+}
+#boardWoodOverlay .plank:before{left:10px}#boardWoodOverlay .plank:after{right:10px}
+#boardWoodOverlay .grain{position:absolute;left:12%;right:12%;top:8px;height:4px;border-top:2px solid rgba(76,38,13,.24);border-radius:50%}
+</style>
+<div id="boardWoodOverlay" aria-hidden="true"><div class="plank"><div class="grain"></div></div></div>
+<script>
+(function(){
+ function syncBoardWood(){
+  const b=document.querySelector('#board'); const o=document.querySelector('#boardWoodOverlay');
+  if(!b||!o)return;
+  const r=b.getBoundingClientRect(),p=o.querySelector('.plank');
+  const w=r.width,h=Math.max(28,r.height+8);
+  o.style.left=(r.left+r.width/2)+'px';o.style.top=(r.top+r.height/2)+'px';
+  p.style.width=w+'px';p.style.height=h+'px';p.style.left=(-w/2)+'px';p.style.top=(-h/2)+'px';
+  const tr=getComputedStyle(b).transform;p.style.transform=tr&&tr!=='none'?tr:'rotate(0deg)';
+ }
+ window.addEventListener('resize',syncBoardWood);window.addEventListener('orientationchange',syncBoardWood);
+ setInterval(syncBoardWood,150);setTimeout(syncBoardWood,250);
+})();
+</script>
+
 </body>
 </html>
