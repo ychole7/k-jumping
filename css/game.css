@@ -95,3 +95,134 @@
     border:5px solid #a6702f;border-radius:24px;color:#5a3d1a;box-shadow:0 10px 30px rgba(0,0,0,.45);}
   #pauseCard h2{font-size:28px;margin-bottom:16px;}
   #pauseCard .btn{margin:5px;font-size:18px;padding:12px 26px;}
+
+/* =========================================================
+   V42 — K-JUMPING visual skin
+   Gameplay logic is intentionally untouched.
+   ========================================================= */
+#stageEl{
+  border-radius:18px;
+  box-shadow:0 0 0 2px rgba(255,255,255,.12),0 18px 50px rgba(0,0,0,.45);
+}
+
+#hud{
+  top:calc(env(safe-area-inset-top,0px) + 10px);
+  padding:0 11px;
+  align-items:flex-start;
+}
+
+#hStat{gap:6px;align-items:center;}
+#hStat .wood{
+  min-width:58px;
+  height:42px;
+  padding:5px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  font-size:17px;
+  border:2px solid #6a4219;
+  border-radius:14px;
+  background:linear-gradient(180deg,#b97d39 0%,#85531f 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.28),0 4px 8px rgba(35,20,5,.28);
+}
+#hStat #pauseBtn{
+  min-width:42px;
+  width:42px;
+  height:42px;
+  font-size:20px;
+  border-radius:50%;
+  background:linear-gradient(180deg,#a86d31,#704417);
+}
+
+#hearts{
+  margin-top:4px;
+  padding:7px 12px 6px;
+  min-width:108px;
+  text-align:center;
+  font-size:23px;
+  letter-spacing:0;
+  border:2px solid rgba(255,255,255,.55);
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(33,62,91,.96),rgba(20,40,65,.96));
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.14),0 4px 9px rgba(0,0,0,.3);
+}
+
+#regionBadge{
+  top:calc(env(safe-area-inset-top,0px) + 67px);
+  left:12px;
+  min-width:142px;
+  padding:8px 13px 9px 27px;
+  border:2px solid #71491e;
+  border-radius:15px;
+  background:linear-gradient(180deg,#f5e4bd,#d6b679);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.62),0 5px 10px rgba(45,27,7,.24);
+}
+#regionBadge .regionLeaf{
+  position:absolute;
+  left:8px;top:7px;
+  font-size:17px;
+  color:#6e9b55;
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+#regionBadge b{font-size:18px;color:#4d3216;letter-spacing:-.5px;}
+#regionBadge span:not(.regionLeaf){font-size:10px;color:#765127;margin-top:4px;}
+
+#goalBadge{
+  position:absolute;
+  top:calc(env(safe-area-inset-top,0px) + 123px);
+  left:12px;
+  z-index:10;
+  width:112px;
+  padding:7px 10px 8px;
+  border-radius:12px;
+  text-align:center;
+  color:#5a3d18;
+  background:linear-gradient(180deg,#fff2ce,#e7c98e);
+  border:2px solid #8b6027;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 4px 9px rgba(0,0,0,.22);
+  pointer-events:none;
+}
+#goalBadge span{display:block;font-size:10px;font-weight:900;opacity:.8;}
+#goalBadge b{display:block;margin-top:1px;font-size:22px;line-height:1.05;color:#b75a2d;text-shadow:0 1px 0 #fff4d0;}
+
+#depth{
+  top:calc(env(safe-area-inset-top,0px) + 9px);
+  min-width:104px;
+  padding:5px 14px 7px;
+  border:2px solid #75491e;
+  border-radius:15px;
+  background:linear-gradient(180deg,#bd8040,#81501f);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.26),0 5px 10px rgba(45,25,5,.3);
+  text-shadow:0 2px 0 rgba(45,22,4,.5);
+  line-height:1;
+}
+#depth small{display:block;font-size:9px;letter-spacing:.3px;color:#ffe9bc;opacity:.9;margin-bottom:2px;}
+#depth strong{display:block;font-size:31px;color:#fff;white-space:nowrap;}
+
+#progressHUD{
+  left:9px!important;right:9px!important;bottom:7px!important;height:55px!important;
+  padding:9px 12px!important;
+  border:2px solid rgba(255,255,255,.5)!important;
+  border-radius:19px!important;
+  background:linear-gradient(180deg,rgba(22,51,82,.94),rgba(13,32,57,.96))!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.1),0 6px 14px rgba(0,0,0,.3)!important;
+}
+#progressHUD #progressLine{left:31px;right:31px;top:21px;height:5px;background:rgba(255,255,255,.34);}
+#progressHUD #progressFill{background:linear-gradient(90deg,#ffe875,#ffca43);box-shadow:0 0 8px rgba(255,213,75,.8);}
+#progressHUD .mile{top:10px;font-size:9px;}
+#progressHUD .mile i{width:17px;height:17px;border:3px solid #f4d66d;box-shadow:0 1px 4px rgba(0,0,0,.6);}
+
+/* Title / result use the same warm game-world language. */
+#title{padding-bottom:11%;gap:18px;background:linear-gradient(180deg,rgba(49,140,222,.12),rgba(255,204,121,.1));}
+#logo{font-size:50px;color:#ff7a3d;text-shadow:0 4px 0 #7c2d00,0 0 22px rgba(255,205,90,.72);}
+#best-title{padding:8px 15px;border-radius:13px;background:rgba(31,61,91,.55);backdrop-filter:blur(4px);}
+#result{background:rgba(16,35,57,.12);}
+#resCard{border:3px solid #95612a;box-shadow:inset 0 2px 0 rgba(255,255,255,.55),0 12px 28px rgba(0,0,0,.4);}
+
+@media (max-width:380px){
+  #hStat .wood{min-width:52px;padding-left:7px;padding-right:7px;font-size:15px;}
+  #hearts{min-width:98px;font-size:21px;}
+  #goalBadge{width:104px;}
+  #depth strong{font-size:28px;}
+}
