@@ -59,7 +59,7 @@ let board,player,items,rocks,floats,petals;
 function startGame(){
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,gem:0,hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -211,7 +211,7 @@ function ensureLifeHud(){
   return el;
 }
 function updateHud(){
-  $('gStar').textContent=G.star;$('gGem').textContent=G.gem;
+  $('gStar').textContent=G.star;$('gCoin').textContent=G.coin;
   const heartEl=ensureLifeHud();
   heartEl.textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
   $('depth').textContent=G.curM+' m'; updateRegion();
@@ -393,7 +393,7 @@ function clearGame(){
   $('resTitle').textContent='100m CLEAR!';
   $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
-  $('resGem').textContent=G.gem;
+  $('resCoin').textContent=G.coin;
   show('result');
 }
 function loseLife(){
@@ -427,7 +427,7 @@ function gameOver(){
   if(G.over)return;G.over=true;
   if(G.peakM>best){best=G.peakM;localStorage.setItem('kjump_best_m',best);}
   $('resTitle').textContent='GAME OVER';
-  $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resGem').textContent=G.gem;
+  $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resCoin').textContent=G.coin;
   show('result');
 }
 
