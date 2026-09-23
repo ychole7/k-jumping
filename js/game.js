@@ -469,12 +469,14 @@ function drawJumpTrail(){
 }
 
 function drawPlayer(px,py,r){
-  const landingPose=landingSquash*0.22;
-  const sq=1-squash+landingPose,st=1+squash-landingPose*0.45;
+  // 캐릭터 원본 비율/크기를 항상 고정한다. 상승/하강/착지에 따른 이미지 변형은 사용하지 않는다.
   const im=getImg(ASSETS.player);
-  ctx.save();ctx.translate(px,py);ctx.scale(st,sq);
-  if(im&&im.complete&&im.naturalWidth){const d=r*2.35;ctx.drawImage(im,-d/2,-d*0.82,d,d);}
-  else{
+  ctx.save();
+  if(im&&im.complete&&im.naturalWidth){
+    const d=r*2.35;
+    ctx.drawImage(im,px-d/2,py-d*0.82,d,d);
+  }else{
+    ctx.translate(px,py);
     ctx.fillStyle='#fdfdfd';ctx.beginPath();ctx.arc(0,r*0.4,r*0.95,0,7);ctx.fill();
     ctx.fillStyle='#2f6fd0';ctx.beginPath();ctx.arc(0,r*0.1,r*0.85,Math.PI*0.15,Math.PI*0.85);ctx.fill();
   }
