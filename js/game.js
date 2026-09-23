@@ -352,7 +352,9 @@ function drawGame(){
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);}
   for(const r of rocks){if(r.hit)continue;const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
 
-  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
+  // 월드 좌표를 카메라 좌표로 변환한다.
+  // 점프가 높아지면 카메라가 따라오고, 널판지는 화면 아래로 내려간다.
+  const pivotX=board.cx,pivotY=board.y-G.cam,halfW=board.w/2,tilt=board.tilt||0;
   ctx.save();
   ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
   ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
@@ -376,7 +378,7 @@ function drawGame(){
       ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
     }
   }
-  drawPlayer(player.x,player.y,player.r);
+  drawPlayer(player.x,player.y-G.cam,player.r);
 
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y);ctx.globalAlpha=1;});
