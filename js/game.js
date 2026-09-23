@@ -257,12 +257,12 @@ function updateGame(){
     // 카메라가 따라가는 동안의 한 프레임 오차로 종료되지 않도록 여유를 둔다.
     if(player.vy>0&&player.y+player.r>bw+player.r*2.4)gameOver();
   }
-  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
+  for(const s of items){if(s.got)continue;const sy=s.wy;if(sy<-40||sy>H+40)continue;
     if(Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+16){s.got=true;
       if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');spawnSparkle(s.wx,sy,'#ffd166');}
       else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');spawnSparkle(s.wx,sy,'#e56bff');}
       updateHud();}}
-  for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
+  for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy;if(ry<-80||ry>H+80)continue;
     if(!player.onBoard&&Math.hypot(r.wx-player.x,r.wy-player.y)<player.r+r.r*0.7){r.hit=true;
       G.hearts--;updateHud();if(G.hearts<=0)gameOver();}}
   const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
@@ -316,14 +316,14 @@ function drawBG(){
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   if(G.curM>300){
     ctx.fillStyle=`rgba(255,255,255,${Math.min(1,(G.curM-300)/200)})`;
-    for(let i=0;i<30;i++){const sx=(i*137+G.cam*0.1)%W,sy=(i*197)%H;ctx.beginPath();ctx.arc(sx,sy,1.5,0,7);ctx.fill();}
+    for(let i=0;i<30;i++){const sx=(i*137)%W,sy=(i*197)%H;ctx.beginPath();ctx.arc(sx,sy,1.5,0,7);ctx.fill();}
   }
   // distant floating islands / Korean silhouettes
   const night=G.curM>380;
   ctx.save(); ctx.globalAlpha=.28;
   for(let i=0;i<7;i++){
     const ix=(i*171+Math.sin(i*2.3)*60)%W;
-    const iy=((i*119-G.cam*.08)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
+    const iy=((i*119)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
     ctx.fillStyle=night?'#27365f':'#477d8a';
     ctx.beginPath();ctx.ellipse(ix,iy,W*.09,H*.018,0,0,7);ctx.fill();
     ctx.beginPath();ctx.moveTo(ix-W*.065,iy);ctx.lineTo(ix+W*.065,iy);ctx.lineTo(ix+W*.025,iy+H*.065);ctx.lineTo(ix-W*.03,iy+H*.08);ctx.closePath();ctx.fill();
@@ -331,7 +331,7 @@ function drawBG(){
   ctx.restore();
 
   ctx.fillStyle='rgba(255,255,255,.9)';
-  for(let i=0;i<6;i++){const cy=((i*H*0.6-G.cam*0.14)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
+  for(let i=0;i<6;i++){const cy=((i*H*0.6)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
 }
 function cloud(x,y,r){ctx.beginPath();ctx.arc(x,y,r*.6,0,7);ctx.arc(x+r*.5,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.45,0,7);ctx.arc(x,y+r*.3,r*.6,0,7);ctx.fill();}
 
@@ -390,16 +390,15 @@ function drawGame(){
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
 
   // ===== CAMERA SPACE =====
-  // 플레이어는 카메라의 기준점. 널판지/상대는 화면 기준으로 고정하고,
-  // 아이템/장애물은 1:1이 아닌 약한 패럴랙스로 움직여 '같이 딸려가는' 느낌을 줄인다.
+  // 아이템/장애물/플레이어는 카메라를 따라간다. 널판지와 상대는 화면에 고정한다.
   for(const s of items){
     if(s.got)continue;
-    const sy=s.wy-G.cam*0.62;if(sy<-40||sy>H+40)continue;
+    const sy=s.wy;if(sy<-40||sy>H+40)continue;
     if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);
   }
   for(const r of rocks){
     if(r.hit)continue;
-    const ry=r.wy-G.cam*0.62;if(ry<-80||ry>H+80)continue;
+    const ry=r.wy;if(ry<-80||ry>H+80)continue;
     drawRock(r.wx,ry,r.r);
   }
 
