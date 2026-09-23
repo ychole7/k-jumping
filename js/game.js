@@ -190,24 +190,28 @@ function ensureLifeHud(){
     el=document.createElement('div'); el.id='hearts';
     const game=$('game')||stageEl; game.appendChild(el);
   }
-  // HUD가 다른 레이어에 가려지지 않도록 게임 화면에 직접 고정한다.
-  el.style.position='absolute';
-  el.style.top='104px';
-  el.style.left='16px';
-  el.style.zIndex='50';
+  // V45: 하트는 상단 HUD의 왼쪽 흐름에 배치한다.
+  // 별/엽전/일시정지는 오른쪽으로, 현재 높이는 중앙으로 분리해 겹침을 막는다.
+  el.style.position='static';
+  el.style.top='auto';
+  el.style.left='auto';
+  el.style.zIndex='20';
   el.style.display='block';
   el.style.visibility='visible';
   el.style.opacity='1';
   el.style.pointerEvents='none';
-  el.style.fontSize='25px';
-  el.style.padding='7px 11px';
+  el.style.fontSize='23px';
+  el.style.padding='7px 11px 6px';
+  el.style.minWidth='108px';
+  el.style.textAlign='center';
+  el.style.marginTop='4px';
   el.style.borderRadius='18px';
-  el.style.background='rgba(24,44,72,.88)';
-  el.style.border='2px solid rgba(255,255,255,.45)';
-  el.style.boxShadow='0 3px 8px rgba(0,0,0,.28)';
+  el.style.background='linear-gradient(180deg,rgba(33,62,91,.96),rgba(20,40,65,.96))';
+  el.style.border='2px solid rgba(255,255,255,.55)';
+  el.style.boxShadow='inset 0 2px 0 rgba(255,255,255,.14),0 4px 9px rgba(0,0,0,.3)';
   el.style.lineHeight='1';
-  el.style.letterSpacing='1px';
-  el.style.filter='drop-shadow(0 2px 2px rgba(0,0,0,.35))';
+  el.style.letterSpacing='0';
+  el.style.filter='none';
   return el;
 }
 function updateHud(){
