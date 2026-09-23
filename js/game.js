@@ -330,12 +330,41 @@ function updateGame(){
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
   updateParticles();
 }
+function ensureJudgeHud(){
+  let j=$('judge');
+  if(!j){
+    j=document.createElement('div');
+    j.id='judge';
+    ($('game')||stageEl).appendChild(j);
+  }
+  j.style.position='absolute';
+  j.style.zIndex='120';
+  j.style.pointerEvents='none';
+  j.style.fontFamily='Arial, sans-serif';
+  j.style.fontWeight='1000';
+  j.style.fontSize='42px';
+  j.style.lineHeight='1';
+  j.style.whiteSpace='nowrap';
+  j.style.textAlign='center';
+  j.style.textShadow='0 3px 0 rgba(0,0,0,.28), 0 5px 10px rgba(0,0,0,.22)';
+  return j;
+}
 function bigJudge(t,c){
-  const j=$('judge');j.textContent=t;j.style.color=c;
-  const px=player?player.x:W/2, py=player?(player.y-G.cam-player.r*2):H*0.4;
-  j.style.left=(px/W*100)+'%';j.style.top=(Math.max(60,py)/H*100)+'%';
-  j.style.transition='none';j.style.opacity='1';j.style.transform='translate(-50%,-50%) scale(1.8)';
-  requestAnimationFrame(()=>{j.style.transition='all .6s cubic-bezier(.2,.8,.2,1)';j.style.opacity='0';j.style.transform='translate(-50%,-50%) scale(1.0)';});
+  const j=ensureJudgeHud();
+  j.textContent=t;
+  j.style.color=c;
+  const px=player?player.x:W/2;
+  const py=player?(player.y-G.cam-player.r*2):H*0.4;
+  j.style.left=(px/W*100)+'%';
+  j.style.top=(Math.max(70,Math.min(H-100,py))/H*100)+'%';
+  j.style.transition='none';
+  j.style.opacity='1';
+  j.style.transform='translate(-50%,-50%) scale(1.35)';
+  requestAnimationFrame(()=>{
+    j.style.transition='opacity .75s ease-out, transform .75s cubic-bezier(.2,.8,.2,1)';
+    j.style.opacity='0';
+    j.style.transform='translate(-50%,-80%) scale(1.05)';
+  });
 }
 function clearGame(){
   if(G.over)return;
