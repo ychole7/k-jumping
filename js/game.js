@@ -224,17 +224,12 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V23: 카메라는 '플레이어의 월드 Y'를 직접 따라간다.
-    // 핵심은 ascent를 카메라값으로 쓰지 않고,
-    // 플레이어가 화면의 약 48% 지점에 오도록 worldY - screenY로 계산하는 것.
-    // 렌더링에서는 아래 WORLD SPACE 블록에서 -G.cam을 딱 한 번 적용한다.
-    const desiredPlayerScreenY=H*0.48;
-    const cameraTarget=Math.max(0,player.y-desiredPlayerScreenY);
-    G.cam += (cameraTarget-G.cam)*0.42;
-    if(Math.abs(cameraTarget-G.cam)<0.5) G.cam=cameraTarget;
-
-    // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
-    const m=Math.max(0,Math.floor((board.y-player.y)/PPM()));
+    // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
+    // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
+    const cameraTarget=player.y-H*0.40;
+    G.cam += (cameraTarget-G.cam)*0.16;
+    if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
+    const m=Math.max(0,Math.floor(-G.cam/PPM()));
     if(m>G.curM){G.curM=m;G.peakM=Math.max(G.peakM,m);updateHud();}
     if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
 
@@ -250,7 +245,7 @@ function updateGame(){
       landingKick=1;
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(player.x,board.y-G.cam,Math.round(7*power),power);
+        spawnDust(player.x,board.y,Math.round(7*power),power);
         shake=Math.min(1,shake+0.55*power);
         board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
         bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
@@ -394,22 +389,17 @@ function drawGame(){
   ctx.fillStyle='rgba(255,183,197,.85)';
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
 
-  // ===== WORLD SPACE =====
-  // 여기부터는 모든 좌표가 '월드 좌표'다.
-  // 카메라는 이 블록에 딱 한 번만 적용한다.
-  ctx.save();
-  ctx.translate(0,-G.cam);
-
+  // ===== CAMERA SPACE =====
+  // 아이템/장애물/플레이어는 카메라를 따라간다. 널판지와 상대는 화면에 고정한다.
   for(const s of items){
     if(s.got)continue;
-    if(s.wy<-40||s.wy>G.cam+H+40)continue;
-    if(s.type==='star')drawStar(s.wx,s.wy,W*0.045,'#ffd23f');
-    else drawGem(s.wx,s.wy,W*0.04);
+    const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
+    if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);
   }
   for(const r of rocks){
     if(r.hit)continue;
-    if(r.wy<-80||r.wy>G.cam+H+80)continue;
-    drawRock(r.wx,r.wy,r.r);
+    const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
+    drawRock(r.wx,ry,r.r);
   }
 
   const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
@@ -452,9 +442,7 @@ function drawGame(){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  drawPlayer(player.x,player.y,player.r);
-
-  ctx.restore();
+  drawPlayer(player.x,player.y-G.cam,player.r);
 
   // ===== SCREEN SPACE UI =====
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
