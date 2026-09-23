@@ -224,12 +224,14 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V21: 카메라는 플레이어의 월드 Y를 직접 추적한다.
-    // 월드 좌표와 화면 좌표를 섞지 않고, 실제 렌더링에서 한 번만 -G.cam을 적용한다.
-    const ascent=board.y-player.y;
-    const followStart=H*0.12;
-    const cameraTarget=Math.max(0,ascent-followStart);
-    G.cam=cameraTarget;
+    // V23: 카메라는 '플레이어의 월드 Y'를 직접 따라간다.
+    // 핵심은 ascent를 카메라값으로 쓰지 않고,
+    // 플레이어가 화면의 약 48% 지점에 오도록 worldY - screenY로 계산하는 것.
+    // 렌더링에서는 아래 WORLD SPACE 블록에서 -G.cam을 딱 한 번 적용한다.
+    const desiredPlayerScreenY=H*0.48;
+    const cameraTarget=Math.max(0,player.y-desiredPlayerScreenY);
+    G.cam += (cameraTarget-G.cam)*0.42;
+    if(Math.abs(cameraTarget-G.cam)<0.5) G.cam=cameraTarget;
 
     // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
     const m=Math.max(0,Math.floor((board.y-player.y)/PPM()));
@@ -239,9 +241,9 @@ function updateGame(){
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
     const bw=board.y;
     const landX=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));
-    const landHalf=board.w*0.46;
+    const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
-    if(player.vy>0&&player.y+player.r>=bw-8&&player.y+player.r<=bw+player.r*1.6&&Math.abs(player.x-board.cx)<landHalf){
+    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&Math.abs(player.x-board.cx)<landHalf){
       player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       jumpTrail=[];
       landingSquash=1;
@@ -256,8 +258,9 @@ function updateGame(){
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
     }
-    // 목표를 달성하지 못한 상태에서 널판지를 놓치면 게임 오버.
-    if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
+    // 목표 미달 상태에서 널판지를 완전히 지나쳤을 때만 게임 오버.
+    // 카메라가 따라가는 동안의 한 프레임 오차로 종료되지 않도록 여유를 둔다.
+    if(player.vy>0&&player.y+player.r>bw+player.r*2.4)gameOver();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
     if(Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+16){s.got=true;
