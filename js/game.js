@@ -224,21 +224,12 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // 카메라 추적:
-    // 플레이어가 화면 상단의 추적선보다 올라가면 즉시 위로 따라간다.
-    // 내려올 때도 하단 추적선을 넘으면 카메라가 다시 내려온다.
-    // 널판지는 월드 좌표에 고정되어 있으므로 카메라만 움직인다.
-    const playerScreenY=player.y-G.cam;
-    const upperLine=H*0.38;
-    const lowerLine=H*0.68;
-    if(playerScreenY<upperLine){
-      const targetCam=player.y-upperLine;
-      G.cam+=(targetCam-G.cam)*0.28;
-    }else if(playerScreenY>lowerLine){
-      const targetCam=player.y-lowerLine;
-      G.cam+=(targetCam-G.cam)*0.22;
-    }
-    G.cam=Math.max(0,G.cam);
+    // 카메라는 '플레이어의 월드 Y'를 직접 따라간다.
+    // 화면 추적선 방식보다 확실하게 동작하도록 상승/하강 모두 같은 기준을 사용한다.
+    // 플레이어는 화면 높이의 약 55% 지점에 머물고, 널판지는 월드에 고정된다.
+    const cameraTarget=player.y-H*0.55;
+    G.cam += (cameraTarget-G.cam)*0.38;
+    if(G.cam<0)G.cam=0;
 
     // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
     const m=Math.max(0,Math.floor((board.y-player.y)/PPM()));
