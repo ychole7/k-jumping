@@ -72,18 +72,42 @@ function startGame(){
 
 function spawnAhead(fromY){
   let y=fromY;
-  for(let seg=0;seg<14;seg++){
-    y-=H*0.22+Math.random()*H*0.14;
+  for(let seg=0;seg<12;seg++){
+    y-=H*0.24+Math.random()*H*0.16;
+    const baseX=W*(0.18+Math.random()*0.64);
+    const span=W*(0.26+Math.random()*0.30);
+    const pattern=Math.floor(Math.random()*5);
     const n=4+Math.floor(Math.random()*3);
-    const shape=Math.floor(Math.random()*3);
-    const baseX=W*(0.2+Math.random()*0.6), spanX=W*0.45*(Math.random()<.5?1:-1);
     for(let i=0;i<n;i++){
-      const t=i/(n-1);let ox,oy;
-      if(shape===0){ox=baseX+spanX*(t-0.5);oy=-Math.sin(t*Math.PI)*H*0.06;}
-      else if(shape===1){ox=baseX+spanX*t;oy=-t*H*0.06;}
-      else{ox=baseX+spanX*(t-0.5);oy=Math.sin(t*Math.PI*2)*H*0.03;}
-      const type='star';
-      items.push({wx:Math.max(30,Math.min(W-30,ox)),wy:y+oy,type,got:false});
+      const t=n===1?0:i/(n-1);
+      let ox=baseX, oy=0;
+      if(pattern===0){
+        // 완만한 상승 라인
+        ox=baseX-span*0.5+span*t;
+        oy=-Math.sin(t*Math.PI)*H*0.035;
+      }else if(pattern===1){
+        // 좌우 지그재그
+        ox=baseX+Math.sin(t*Math.PI*2)*span*0.42;
+        oy=-Math.sin(t*Math.PI)*H*0.025;
+      }else if(pattern===2){
+        // 별 아치: 중앙 별이 조금 높다
+        ox=baseX-span*0.5+span*t;
+        oy=-Math.sin(t*Math.PI)*H*0.075;
+      }else if(pattern===3){
+        // 좁은 세로 묶음
+        ox=baseX+(Math.random()-.5)*span*0.28;
+        oy=-t*H*0.10;
+      }else{
+        // 양쪽으로 벌어지는 선택형 배치
+        ox=baseX+(t<0.5?-1:1)*span*(0.12+Math.abs(t-.5)*0.72);
+        oy=-Math.sin(t*Math.PI)*H*0.045;
+      }
+      items.push({
+        wx:Math.max(30,Math.min(W-30,ox)),
+        wy:y+oy,
+        type:'star',
+        got:false
+      });
     }
   }
 }
