@@ -199,6 +199,7 @@ let landingSquash=0;
 let landingKick=0;
 let shake=0;         // 화면 흔들림 강도
 let missFlash=0;
+let judgeFx={text:'',color:'#fff',life:0,max:0.78,x:W*.5,y:H*.35};
 let missText='';
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
@@ -221,6 +222,7 @@ function updateParticles(){
   if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
   if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
   if(missFlash>0)missFlash-=0.035; if(missFlash<0)missFlash=0;
+  if(judgeFx.life>0)judgeFx.life-=dt;
 }
 function drawParticles(){
   particles.forEach(p=>{
@@ -330,41 +332,33 @@ function updateGame(){
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
   updateParticles();
 }
-function ensureJudgeHud(){
-  let j=$('judge');
-  if(!j){
-    j=document.createElement('div');
-    j.id='judge';
-    ($('game')||stageEl).appendChild(j);
-  }
-  j.style.position='absolute';
-  j.style.zIndex='120';
-  j.style.pointerEvents='none';
-  j.style.fontFamily='Arial, sans-serif';
-  j.style.fontWeight='1000';
-  j.style.fontSize='42px';
-  j.style.lineHeight='1';
-  j.style.whiteSpace='nowrap';
-  j.style.textAlign='center';
-  j.style.textShadow='0 3px 0 rgba(0,0,0,.28), 0 5px 10px rgba(0,0,0,.22)';
-  return j;
-}
 function bigJudge(t,c){
-  const j=ensureJudgeHud();
-  j.textContent=t;
-  j.style.color=c;
-  const px=player?player.x:W/2;
-  const py=player?(player.y-G.cam-player.r*2):H*0.4;
-  j.style.left=(px/W*100)+'%';
-  j.style.top=(Math.max(70,Math.min(H-100,py))/H*100)+'%';
-  j.style.transition='none';
-  j.style.opacity='1';
-  j.style.transform='translate(-50%,-50%) scale(1.35)';
-  requestAnimationFrame(()=>{
-    j.style.transition='opacity .75s ease-out, transform .75s cubic-bezier(.2,.8,.2,1)';
-    j.style.opacity='0';
-    j.style.transform='translate(-50%,-80%) scale(1.05)';
-  });
+  // V36: 판정은 DOM HUD가 아니라 게임 캔버스의 SCREEN SPACE에 직접 그린다.
+  // 카메라/scene/z-index에 가려지지 않도록 한다.
+  judgeFx.text=t;
+  judgeFx.color=c;
+  judgeFx.life=judgeFx.max;
+  judgeFx.x=player?player.x:W*.5;
+  judgeFx.y=player?player.y-G.cam-player.r*1.9:H*.38;
+}
+function drawJudgeFx(){
+  if(judgeFx.life<=0||!judgeFx.text)return;
+  const t=judgeFx.life/judgeFx.max;
+  const fade=t<0.22?t/0.22:1;
+  const rise=(1-t)*H*.07;
+  const x=Math.max(W*.15,Math.min(W*.85,judgeFx.x));
+  const y=Math.max(H*.12,Math.min(H*.72,judgeFx.y-rise));
+  ctx.save();
+  ctx.globalAlpha=fade;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font='1000 '+Math.round(W*.115)+'px Arial, sans-serif';
+  ctx.lineWidth=Math.max(3,W*.014);
+  ctx.strokeStyle='rgba(0,0,0,.32)';
+  ctx.strokeText(judgeFx.text,x,y);
+  ctx.fillStyle=judgeFx.color;
+  ctx.fillText(judgeFx.text,x,y);
+  ctx.restore();
 }
 function clearGame(){
   if(G.over)return;
@@ -586,6 +580,7 @@ function drawGame(){
   ctx.restore();
 
   // ================= SCREEN SPACE UI =================
+  drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-G.cam);ctx.globalAlpha=1;});
 
