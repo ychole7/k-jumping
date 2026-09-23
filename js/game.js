@@ -244,9 +244,14 @@ function updateGame(){
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
     const bw=board.y;
     const landX=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));
+    // 플레이어는 널판지의 왼쪽 절반에만 착지할 수 있다.
+    // 중앙선을 넘어 상대방 사이드에 착지하면 실패로 처리한다.
+    const playerSideLeft=board.cx-board.w*0.42;
+    const playerSideRight=board.cx;
+    const validLanding=player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15;
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
-    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&Math.abs(player.x-board.cx)<landHalf){
+    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
       player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
@@ -264,8 +269,8 @@ function updateGame(){
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
     }
-    // 목표 미달 상태에서 널판지를 완전히 지나쳤을 때만 게임 오버.
-    // 카메라가 따라가는 동안의 한 프레임 오차로 종료되지 않도록 여유를 둔다.
+    // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
+    // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
     if(player.vy>0&&player.y+player.r>bw+player.r*2.4)gameOver();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy;if(sy<-40||sy>H+40)continue;
