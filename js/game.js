@@ -62,7 +62,7 @@ function startGame(){
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
-  items=[];rocks=[];floats=[];particles=[];shake=0;
+  items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.4);
   updateHud();
@@ -96,6 +96,8 @@ function tapGame(){
   else{power=0.45;label='OK';col='#8ecae6';}
   player.onBoard=false;
   player.vy=-(H*0.030)*(0.7+power*0.6);
+  launchFlash=1;
+  jumpTrail=[];
   G.lastJudge={label,col};
 }
 let tsx=null;
@@ -104,10 +106,24 @@ function down(e){if(current!=='game'||paused)return;e.preventDefault();const t=e
 function mv(e){if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
 function up(){tsx=null;}
 const gameScene=$('game');
-gameScene.addEventListener('touchstart',down,{passive:false});
-gameScene.addEventListener('touchmove',mv,{passive:false});
-gameScene.addEventListener('touchend',up);
-gameScene.addEventListener('mousedown',down);gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});addEventListener('mouseup',up);
+// 모바일/PC 모두 확실하게 한 번의 탭을 입력으로 받는다.
+// pointer 이벤트를 우선 사용하고, 구형 환경에서는 기존 touch/mouse 이벤트를 유지한다.
+if(window.PointerEvent){
+  gameScene.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse' && e.button!==0)return;
+    down(e);
+  },{passive:false});
+  gameScene.addEventListener('pointermove',e=>{if(e.buttons)mv(e);},{passive:false});
+  gameScene.addEventListener('pointerup',up);
+  gameScene.addEventListener('pointercancel',up);
+}else{
+  gameScene.addEventListener('touchstart',down,{passive:false});
+  gameScene.addEventListener('touchmove',mv,{passive:false});
+  gameScene.addEventListener('touchend',up);
+  gameScene.addEventListener('mousedown',down);
+  gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});
+  addEventListener('mouseup',up);
+}
 addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
