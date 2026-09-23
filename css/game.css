@@ -1,0 +1,97 @@
+
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0b1020;touch-action:none;user-select:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stageEl{position:relative;overflow:hidden;background:#8fd0ff;box-shadow:0 0 40px rgba(0,0,0,.5);}
+  canvas{display:block;position:absolute;inset:0;z-index:0;pointer-events:none;}
+  .scene{position:absolute;inset:0;display:none;flex-direction:column;z-index:1;}
+  .scene.on{display:flex;}
+  .wood{background:linear-gradient(#a6702f,#7c4f1d);border:3px solid #5a3813;border-radius:14px;
+    box-shadow:inset 0 2px 3px rgba(255,255,255,.25),0 3px 5px rgba(0,0,0,.3);color:#fff;
+    text-shadow:0 2px 2px rgba(0,0,0,.4);}
+  .btn{background:linear-gradient(#ffd85a,#ffb733);color:#5a3d00;border:none;border-radius:20px;
+    padding:16px 44px;font-size:22px;font-weight:900;box-shadow:0 6px 0 #cf8a00;cursor:pointer;
+    text-shadow:0 1px 0 rgba(255,255,255,.4);}
+  .btn:active{transform:translateY(3px);box-shadow:0 3px 0 #cf8a00;}
+
+  #title{align-items:center;justify-content:flex-end;padding-bottom:12%;gap:22px;text-align:center;}
+  #logo{font-size:52px;font-weight:900;color:#ff5a3c;letter-spacing:-2px;
+    text-shadow:0 4px 0 #7c2d00,0 0 20px rgba(255,180,0,.6);-webkit-text-stroke:2px #fff;}
+  #logo small{display:block;font-size:24px;color:#fff;-webkit-text-stroke:1px #7c4f1d;margin-top:4px;}
+  #best-title{color:#fff;font-weight:800;font-size:16px;text-shadow:0 2px 0 rgba(0,0,0,.3);}
+
+  #hud{position:absolute;top:calc(env(safe-area-inset-top,0px)+8px);left:0;width:100%;padding:0 12px;
+    pointer-events:none;font-weight:800;display:flex;justify-content:space-between;align-items:center;z-index:10;}
+  #hearts{font-size:22px;letter-spacing:1px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.28));}
+  #hStat{display:flex;gap:7px;align-items:center;}
+  #hStat .wood{padding:7px 12px;font-size:16px;min-width:66px;text-align:center;}
+  #depth{position:absolute;top:calc(env(safe-area-inset-top,0px)+16px);left:50%;transform:translateX(-50%);width:auto;min-width:96px;padding:4px 12px;text-align:center;color:#fff;font-weight:900;font-size:38px;
+    text-shadow:0 3px 0 rgba(0,0,0,.35);pointer-events:none;z-index:10;}
+  #judge{position:absolute;top:38%;left:50%;font-size:46px;font-weight:900;opacity:0;transform:translate(-50%,-50%);
+    text-shadow:0 3px 0 rgba(0,0,0,.2);-webkit-text-stroke:2px rgba(255,255,255,.9);pointer-events:none;z-index:10;}
+
+  #result{align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;}
+  #resCard{background:linear-gradient(#f3e3c0,#e6cf9c);border:5px solid #a6702f;border-radius:24px;
+    padding:26px;width:min(86%,340px);box-shadow:0 10px 24px rgba(0,0,0,.4);color:#5a3d1a;}
+  #resCard h2{font-size:22px;margin-bottom:8px;}
+  #resM{font-size:44px;font-weight:900;color:#c0392b;}
+  #resCard .line{display:flex;justify-content:space-between;font-weight:800;font-size:16px;padding:6px 4px;border-bottom:1px dashed #b99a63;}
+  .hide{display:none!important;}
+
+  /* K-JUMPING final gameplay UI */
+  #regionBadge{position:absolute;top:calc(env(safe-area-inset-top,0px)+82px);left:14px;z-index:10;
+    min-width:136px;padding:7px 11px 8px;border:3px solid #5a3813;border-radius:13px;
+    background:linear-gradient(#f1dfb5,#d5b77d);color:#5a3d1a;text-align:center;
+    box-shadow:0 4px 7px rgba(0,0,0,.25);text-shadow:none;pointer-events:none;}
+  #regionBadge b{display:block;font-size:18px;line-height:1.05;}
+  #regionBadge span{display:block;font-size:12px;font-weight:900;margin-top:3px;}
+  #pauseBtn{width:48px;height:48px;padding:0;border-radius:13px;font-size:23px;line-height:1;}
+  #game{position:relative;}
+  #progressHUD{
+    position:absolute!important;
+    left:10px!important;
+    right:10px!important;
+    bottom:4px!important;
+    height:52px!important;
+    z-index:100!important;
+    display:none;
+    visibility:visible!important;
+    opacity:1!important;
+    background:rgba(17,38,68,.94);
+    border:3px solid rgba(255,255,255,.45);
+    border-radius:18px;
+    box-shadow:0 6px 14px rgba(0,0,0,.28);
+    pointer-events:none;
+    padding:8px 12px;
+  }
+  #progressHUD #progressLine{
+    position:absolute;
+    left:35px;right:35px;top:20px;height:5px;
+    background:rgba(255,255,255,.42);border-radius:8px;
+  }
+  #progressHUD #progressFill{
+    height:100%;width:0%;background:#ffe06a;border-radius:8px;
+    box-shadow:0 0 7px rgba(255,224,106,.8);
+  }
+  #progressHUD .mile{
+    position:absolute;top:10px;transform:translateX(-50%);
+    text-align:center;color:#fff;font-size:9px;font-weight:900;
+    text-shadow:0 2px 2px #000;
+  }
+  #progressHUD .mile i{
+    display:block;width:16px;height:16px;margin:0 auto 2px;
+    border-radius:50%;background:#fff;border:3px solid #f5d56a;
+    box-shadow:0 0 4px #000;
+  }
+  #progressHUD .mile.active i{
+    background:#ffe06a;box-shadow:0 0 10px #ffe06a;
+  }
+  #progressHUD .mile em{font-style:normal;white-space:nowrap;}
+  #progressHUD .m0{left:5%}.m1{left:28%}.m2{left:50%}.m3{left:72%}.m4{left:95%}
+  #pauseOverlay{position:absolute;inset:0;background:rgba(7,20,40,.62);z-index:30;display:none;align-items:center;justify-content:center;}
+  #pauseOverlay.on{display:flex;}
+  #pauseCard{width:min(80%,310px);padding:24px;text-align:center;background:linear-gradient(#f3e3c0,#e6cf9c);
+    border:5px solid #a6702f;border-radius:24px;color:#5a3d1a;box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  #pauseCard h2{font-size:28px;margin-bottom:16px;}
+  #pauseCard .btn{margin:5px;font-size:18px;padding:12px 26px;}
