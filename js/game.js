@@ -59,6 +59,8 @@ function startGame(){
   if(!W||!H)resize();
   G={cam:0,curM:0,star:0,gem:0,hearts:3,over:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
+  nextBoard=createNextBoard(board);
+  previousBoard=null;
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
@@ -68,6 +70,52 @@ function startGame(){
   updateHud();
 }
 
+function createNextBoard(base){
+  const gap=H*(0.46+Math.random()*0.08);
+  const maxShift=W*0.28;
+  const cx=Math.max(W*0.24,Math.min(W*0.76,base.cx+(Math.random()-0.5)*W*0.42));
+  return {
+    cx, y:base.y-gap, w:W*0.68,
+    tilt:0, gaugePhase:0,
+    landX:cx-W*0.68*0.42*0.8,
+    pulse:0
+  };
+}
+function promoteNextBoard(){
+  previousBoard=board;
+  board=nextBoard;
+  board.gaugePhase=0;
+  board.tilt=0;
+  nextBoard=createNextBoard(board);
+  player.x=board.cx+board.w*0.42*0.8;
+  player.y=board.y-player.r*0.5;
+}
+function drawPlank(b,isTarget=false){
+  if(!b)return;
+  const pivotX=b.cx,pivotY=b.y-G.cam,halfW=b.w/2,tilt=b.tilt||0;
+  if(pivotY<-H*0.3||pivotY>H*1.3)return;
+  ctx.save();
+  ctx.translate(pivotX,pivotY);
+  ctx.rotate(tilt);
+  ctx.fillStyle=isTarget?'#bd8645':'#a9743a';
+  ctx.fillRect(-halfW,-H*0.012,b.w,H*0.024);
+  ctx.strokeStyle=isTarget?'#7dbb5b':'#6e4620';
+  ctx.lineWidth=isTarget?2.5:1.5;
+  ctx.strokeRect(-halfW,-H*0.012,b.w,H*0.024);
+  if(isTarget){
+    const pulse=0.5+0.5*Math.sin(Date.now()/180);
+    ctx.globalAlpha=0.18+0.18*pulse;
+    ctx.fillStyle='#8dff62';
+    ctx.fillRect(-halfW,-H*0.018,b.w,H*0.036);
+    ctx.globalAlpha=1;
+    ctx.strokeStyle='#8dff62';
+    ctx.setLineDash([7,5]);
+    ctx.lineWidth=2;
+    ctx.strokeRect(-halfW+4,-H*0.018,b.w-8,H*0.036);
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
 function spawnAhead(fromY){
   let y=fromY;
   for(let seg=0;seg<14;seg++){
@@ -226,21 +274,21 @@ function updateGame(){
     const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.16;
     const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();}
 
-    const bw=G.cam+board.y;
-    const landX=board.cx+board.w*0.42*0.8;
-    board.landX=landX;board.landR=player.r*0.9;
+    const bw=G.cam+nextBoard.y;
+    const landX=nextBoard.cx-nextBoard.w*0.42*0.8;
+    nextBoard.landX=landX;nextBoard.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
-      player.onBoard=true;player.vy=0;player.x=landX;board.gaugePhase=0;
+      player.onBoard=true;player.vy=0;
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(landX,board.y,Math.round(7*power),power);
+        spawnDust(landX,nextBoard.y-G.cam,Math.round(7*power),power);
         shake=Math.min(1,shake+0.55*power);
-        board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
         bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
       }
+      promoteNextBoard();
     }
     if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
     if(player.y-G.cam>H+player.r*2)gameOver();
@@ -368,21 +416,34 @@ function drawGame(){
 
   // 월드 좌표를 카메라 좌표로 변환한다.
   // 점프가 높아지면 카메라가 따라오고, 널판지는 화면 아래로 내려간다.
+  // 현재 널판지와 다음 착지용 널판지를 함께 보여준다.
   const pivotX=board.cx,pivotY=board.y-G.cam,halfW=board.w/2,tilt=board.tilt||0;
   ctx.save();
-  ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
-  ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
-  ctx.fillStyle='#a9743a';ctx.fillRect(-halfW,-H*0.012,board.w,H*0.024);
-  ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
-  if(!player.onBoard&&board.landR){
-    const zoneX=halfW*0.8*0.8,pulse=0.5+0.5*Math.sin(Date.now()/180);
-    ctx.save();ctx.globalAlpha=0.35+0.35*pulse;ctx.fillStyle='#7CFC5A';
-    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.fill();
-    ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
-    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.stroke();
-    ctx.restore();
-  }
+  // 현재 널판지 중심 받침대
+  ctx.fillStyle='#7a7f87';
+  ctx.beginPath();
+  ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);
+  ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);
+  ctx.lineTo(pivotX,pivotY-H*0.01);
+  ctx.closePath();ctx.fill();
+  drawPlank(board,false);
   ctx.restore();
+
+  // 다음 착지용 널판지: 초록색 가이드로 명확하게 표시
+  if(nextBoard){
+    drawPlank(nextBoard,true);
+    if(!player.onBoard){
+      const tx=nextBoard.cx-nextBoard.w*0.42*0.8;
+      const ty=nextBoard.y-G.cam;
+      ctx.save();
+      ctx.globalAlpha=0.75;
+      ctx.fillStyle='#8dff62';
+      ctx.beginPath();
+      ctx.arc(tx,ty-player.r*0.35,player.r*0.22,0,7);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
 
   if(landingKick>0.03){
     ctx.save();
