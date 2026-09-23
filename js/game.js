@@ -82,10 +82,9 @@ function spawnAhead(fromY){
       if(shape===0){ox=baseX+spanX*(t-0.5);oy=-Math.sin(t*Math.PI)*H*0.06;}
       else if(shape===1){ox=baseX+spanX*t;oy=-t*H*0.06;}
       else{ox=baseX+spanX*(t-0.5);oy=Math.sin(t*Math.PI*2)*H*0.03;}
-      const type=(i===Math.floor(n/2)&&Math.random()<0.35)?'gem':'star';
+      const type='star';
       items.push({wx:Math.max(30,Math.min(W-30,ox)),wy:y+oy,type,got:false});
     }
-    if(Math.random()<0.3)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.05,vx:(Math.random()*.5+.3)*(Math.random()<.5?1:-1),r:W*0.065});
   }
 }
 
@@ -303,15 +302,22 @@ function updateGame(){
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
     if(player.vy>0&&player.y+player.r>bw+player.r*2.4)loseLife();
   }
-  for(const s of items){if(s.got)continue;const sy=s.wy;if(sy<-40||sy>H+40)continue;
-    if(Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+16){s.got=true;
-      if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');spawnSparkle(s.wx,sy,'#ffd166');}
-      else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');spawnSparkle(s.wx,sy,'#e56bff');}
-      updateHud();}}
-  for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy;if(ry<-80||ry>H+80)continue;
-    if(!player.onBoard&&Math.hypot(r.wx-player.x,r.wy-player.y)<player.r+r.r*0.7){r.hit=true;
-      loseLife();}}
-  const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
+  // STAR COLLECTION: items stay in world space; collision uses world coordinates.
+  for(const s of items){
+    if(s.got)continue;
+    const screenY=s.wy-G.cam;
+    if(screenY<-80||screenY>H+80)continue;
+    if(!player.onBoard&&Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+W*0.045){
+      s.got=true;
+      G.star++;
+      addFloat(s.wx,s.wy,'+1','#ffd166');
+      spawnSparkle(s.wx,s.wy,'#ffd166');
+      updateHud();
+    }
+  }
+  // 장애물은 이번 단계에서 비활성화. 수집 시스템만 먼저 확정한다.
+  const topY=items.length?items.reduce((mn,s)=>Math.min(mn,s.wy),Infinity):-H*0.4;
+  if(topY-G.cam>H*1.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
   updateParticles();
@@ -473,8 +479,7 @@ function drawGame(){
     if(s.got)continue;
     const sy=s.wy;
     if(sy-G.cam<-40||sy-G.cam>H+40)continue;
-    if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');
-    else drawGem(s.wx,sy,W*0.04);
+    drawStar(s.wx,sy,W*0.045,'#ffd23f');
   }
 
   // 장애물
