@@ -52,15 +52,14 @@ function updateRegion(){
   $('progressFill').style.width=pct+'%';
   document.querySelectorAll('.mile').forEach((el,i)=>el.classList.toggle('active',G.curM>=points[i]));
 }
+const TARGET_HEIGHT=100; // 현재 1스테이지 목표 높이
 let board,player,items,rocks,floats,petals;
 
 function startGame(){
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,star:0,gem:0,hearts:3,over:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,star:0,gem:0,hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
-  nextBoard=createNextBoard(board);
-  previousBoard=null;
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
@@ -70,52 +69,6 @@ function startGame(){
   updateHud();
 }
 
-function createNextBoard(base){
-  const gap=H*(0.46+Math.random()*0.08);
-  const maxShift=W*0.28;
-  const cx=Math.max(W*0.24,Math.min(W*0.76,base.cx+(Math.random()-0.5)*W*0.42));
-  return {
-    cx, y:base.y-gap, w:W*0.68,
-    tilt:0, gaugePhase:0,
-    landX:cx-W*0.68*0.42*0.8,
-    pulse:0
-  };
-}
-function promoteNextBoard(){
-  previousBoard=board;
-  board=nextBoard;
-  board.gaugePhase=0;
-  board.tilt=0;
-  nextBoard=createNextBoard(board);
-  player.x=board.cx+board.w*0.42*0.8;
-  player.y=board.y-player.r*0.5;
-}
-function drawPlank(b,isTarget=false){
-  if(!b)return;
-  const pivotX=b.cx,pivotY=b.y-G.cam,halfW=b.w/2,tilt=b.tilt||0;
-  if(pivotY<-H*0.3||pivotY>H*1.3)return;
-  ctx.save();
-  ctx.translate(pivotX,pivotY);
-  ctx.rotate(tilt);
-  ctx.fillStyle=isTarget?'#bd8645':'#a9743a';
-  ctx.fillRect(-halfW,-H*0.012,b.w,H*0.024);
-  ctx.strokeStyle=isTarget?'#7dbb5b':'#6e4620';
-  ctx.lineWidth=isTarget?2.5:1.5;
-  ctx.strokeRect(-halfW,-H*0.012,b.w,H*0.024);
-  if(isTarget){
-    const pulse=0.5+0.5*Math.sin(Date.now()/180);
-    ctx.globalAlpha=0.18+0.18*pulse;
-    ctx.fillStyle='#8dff62';
-    ctx.fillRect(-halfW,-H*0.018,b.w,H*0.036);
-    ctx.globalAlpha=1;
-    ctx.strokeStyle='#8dff62';
-    ctx.setLineDash([7,5]);
-    ctx.lineWidth=2;
-    ctx.strokeRect(-halfW+4,-H*0.018,b.w-8,H*0.036);
-    ctx.setLineDash([]);
-  }
-  ctx.restore();
-}
 function spawnAhead(fromY){
   let y=fromY;
   for(let seg=0;seg<14;seg++){
@@ -271,27 +224,38 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.16;
-    const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();}
+    // 카메라는 상승뿐 아니라 하강도 따라간다. 널판지는 월드에 고정되어 있다.
+    const target=player.y-H*0.40;
+    G.cam+=(target-G.cam)*0.16;
+    G.cam=Math.max(0,G.cam);
 
-    const bw=G.cam+nextBoard.y;
-    const landX=nextBoard.cx-nextBoard.w*0.42*0.8;
-    nextBoard.landX=landX;nextBoard.landR=player.r*0.9;
+    // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
+    const m=Math.max(0,Math.floor((board.y-player.y)/PPM()));
+    if(m>G.curM){G.curM=m;G.peakM=Math.max(G.peakM,m);updateHud();}
+    if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
+
+    // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
+    const bw=board.y;
+    const landX=board.cx+board.w*0.42*0.8;
+    board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
-      player.onBoard=true;player.vy=0;
+      player.onBoard=true;player.vy=0;player.x=landX;player.y=board.y-player.r*0.5;board.gaugePhase=0;
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(landX,nextBoard.y-G.cam,Math.round(7*power),power);
+        spawnDust(landX,board.y-G.cam,Math.round(7*power),power);
         shake=Math.min(1,shake+0.55*power);
+        board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
         bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
       }
-      promoteNextBoard();
+      // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
+      if(G.targetReached)clearGame();
     }
-    if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
-    if(player.y-G.cam>H+player.r*2)gameOver();
+    // 목표를 달성하지 못한 상태에서 널판지를 놓치면 게임 오버.
+    if(!G.targetReached&&player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
+    if(!G.targetReached&&player.y-G.cam>H+player.r*2)gameOver();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
     if(Math.hypot(s.wx-player.x,sy-player.y)<player.r+16){s.got=true;
@@ -312,6 +276,16 @@ function bigJudge(t,c){
   j.style.left=(px/W*100)+'%';j.style.top=(Math.max(60,py)/H*100)+'%';
   j.style.transition='none';j.style.opacity='1';j.style.transform='translate(-50%,-50%) scale(1.8)';
   requestAnimationFrame(()=>{j.style.transition='all .6s cubic-bezier(.2,.8,.2,1)';j.style.opacity='0';j.style.transform='translate(-50%,-50%) scale(1.0)';});
+}
+function clearGame(){
+  if(G.over)return;
+  G.over=true;
+  if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
+  $('resTitle').textContent='CLEAR!';
+  $('resM').textContent=G.curM;
+  $('resStar').textContent=G.star;
+  $('resGem').textContent=G.gem;
+  show('result');
 }
 function gameOver(){
   if(G.over)return;G.over=true;
@@ -416,34 +390,21 @@ function drawGame(){
 
   // 월드 좌표를 카메라 좌표로 변환한다.
   // 점프가 높아지면 카메라가 따라오고, 널판지는 화면 아래로 내려간다.
-  // 현재 널판지와 다음 착지용 널판지를 함께 보여준다.
   const pivotX=board.cx,pivotY=board.y-G.cam,halfW=board.w/2,tilt=board.tilt||0;
   ctx.save();
-  // 현재 널판지 중심 받침대
-  ctx.fillStyle='#7a7f87';
-  ctx.beginPath();
-  ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);
-  ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);
-  ctx.lineTo(pivotX,pivotY-H*0.01);
-  ctx.closePath();ctx.fill();
-  drawPlank(board,false);
-  ctx.restore();
-
-  // 다음 착지용 널판지: 초록색 가이드로 명확하게 표시
-  if(nextBoard){
-    drawPlank(nextBoard,true);
-    if(!player.onBoard){
-      const tx=nextBoard.cx-nextBoard.w*0.42*0.8;
-      const ty=nextBoard.y-G.cam;
-      ctx.save();
-      ctx.globalAlpha=0.75;
-      ctx.fillStyle='#8dff62';
-      ctx.beginPath();
-      ctx.arc(tx,ty-player.r*0.35,player.r*0.22,0,7);
-      ctx.fill();
-      ctx.restore();
-    }
+  ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
+  ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
+  ctx.fillStyle='#a9743a';ctx.fillRect(-halfW,-H*0.012,board.w,H*0.024);
+  ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
+  if(!player.onBoard&&board.landR){
+    const zoneX=halfW*0.8*0.8,pulse=0.5+0.5*Math.sin(Date.now()/180);
+    ctx.save();ctx.globalAlpha=0.35+0.35*pulse;ctx.fillStyle='#7CFC5A';
+    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.fill();
+    ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.stroke();
+    ctx.restore();
   }
+  ctx.restore();
 
   if(landingKick>0.03){
     ctx.save();
