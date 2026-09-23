@@ -288,13 +288,21 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      if(G.lastJudge){
-        const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(player.x,board.y,Math.round(7*power),power);
-        shake=Math.min(1,shake+0.55*power);
-        board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
-        bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
-      }
+      // V34: 착지 자체의 위치를 판정한다. 플레이어 사이드 안에서는
+      // 이상적인 착지점에 가까울수록 PERFECT / GOOD / OK로 보여준다.
+      const idealX=board.cx-board.w*0.30;
+      const dist=Math.abs(player.x-idealX);
+      const perfectRange=board.w*0.085;
+      const goodRange=board.w*0.18;
+      let landingJudge;
+      if(dist<=perfectRange) landingJudge={label:'PERFECT!',col:'#ff4d6d',power:1.6};
+      else if(dist<=goodRange) landingJudge={label:'GOOD',col:'#ffb703',power:1.1};
+      else landingJudge={label:'OK',col:'#8ecae6',power:0.7};
+      spawnDust(player.x,board.y,Math.round(7*landingJudge.power),landingJudge.power);
+      shake=Math.min(1,shake+0.55*landingJudge.power);
+      board.tilt += landingJudge.label==='PERFECT!' ? 0.16 : landingJudge.label==='GOOD' ? 0.10 : 0.05;
+      bigJudge(landingJudge.label,landingJudge.col);
+      G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
     }
