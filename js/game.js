@@ -167,14 +167,19 @@ function ensureLifeHud(){
   }
   // HUD가 다른 레이어에 가려지지 않도록 게임 화면에 직접 고정한다.
   el.style.position='absolute';
-  el.style.top='calc(env(safe-area-inset-top, 0px) + 10px)';
-  el.style.left='12px';
+  el.style.top='104px';
+  el.style.left='16px';
   el.style.zIndex='50';
   el.style.display='block';
   el.style.visibility='visible';
   el.style.opacity='1';
   el.style.pointerEvents='none';
-  el.style.fontSize='24px';
+  el.style.fontSize='25px';
+  el.style.padding='7px 11px';
+  el.style.borderRadius='18px';
+  el.style.background='rgba(24,44,72,.88)';
+  el.style.border='2px solid rgba(255,255,255,.45)';
+  el.style.boxShadow='0 3px 8px rgba(0,0,0,.28)';
   el.style.lineHeight='1';
   el.style.letterSpacing='1px';
   el.style.filter='drop-shadow(0 2px 2px rgba(0,0,0,.35))';
