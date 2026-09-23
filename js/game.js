@@ -226,7 +226,9 @@ function updateGame(){
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V21: 카메라는 플레이어의 월드 Y를 직접 추적한다.
     // 월드 좌표와 화면 좌표를 섞지 않고, 실제 렌더링에서 한 번만 -G.cam을 적용한다.
-    const cameraTarget=Math.max(0,player.y-H*0.55);
+    const ascent=board.y-player.y;
+    const followStart=H*0.12;
+    const cameraTarget=Math.max(0,ascent-followStart);
     G.cam=cameraTarget;
 
     // 높이는 카메라가 아니라 실제 플레이어의 최고 위치로 계산한다.
@@ -236,16 +238,17 @@ function updateGame(){
 
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
     const bw=board.y;
-    const landX=board.cx+board.w*0.42*0.8;
+    const landX=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));
+    const landHalf=board.w*0.46;
     board.landX=landX;board.landR=player.r*0.9;
-    if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
-      player.onBoard=true;player.vy=0;player.x=landX;player.y=board.y-player.r*0.5;board.gaugePhase=0;
+    if(player.vy>0&&player.y+player.r>=bw-8&&player.y+player.r<=bw+player.r*1.6&&Math.abs(player.x-board.cx)<landHalf){
+      player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(landX,board.y-G.cam,Math.round(7*power),power);
+        spawnDust(player.x,board.y-G.cam,Math.round(7*power),power);
         shake=Math.min(1,shake+0.55*power);
         board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
         bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
