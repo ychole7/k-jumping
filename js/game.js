@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);
 const cv=$('c'),ctx=cv.getContext('2d'),stageEl=$('stageEl');
 
-const ASSETS={ player:'assets/characters/player_idle.png', partner:'assets/characters/partner_idle.png' };
+const ASSETS={ player:'assets/characters/player_idle.png', partner:'assets/characters/partner_idle.png', board:'assets/board/seesaw_final.png' };
 const imgCache={};
 function getImg(u){if(!u)return null;if(imgCache[u])return imgCache[u];const im=new Image();im.src=u;imgCache[u]=im;return im;}
 
@@ -595,77 +595,39 @@ function drawGame(){
 
   const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
 
-  // 널판지: 물리/좌표는 기존 그대로 유지하고, 시각 디자인만 고급화한다.
-  ctx.save();
-  // 바위 받침대
-  const supportGrad=ctx.createLinearGradient(pivotX,pivotY-H*0.01,pivotX,pivotY+H*0.035);
-  supportGrad.addColorStop(0,'#a9a7a0');
-  supportGrad.addColorStop(0.45,'#77756f');
-  supportGrad.addColorStop(1,'#4f4d49');
-  ctx.shadowColor='rgba(30,24,16,.28)';ctx.shadowBlur=8;ctx.shadowOffsetY=4;
-  ctx.fillStyle=supportGrad;
-  ctx.beginPath();
-  ctx.moveTo(pivotX-W*0.075,pivotY+H*0.024);
-  ctx.lineTo(pivotX+W*0.075,pivotY+H*0.024);
-  ctx.lineTo(pivotX+W*0.045,pivotY-H*0.008);
-  ctx.quadraticCurveTo(pivotX,pivotY-H*0.025,pivotX-W*0.045,pivotY-H*0.008);
-  ctx.closePath();ctx.fill();
-  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-
-  ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
-
-  // 판자 그림자/두께
-  const thickness=H*0.042;
-  ctx.shadowColor='rgba(40,24,10,.30)';ctx.shadowBlur=9;ctx.shadowOffsetY=5;
-  ctx.fillStyle='#74431f';
-  ctx.beginPath();
-  ctx.roundRect(-halfW,-H*0.009,board.w,thickness,Math.min(10,W*0.018));
-  ctx.fill();
-  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-
-  // 나무 본체
-  const woodGrad=ctx.createLinearGradient(0,-H*0.017,0,H*0.014);
-  woodGrad.addColorStop(0,'#d49a55');
-  woodGrad.addColorStop(0.48,'#b97936');
-  woodGrad.addColorStop(1,'#8e5729');
-  ctx.fillStyle=woodGrad;
-  ctx.beginPath();
-  ctx.roundRect(-halfW,-H*0.018,board.w,H*0.029,Math.min(9,W*0.016));
-  ctx.fill();
-
-  // 상단 하이라이트와 테두리
-  ctx.strokeStyle='rgba(255,224,164,.75)';ctx.lineWidth=Math.max(1,W*0.004);
-  ctx.beginPath();ctx.moveTo(-halfW+W*0.012,-H*0.012);ctx.lineTo(halfW-W*0.012,-H*0.012);ctx.stroke();
-  ctx.strokeStyle='#6b3d1d';ctx.lineWidth=Math.max(1.5,W*0.006);
-  ctx.beginPath();ctx.roundRect(-halfW,-H*0.018,board.w,H*0.029,Math.min(9,W*0.016));ctx.stroke();
-
-  // 나무결
-  ctx.save();ctx.globalAlpha=.24;ctx.strokeStyle='#6f3f1e';ctx.lineWidth=Math.max(1,W*.0025);
-  const grainY=[-H*.008,-H*.001,H*.006];
-  grainY.forEach((gy,gi)=>{
-    ctx.beginPath();
-    ctx.moveTo(-halfW+W*.035,gy);
-    ctx.bezierCurveTo(-halfW+board.w*.30,gy+Math.sin(gi+1)*H*.002,halfW-board.w*.32,gy-Math.cos(gi+2)*H*.002,halfW-W*.035,gy+Math.sin(gi*.7)*H*.0015);
-    ctx.stroke();
-  });
-  ctx.restore();
-
-  // 양 끝 금속 캡/장식
-  ctx.fillStyle='#5f371b';
-  ctx.fillRect(-halfW+W*.008,-H*.020,W*.012,H*.033);
-  ctx.fillRect(halfW-W*.020,-H*.020,W*.012,H*.033);
-  ctx.fillStyle='#e4b56b';
-  ctx.beginPath();ctx.arc(-halfW+W*.014,-H*.003,W*.006,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.arc(halfW-W*.014,-H*.003,W*.006,0,Math.PI*2);ctx.fill();
-  if(!player.onBoard&&board.landR){
-    const zoneX=halfW*0.8*0.8,pulse=0.5+0.5*Math.sin(Date.now()/180);
-    ctx.save();ctx.globalAlpha=0.35+0.35*pulse;ctx.fillStyle='#7CFC5A';
-    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.fill();
-    ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
-    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.stroke();
+  // 널판지: 기존 물리/좌표는 그대로 두고, 확정한 고퀄 3D 널뛰기 아트로 교체한다.
+  const boardImg=getImg(ASSETS.board);
+  if(boardImg && boardImg.complete && boardImg.naturalWidth){
+    const drawW=board.w*1.08;
+    const drawH=drawW*(boardImg.naturalHeight/boardImg.naturalWidth);
+    const anchorY=H*0.027;
+    ctx.save();
+    ctx.translate(pivotX,pivotY+anchorY);
+    ctx.rotate(tilt);
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(boardImg,-drawW/2,-drawH*0.285,drawW,drawH);
+    ctx.restore();
+  } else {
+    // 이미지 로딩 전에도 게임 물리가 깨지지 않도록 기존 간단 판을 유지한다.
+    ctx.save();
+    ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
+    ctx.fillStyle='#9b6330';ctx.fillRect(-halfW,-H*.014,board.w,H*.032);
     ctx.restore();
   }
-  ctx.restore();
+
+  // 착지 가능 영역은 물리 판정과 동일하게 시각적으로만 표시한다.
+  if(!player.onBoard&&board.landR){
+    const zoneX=board.cx+Math.cos(tilt)*halfW*0.8;
+    const zoneY=board.y+Math.sin(tilt)*halfW*0.8;
+    const pulse=0.5+0.5*Math.sin(Date.now()/180);
+    ctx.save();
+    ctx.translate(zoneX,zoneY);ctx.rotate(tilt);
+    ctx.globalAlpha=0.26+0.22*pulse;ctx.fillStyle='#7CFC5A';
+    ctx.beginPath();ctx.ellipse(0,-H*0.008,board.landR*1.15,board.landR*0.34,0,0,7);ctx.fill();
+    ctx.globalAlpha=0.75;ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.ellipse(0,-H*0.008,board.landR*1.15,board.landR*0.34,0,0,7);ctx.stroke();
+    ctx.restore();
+  }
 
   if(landingKick>0.03){
     ctx.save();
