@@ -405,7 +405,7 @@ function drawPlayer(px,py,r){
   const sq=1-squash,st=1+squash;
   const im=getImg(ASSETS.player);
   ctx.save();ctx.translate(px,py);ctx.scale(st,sq);
-  if(im&&im.complete&&im.naturalWidth){const d=r*2.1;ctx.drawImage(im,-d/2,-d*0.82,d,d);}
+  if(im&&im.complete&&im.naturalWidth){const d=r*2.35;ctx.drawImage(im,-d/2,-d*0.82,d,d);}
   else{
     ctx.fillStyle='#fdfdfd';ctx.beginPath();ctx.arc(0,r*0.4,r*0.95,0,7);ctx.fill();
     ctx.fillStyle='#2f6fd0';ctx.beginPath();ctx.arc(0,r*0.1,r*0.85,Math.PI*0.15,Math.PI*0.85);ctx.fill();
