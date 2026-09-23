@@ -122,7 +122,7 @@ function tapGame(){
   player.onBoard=false;
   // V38: 100m 1스테이지를 실제로 도달할 수 있도록 점프 높이를 상향.
   // PERFECT 약 110m / GOOD 약 83m / OK 약 62m 수준.
-  player.vy=-(H*0.055)*(0.7+power*0.6);
+  player.vy=-(H*0.0484)*(0.7+power*0.6);
   launchFlash=1;
   jumpTrail=[];
   G.lastJudge={label,col};
@@ -280,7 +280,7 @@ function updateGame(){
     jumpTrail.forEach(p=>p.life-=0.055);
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
-    player.vy+=H*0.00044;player.y+=player.vy;
+    player.vy+=H*0.000387;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
