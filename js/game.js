@@ -172,6 +172,8 @@ let launchFlash=0;
 let landingSquash=0;
 let landingKick=0;
 let shake=0;         // 화면 흔들림 강도
+let missFlash=0;
+let missText='';
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
     const a=Math.PI+Math.random()*Math.PI;   // 위쪽 반원으로 퍼짐
@@ -192,6 +194,7 @@ function updateParticles(){
   if(launchFlash>0)launchFlash*=0.82; if(launchFlash<0.02)launchFlash=0;
   if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
   if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
+  if(missFlash>0)missFlash-=0.035; if(missFlash<0)missFlash=0;
 }
 function drawParticles(){
   particles.forEach(p=>{
@@ -271,7 +274,7 @@ function updateGame(){
     }
     // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
-    if(player.vy>0&&player.y+player.r>bw+player.r*2.4)gameOver();
+    if(player.vy>0&&player.y+player.r>bw+player.r*2.4)loseLife();
   }
   for(const s of items){if(s.got)continue;const sy=s.wy;if(sy<-40||sy>H+40)continue;
     if(Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+16){s.got=true;
@@ -280,7 +283,7 @@ function updateGame(){
       updateHud();}}
   for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy;if(ry<-80||ry>H+80)continue;
     if(!player.onBoard&&Math.hypot(r.wx-player.x,r.wy-player.y)<player.r+r.r*0.7){r.hit=true;
-      G.hearts--;updateHud();if(G.hearts<=0)gameOver();}}
+      loseLife();}}
   const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
@@ -303,10 +306,37 @@ function clearGame(){
   $('resGem').textContent=G.gem;
   show('result');
 }
+function loseLife(){
+  if(G.over)return;
+  G.hearts=Math.max(0,G.hearts-1);
+  updateHud();
+  missFlash=1;
+  missText='MISS!';
+  // 실패 순간에는 현재 점프를 완전히 종료하고, 땅에 고정된 원래 널판지로 돌아온다.
+  player.onBoard=true;
+  player.vy=0;
+  player.x=board.cx-board.w*0.42*0.8;
+  player.y=board.y-player.r*0.5;
+  G.cam=0;
+  G.curM=0;
+  G.lastJumpM=0;
+  board.gaugePhase=0;
+  board.gaugeVal=0.5;
+  board.tilt=0;
+  jumpTrail=[];
+  landingSquash=0;
+  landingKick=0;
+  shake=Math.min(1,shake+0.8);
+  updateHud();
+  // 목숨이 남아 있으면 바로 다시 도전할 수 있다. 0개일 때만 최종 결과.
+  if(G.hearts<=0){
+    gameOver();
+  }
+}
 function gameOver(){
   if(G.over)return;G.over=true;
-  if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent=G.curM>=best?'최고 기록!':'기록';
+  if(G.peakM>best){best=G.peakM;localStorage.setItem('kjump_best_m',best);}
+  $('resTitle').textContent='GAME OVER';
   $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resGem').textContent=G.gem;
   show('result');
 }
@@ -474,6 +504,16 @@ function drawGame(){
 
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
+  if(missFlash>0){
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,missFlash*1.5);
+    ctx.fillStyle='#ff4d6d';
+    ctx.font='900 '+Math.round(W*0.11)+'px system-ui';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,.25)';ctx.shadowBlur=10;
+    ctx.fillText(missText,W*.5,H*.34);
+    ctx.restore();
+  }
   ctx.restore();
 
   // ================= SCREEN SPACE UI =================
