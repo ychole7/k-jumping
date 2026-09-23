@@ -33,7 +33,7 @@ function show(name){
 let best=+(localStorage.getItem('kjump_best_m')||0);
 
 const PPM=()=>H*0.085;
-  const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:6.5,landingTolerance:()=>H*.13};
+  const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:4.2,landingTolerance:()=>H*.13};
 let G={};
 const REGIONS=[
   {max:100,name:'하늘마을',sub:'따뜻한 봄 하늘'},
@@ -167,6 +167,8 @@ let squash=0;
 let particles=[];   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
+let landingSquash=0;
+let landingKick=0;
 let shake=0;         // 화면 흔들림 강도
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
@@ -186,6 +188,8 @@ function updateParticles(){
   particles=particles.filter(p=>p.life>0);
   if(shake>0)shake*=0.85; if(shake<0.05)shake=0;
   if(launchFlash>0)launchFlash*=0.82; if(launchFlash<0.02)launchFlash=0;
+  if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
+  if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
 }
 function drawParticles(){
   particles.forEach(p=>{
@@ -199,6 +203,12 @@ function updateGame(){
   if(current!=='game'||G.over||paused)return;
   const halfW=board.w/2;
   if(player.onBoard){
+    if(landingSquash>0.01){
+      squash=Math.max(squash,landingSquash*0.34);
+      board.tilt += Math.sin(landingSquash*Math.PI)*0.012;
+    }else{
+      squash+=(0-squash)*0.2;
+    }
     board.gaugePhase+=0.045;
     board.gaugeVal=(Math.sin(board.gaugePhase-Math.PI/2)+1)/2;
     board.tilt=board.gaugeVal*0.4;
@@ -222,10 +232,13 @@ function updateGame(){
     if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
       player.onBoard=true;player.vy=0;player.x=landX;board.gaugePhase=0;
       jumpTrail=[];
+      landingSquash=1;
+      landingKick=1;
       if(G.lastJudge){
         const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
-        spawnDust(landX,board.y,Math.round(6*power),power);
-        shake=Math.min(1,shake+0.5*power);
+        spawnDust(landX,board.y,Math.round(7*power),power);
+        shake=Math.min(1,shake+0.55*power);
+        board.tilt += G.lastJudge.label==='PERFECT!' ? 0.16 : G.lastJudge.label==='GOOD' ? 0.10 : 0.05;
         bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
       }
     }
@@ -322,7 +335,8 @@ function drawJumpTrail(){
 }
 
 function drawPlayer(px,py,r){
-  const sq=1-squash,st=1+squash;
+  const landingPose=landingSquash*0.22;
+  const sq=1-squash+landingPose,st=1+squash-landingPose*0.45;
   const im=getImg(ASSETS.player);
   ctx.save();ctx.translate(px,py);ctx.scale(st,sq);
   if(im&&im.complete&&im.naturalWidth){const d=r*2.35;ctx.drawImage(im,-d/2,-d*0.82,d,d);}
@@ -369,6 +383,18 @@ function drawGame(){
     ctx.restore();
   }
   ctx.restore();
+
+  if(landingKick>0.03){
+    ctx.save();
+    ctx.globalAlpha=landingKick*0.45;
+    ctx.strokeStyle='#fff3b0';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.ellipse(pivotX+halfW*0.8,pivotY+2,player.r*(0.8+landingKick*1.4),player.r*(0.22+landingKick*0.18),0,0,7);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   const partX=pivotX+Math.cos(tilt)*halfW*0.8,partY=pivotY+Math.sin(tilt)*halfW*0.8;
   drawPartner(partX,partY-W*0.11,W*0.11);
   if(!player.onBoard){
