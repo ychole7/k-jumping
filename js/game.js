@@ -95,35 +95,65 @@ function tapGame(){
   else if(q>0.5){power=0.7;label='GOOD';col='#ffb703';}
   else{power=0.45;label='OK';col='#8ecae6';}
   player.onBoard=false;
-  player.vy=-(H*0.030)*(0.7+power*0.6);
+  player.vy=-(H*0.040)*(0.7+power*0.6);
   launchFlash=1;
   jumpTrail=[];
   G.lastJudge={label,col};
 }
 let tsx=null;
 let paused=false;
-function down(e){if(current!=='game'||paused)return;e.preventDefault();const t=e.touches?e.touches[0]:e;tsx=t.clientX;tapGame();}
-function mv(e){if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
-function up(){tsx=null;}
-const gameScene=$('game');
-// 모바일/PC 모두 확실하게 한 번의 탭을 입력으로 받는다.
-// pointer 이벤트를 우선 사용하고, 구형 환경에서는 기존 touch/mouse 이벤트를 유지한다.
-if(window.PointerEvent){
-  gameScene.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='mouse' && e.button!==0)return;
-    down(e);
-  },{passive:false});
-  gameScene.addEventListener('pointermove',e=>{if(e.buttons)mv(e);},{passive:false});
-  gameScene.addEventListener('pointerup',up);
-  gameScene.addEventListener('pointercancel',up);
-}else{
-  gameScene.addEventListener('touchstart',down,{passive:false});
-  gameScene.addEventListener('touchmove',mv,{passive:false});
-  gameScene.addEventListener('touchend',up);
-  gameScene.addEventListener('mousedown',down);
-  gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});
-  addEventListener('mouseup',up);
+let inputLock=false;
+
+function down(e){
+  if(current!=='game'||G.over||paused)return;
+  if(e.cancelable)e.preventDefault();
+  const t=e.touches&&e.touches.length?e.touches[0]:e;
+  tsx=t.clientX;
+  tapGame();
 }
+function mv(e){
+  if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;
+  if(e.cancelable)e.preventDefault();
+  const t=e.touches&&e.touches.length?e.touches[0]:e;
+  const dx=t.clientX-tsx;tsx=t.clientX;
+  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));
+}
+function up(){tsx=null;inputLock=false;}
+
+// 입력은 game 요소가 아니라 stage 전체에서 받는다.
+// 캔버스/HTML HUD가 위에 있어도 게임 영역 어디를 눌러도 점프하도록 한다.
+const gameScene=$('game');
+function handlePointerDown(e){
+  if(e.pointerType==='mouse' && e.button!==0)return;
+  if(current!=='game'||G.over||paused)return;
+  if(inputLock)return;
+  inputLock=true;
+  down(e);
+}
+if(window.PointerEvent){
+  stageEl.addEventListener('pointerdown',handlePointerDown,{passive:false});
+  stageEl.addEventListener('pointermove',mv,{passive:false});
+  stageEl.addEventListener('pointerup',up,{passive:false});
+  stageEl.addEventListener('pointercancel',up,{passive:false});
+}
+// iOS/구형 WebView 등에서 pointer 이벤트가 막히는 경우를 위한 touch fallback
+gameScene.addEventListener('touchstart',e=>{
+  if(window.PointerEvent && e.pointerType!==undefined)return;
+  handlePointerDown(e);
+},{passive:false});
+gameScene.addEventListener('touchmove',mv,{passive:false});
+gameScene.addEventListener('touchend',up,{passive:false});
+// PC에서 pointer 이벤트가 없는 환경
+gameScene.addEventListener('mousedown',e=>{if(!window.PointerEvent)handlePointerDown(e);});
+gameScene.addEventListener('mousemove',e=>{if(!window.PointerEvent&&e.buttons)mv(e);});
+addEventListener('mouseup',up);
+// 최후의 fallback: 실제 click이 발생해도 점프 처리
+gameScene.addEventListener('click',e=>{
+  if(current==='game'&&!G.over&&!paused&&player.onBoard){
+    tapGame();
+  }
+});
+
 addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
