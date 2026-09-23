@@ -96,7 +96,9 @@ function tapGame(){
   else if(q>0.5){power=0.7;label='GOOD';col='#ffb703';}
   else{power=0.45;label='OK';col='#8ecae6';}
   player.onBoard=false;
-  player.vy=-(H*0.040)*(0.7+power*0.6);
+  // V38: 100m 1스테이지를 실제로 도달할 수 있도록 점프 높이를 상향.
+  // PERFECT 약 110m / GOOD 약 83m / OK 약 62m 수준.
+  player.vy=-(H*0.090)*(0.7+power*0.6);
   launchFlash=1;
   jumpTrail=[];
   G.lastJudge={label,col};
@@ -364,7 +366,7 @@ function clearGame(){
   if(G.over)return;
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent='CLEAR!';
+  $('resTitle').textContent='100m CLEAR!';
   $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
   $('resGem').textContent=G.gem;
