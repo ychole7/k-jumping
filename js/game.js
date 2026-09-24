@@ -60,7 +60,7 @@ function startGame(){
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
-  board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
+  board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
@@ -598,9 +598,9 @@ function drawGame(){
   // 널판지: 기존 물리/좌표는 그대로 두고, 확정한 고퀄 3D 널뛰기 아트로 교체한다.
   const boardImg=getImg(ASSETS.board);
   if(boardImg && boardImg.complete && boardImg.naturalWidth){
-    const drawW=board.w*1.08;
+    const drawW=board.w*1.02;
     const drawH=drawW*(boardImg.naturalHeight/boardImg.naturalWidth);
-    const anchorY=H*0.027;
+    const anchorY=H*0.018;
     ctx.save();
     ctx.translate(pivotX,pivotY+anchorY);
     ctx.rotate(tilt);
@@ -641,14 +641,14 @@ function drawGame(){
   // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
-  drawPartner(partX,partY-W*0.11,W*0.11);
+  drawPartner(partX,partY-W*0.055,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
   if(!player.onBoard&&launchFlash>0.05){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  drawPlayer(player.x,player.y,player.r);
+  drawPlayer(player.x,player.y+(player.onBoard?W*0.018:0),player.r);
 
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
