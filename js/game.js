@@ -641,7 +641,7 @@ function drawGame(){
   // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
-  drawPartner(partX,partY-W*0.055,W*0.11);
+  drawPartner(partX,partY-W*0.085,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
   if(!player.onBoard&&launchFlash>0.05){
