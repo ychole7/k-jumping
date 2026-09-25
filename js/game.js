@@ -648,7 +648,7 @@ function drawGame(){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  drawPlayer(player.x,player.y+(player.onBoard?W*0.032:0),player.r);
+  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
