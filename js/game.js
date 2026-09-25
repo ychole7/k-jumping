@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);
 const cv=$('c'),ctx=cv.getContext('2d'),stageEl=$('stageEl');
 
-const ASSETS={ player:'assets/characters/player_idle.png', partner:'assets/characters/partner_idle.png', board:'assets/board/seesaw_final.png' };
+const ASSETS={ player:'assets/characters/player_idle.png', partner:'assets/characters/partner_idle.png' };
 const imgCache={};
 function getImg(u){if(!u)return null;if(imgCache[u])return imgCache[u];const im=new Image();im.src=u;imgCache[u]=im;return im;}
 
@@ -33,7 +33,7 @@ function show(name){
 let best=+(localStorage.getItem('kjump_best_m')||0);
 
 const PPM=()=>H*0.085;
-  const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:4.2,landingTolerance:()=>H*.13};
+  const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:6.5,landingTolerance:()=>H*.13};
 let G={};
 const REGIONS=[
   {max:100,name:'하늘마을',sub:'따뜻한 봄 하늘'},
@@ -45,26 +45,24 @@ const REGIONS=[
 ];
 function getRegion(m){return REGIONS.find(r=>m<r.max)||REGIONS[REGIONS.length-1];}
 function updateRegion(){
-  // 구간/진행도는 현재 높이가 아니라 이번 플레이에서 달성한 최고 높이를 기준으로 한다.
-  const r=getRegion(G.peakM);
-  $('regionName').textContent=r.name; $('regionSub').textContent=`최고 높이 · ${G.peakM}m`;
+  const r=getRegion(G.curM);
+  $('regionName').textContent=r.name; $('regionSub').textContent=`현재 구간 · ${G.curM}m`;
   const points=[0,100,250,500,1000];
-  const max=1000; const pct=Math.min(100,(G.peakM/max)*100);
+  const max=1000; const pct=Math.min(100,(G.curM/max)*100);
   $('progressFill').style.width=pct+'%';
   document.querySelectorAll('.mile').forEach((el,i)=>el.classList.toggle('active',G.curM>=points[i]));
 }
-const TARGET_HEIGHT=100; // 현재 1스테이지 목표 높이
 let board,player,items,rocks,floats,petals;
 
 function startGame(){
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
-  board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
+  G={cam:0,curM:0,star:0,gem:0,hearts:3,over:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  board={cx:W*0.5,y:H*0.72,w:W*0.78,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
-  items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;shake=0;
+  items=[];rocks=[];floats=[];particles=[];shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.4);
   updateHud();
@@ -72,43 +70,20 @@ function startGame(){
 
 function spawnAhead(fromY){
   let y=fromY;
-  for(let seg=0;seg<12;seg++){
-    y-=H*0.24+Math.random()*H*0.16;
-    const baseX=W*(0.18+Math.random()*0.64);
-    const span=W*(0.26+Math.random()*0.30);
-    const pattern=Math.floor(Math.random()*5);
+  for(let seg=0;seg<14;seg++){
+    y-=H*0.22+Math.random()*H*0.14;
     const n=4+Math.floor(Math.random()*3);
+    const shape=Math.floor(Math.random()*3);
+    const baseX=W*(0.2+Math.random()*0.6), spanX=W*0.45*(Math.random()<.5?1:-1);
     for(let i=0;i<n;i++){
-      const t=n===1?0:i/(n-1);
-      let ox=baseX, oy=0;
-      if(pattern===0){
-        // 완만한 상승 라인
-        ox=baseX-span*0.5+span*t;
-        oy=-Math.sin(t*Math.PI)*H*0.035;
-      }else if(pattern===1){
-        // 좌우 지그재그
-        ox=baseX+Math.sin(t*Math.PI*2)*span*0.42;
-        oy=-Math.sin(t*Math.PI)*H*0.025;
-      }else if(pattern===2){
-        // 별 아치: 중앙 별이 조금 높다
-        ox=baseX-span*0.5+span*t;
-        oy=-Math.sin(t*Math.PI)*H*0.075;
-      }else if(pattern===3){
-        // 좁은 세로 묶음
-        ox=baseX+(Math.random()-.5)*span*0.28;
-        oy=-t*H*0.10;
-      }else{
-        // 양쪽으로 벌어지는 선택형 배치
-        ox=baseX+(t<0.5?-1:1)*span*(0.12+Math.abs(t-.5)*0.72);
-        oy=-Math.sin(t*Math.PI)*H*0.045;
-      }
-      items.push({
-        wx:Math.max(30,Math.min(W-30,ox)),
-        wy:y+oy,
-        type:'star',
-        got:false
-      });
+      const t=i/(n-1);let ox,oy;
+      if(shape===0){ox=baseX+spanX*(t-0.5);oy=-Math.sin(t*Math.PI)*H*0.06;}
+      else if(shape===1){ox=baseX+spanX*t;oy=-t*H*0.06;}
+      else{ox=baseX+spanX*(t-0.5);oy=Math.sin(t*Math.PI*2)*H*0.03;}
+      const type=(i===Math.floor(n/2)&&Math.random()<0.35)?'gem':'star';
+      items.push({wx:Math.max(30,Math.min(W-30,ox)),wy:y+oy,type,got:false});
     }
+    if(Math.random()<0.3)rocks.push({wx:Math.random()<.5?-40:W+40,wy:y-H*0.05,vx:(Math.random()*.5+.3)*(Math.random()<.5?1:-1),r:W*0.065});
   }
 }
 
@@ -120,104 +95,25 @@ function tapGame(){
   else if(q>0.5){power=0.7;label='GOOD';col='#ffb703';}
   else{power=0.45;label='OK';col='#8ecae6';}
   player.onBoard=false;
-  // V38: 100m 1스테이지를 실제로 도달할 수 있도록 점프 높이를 상향.
-  // PERFECT 약 110m / GOOD 약 83m / OK 약 62m 수준.
-  player.vy=-(H*0.0484)*(0.7+power*0.6);
-  launchFlash=1;
-  jumpTrail=[];
+  player.vy=-(H*0.030)*(0.7+power*0.6);
   G.lastJudge={label,col};
 }
 let tsx=null;
 let paused=false;
-let inputLock=false;
-
-function down(e){
-  if(current!=='game'||G.over||paused)return;
-  if(e.cancelable)e.preventDefault();
-  const t=e.touches&&e.touches.length?e.touches[0]:e;
-  tsx=t.clientX;
-  tapGame();
-}
-function mv(e){
-  if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;
-  if(e.cancelable)e.preventDefault();
-  const t=e.touches&&e.touches.length?e.touches[0]:e;
-  const dx=t.clientX-tsx;tsx=t.clientX;
-  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));
-}
-function up(){tsx=null;inputLock=false;}
-
-// 입력은 game 요소가 아니라 stage 전체에서 받는다.
-// 캔버스/HTML HUD가 위에 있어도 게임 영역 어디를 눌러도 점프하도록 한다.
+function down(e){if(current!=='game'||paused)return;e.preventDefault();const t=e.touches?e.touches[0]:e;tsx=t.clientX;tapGame();}
+function mv(e){if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;const t=e.touches?e.touches[0]:e,dx=t.clientX-tsx;tsx=t.clientX;player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));}
+function up(){tsx=null;}
 const gameScene=$('game');
-function handlePointerDown(e){
-  if(e.pointerType==='mouse' && e.button!==0)return;
-  if(current!=='game'||G.over||paused)return;
-  if(inputLock)return;
-  inputLock=true;
-  down(e);
-}
-if(window.PointerEvent){
-  stageEl.addEventListener('pointerdown',handlePointerDown,{passive:false});
-  stageEl.addEventListener('pointermove',mv,{passive:false});
-  stageEl.addEventListener('pointerup',up,{passive:false});
-  stageEl.addEventListener('pointercancel',up,{passive:false});
-}
-// iOS/구형 WebView 등에서 pointer 이벤트가 막히는 경우를 위한 touch fallback
-gameScene.addEventListener('touchstart',e=>{
-  if(window.PointerEvent && e.pointerType!==undefined)return;
-  handlePointerDown(e);
-},{passive:false});
+gameScene.addEventListener('touchstart',down,{passive:false});
 gameScene.addEventListener('touchmove',mv,{passive:false});
-gameScene.addEventListener('touchend',up,{passive:false});
-// PC에서 pointer 이벤트가 없는 환경
-gameScene.addEventListener('mousedown',e=>{if(!window.PointerEvent)handlePointerDown(e);});
-gameScene.addEventListener('mousemove',e=>{if(!window.PointerEvent&&e.buttons)mv(e);});
-addEventListener('mouseup',up);
-// 최후의 fallback: 실제 click이 발생해도 점프 처리
-gameScene.addEventListener('click',e=>{
-  if(current==='game'&&!G.over&&!paused&&player.onBoard){
-    tapGame();
-  }
-});
-
+gameScene.addEventListener('touchend',up);
+gameScene.addEventListener('mousedown',down);gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});addEventListener('mouseup',up);
 addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
-function ensureLifeHud(){
-  let el=$('hearts');
-  if(!el){
-    el=document.createElement('div'); el.id='hearts';
-    const game=$('game')||stageEl; game.appendChild(el);
-  }
-  // V45: 하트는 상단 HUD의 왼쪽 흐름에 배치한다.
-  // 별/엽전/일시정지는 오른쪽으로, 현재 높이는 중앙으로 분리해 겹침을 막는다.
-  el.style.position='static';
-  el.style.top='auto';
-  el.style.left='auto';
-  el.style.zIndex='20';
-  el.style.display='block';
-  el.style.visibility='visible';
-  el.style.opacity='1';
-  el.style.pointerEvents='none';
-  el.style.fontSize='23px';
-  el.style.padding='7px 11px 6px';
-  el.style.minWidth='108px';
-  el.style.textAlign='center';
-  el.style.marginTop='4px';
-  el.style.borderRadius='18px';
-  el.style.background='linear-gradient(180deg,rgba(33,62,91,.96),rgba(20,40,65,.96))';
-  el.style.border='2px solid rgba(255,255,255,.55)';
-  el.style.boxShadow='inset 0 2px 0 rgba(255,255,255,.14),0 4px 9px rgba(0,0,0,.3)';
-  el.style.lineHeight='1';
-  el.style.letterSpacing='0';
-  el.style.filter='none';
-  return el;
-}
 function updateHud(){
-  $('gStar').textContent=G.star;$('gCoin').textContent=G.coin;
-  const heartEl=ensureLifeHud();
-  heartEl.textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
+  $('gStar').textContent=G.star;$('gGem').textContent=G.gem;
+  $('hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
   $('depth').textContent=G.curM+' m'; updateRegion();
 }
 
@@ -225,12 +121,7 @@ let squash=0;
 let particles=[];   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
-let landingSquash=0;
-let landingKick=0;
 let shake=0;         // 화면 흔들림 강도
-let missFlash=0;
-let judgeFx={text:'',color:'#fff',life:0,max:0.78,x:0,y:0};
-let missText='';
 function spawnDust(x,y,n,power){
   for(let i=0;i<n;i++){
     const a=Math.PI+Math.random()*Math.PI;   // 위쪽 반원으로 퍼짐
@@ -249,10 +140,6 @@ function updateParticles(){
   particles=particles.filter(p=>p.life>0);
   if(shake>0)shake*=0.85; if(shake<0.05)shake=0;
   if(launchFlash>0)launchFlash*=0.82; if(launchFlash<0.02)launchFlash=0;
-  if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
-  if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
-  if(missFlash>0)missFlash-=0.035; if(missFlash<0)missFlash=0;
-  if(judgeFx.life>0){ judgeFx.life-=0.035; if(judgeFx.life<0)judgeFx.life=0; }
 }
 function drawParticles(){
   particles.forEach(p=>{
@@ -266,12 +153,6 @@ function updateGame(){
   if(current!=='game'||G.over||paused)return;
   const halfW=board.w/2;
   if(player.onBoard){
-    if(landingSquash>0.01){
-      squash=Math.max(squash,landingSquash*0.34);
-      board.tilt += Math.sin(landingSquash*Math.PI)*0.012;
-    }else{
-      squash+=(0-squash)*0.2;
-    }
     board.gaugePhase+=0.045;
     board.gaugeVal=(Math.sin(board.gaugePhase-Math.PI/2)+1)/2;
     board.tilt=board.gaugeVal*0.4;
@@ -279,159 +160,57 @@ function updateGame(){
     player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
   }else{
-    jumpTrail.push({x:player.x,y:player.y,life:1});
+    jumpTrail.push({x:player.x,y:player.y-G.cam,life:1});
     if(jumpTrail.length>18)jumpTrail.shift();
     jumpTrail.forEach(p=>p.life-=0.055);
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
-    player.vy+=H*0.000387;player.y+=player.vy;
+    player.vy+=H*0.00072;player.y+=player.vy;
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
-    // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
-    const cameraTarget=player.y-H*0.40;
-    G.cam += (cameraTarget-G.cam)*0.16;
-    if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
-    // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
-    // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
-    const heightNow=Math.max(0,(board.y-player.y)/PPM());
-    const m=Math.max(0,Math.floor(heightNow));
-    const changed=(m!==G.curM);
-    G.curM=m;
-    if(m>G.peakM)G.peakM=m;
-    if(m>G.lastJumpM)G.lastJumpM=m;
-    if(changed)updateHud();
-    if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
+    const target=player.y-H*0.40;if(target<G.cam)G.cam+=(target-G.cam)*0.16;
+    const m=Math.max(0,Math.floor(-G.cam/PPM()));if(m>G.curM){G.curM=m;updateHud();}
 
-    // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
-    const bw=board.y;
-    const landX=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));
-    // 플레이어는 널판지의 왼쪽 절반에만 착지할 수 있다.
-    // 중앙선을 넘어 상대방 사이드에 착지하면 실패로 처리한다.
-    const playerSideLeft=board.cx-board.w*0.42;
-    const playerSideRight=board.cx;
-    const validLanding=player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15;
-    const landHalf=board.w*0.48;
+    const bw=G.cam+board.y;
+    const landX=board.cx+board.w*0.42*0.8;
     board.landX=landX;board.landR=player.r*0.9;
-    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
-      player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
-      // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
-      G.curM=0;
-      updateHud();
+    if(player.vy>0&&player.y+player.r>=bw-6&&player.y+player.r<=bw+player.r*1.5&&Math.abs(player.x-landX)<player.r*0.95){
+      player.onBoard=true;player.vy=0;player.x=landX;board.gaugePhase=0;
       jumpTrail=[];
-      landingSquash=1;
-      landingKick=1;
-      // V34: 착지 자체의 위치를 판정한다. 플레이어 사이드 안에서는
-      // 이상적인 착지점에 가까울수록 PERFECT / GOOD / OK로 보여준다.
-      const idealX=board.cx-board.w*0.30;
-      const dist=Math.abs(player.x-idealX);
-      const perfectRange=board.w*0.085;
-      const goodRange=board.w*0.18;
-      let landingJudge;
-      if(dist<=perfectRange) landingJudge={label:'PERFECT!',col:'#ff4d6d',power:1.6};
-      else if(dist<=goodRange) landingJudge={label:'GOOD',col:'#ffb703',power:1.1};
-      else landingJudge={label:'OK',col:'#8ecae6',power:0.7};
-      spawnDust(player.x,board.y,Math.round(7*landingJudge.power),landingJudge.power);
-      shake=Math.min(1,shake+0.55*landingJudge.power);
-      board.tilt += landingJudge.label==='PERFECT!' ? 0.16 : landingJudge.label==='GOOD' ? 0.10 : 0.05;
-      bigJudge(landingJudge.label,landingJudge.col);
-      G.lastJudge=null;
-      // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
-      if(G.targetReached)clearGame();
+      if(G.lastJudge){
+        const power=G.lastJudge.label==='PERFECT!'?1.6:G.lastJudge.label==='GOOD'?1.1:0.7;
+        spawnDust(landX,board.y,Math.round(6*power),power);
+        shake=Math.min(1,shake+0.5*power);
+        bigJudge(G.lastJudge.label,G.lastJudge.col);G.lastJudge=null;
+      }
     }
-    // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
-    // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
-    if(player.vy>0&&player.y+player.r>bw+player.r*2.4)loseLife();
+    if(player.vy>0&&player.y+player.r>bw+player.r*1.5)gameOver();
+    if(player.y-G.cam>H+player.r*2)gameOver();
   }
-  // STAR COLLECTION: items stay in world space; collision uses world coordinates.
-  for(const s of items){
-    if(s.got)continue;
-    const screenY=s.wy-G.cam;
-    if(screenY<-80||screenY>H+80)continue;
-    if(!player.onBoard&&Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+W*0.045){
-      s.got=true;
-      G.star++;
-      addFloat(s.wx,s.wy,'+1','#ffd166');
-      spawnSparkle(s.wx,s.wy,'#ffd166');
-      updateHud();
-    }
-  }
-  // 장애물은 이번 단계에서 비활성화. 수집 시스템만 먼저 확정한다.
-  const topY=items.length?items.reduce((mn,s)=>Math.min(mn,s.wy),Infinity):-H*0.4;
-  if(topY-G.cam>H*1.5)spawnAhead(topY);
+  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-40||sy>H+40)continue;
+    if(Math.hypot(s.wx-player.x,sy-player.y)<player.r+16){s.got=true;
+      if(s.type==='star'){G.star++;addFloat(s.wx,sy,'+1','#ffd166');spawnSparkle(s.wx,sy,'#ffd166');}
+      else{G.gem++;addFloat(s.wx,sy,'+1','#e56bff');spawnSparkle(s.wx,sy,'#e56bff');}
+      updateHud();}}
+  for(const r of rocks){if(r.hit)continue;r.wx+=r.vx*(H*0.004);const ry=r.wy-G.cam;if(ry<-80||ry>H+80)continue;
+    if(!player.onBoard&&Math.hypot(r.wx-player.x,ry-player.y)<player.r+r.r*0.7){r.hit=true;
+      G.hearts--;updateHud();if(G.hearts<=0)gameOver();}}
+  const topY=items.reduce((mn,s)=>Math.min(mn,s.wy),0);if(topY>G.cam-H*2.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
   updateParticles();
 }
 function bigJudge(t,c){
-  // V36: 판정은 DOM HUD가 아니라 게임 캔버스의 SCREEN SPACE에 직접 그린다.
-  // 카메라/scene/z-index에 가려지지 않도록 한다.
-  judgeFx.text=t;
-  judgeFx.color=c;
-  judgeFx.life=judgeFx.max;
-  judgeFx.x=player?player.x:W*.5;
-  judgeFx.y=player?player.y-G.cam-player.r*1.9:H*.38;
-}
-function drawJudgeFx(){
-  if(judgeFx.life<=0||!judgeFx.text)return;
-  const t=judgeFx.life/judgeFx.max;
-  const fade=t<0.22?t/0.22:1;
-  const rise=(1-t)*H*.07;
-  const x=Math.max(W*.15,Math.min(W*.85,judgeFx.x));
-  const y=Math.max(H*.12,Math.min(H*.72,judgeFx.y-rise));
-  ctx.save();
-  ctx.globalAlpha=fade;
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.font='1000 '+Math.round(W*.115)+'px Arial, sans-serif';
-  ctx.lineWidth=Math.max(3,W*.014);
-  ctx.strokeStyle='rgba(0,0,0,.32)';
-  ctx.strokeText(judgeFx.text,x,y);
-  ctx.fillStyle=judgeFx.color;
-  ctx.fillText(judgeFx.text,x,y);
-  ctx.restore();
-}
-function clearGame(){
-  if(G.over)return;
-  G.over=true;
-  if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent='100m CLEAR!';
-  $('resM').textContent=G.peakM;
-  $('resStar').textContent=G.star;
-  $('resCoin').textContent=G.coin;
-  show('result');
-}
-function loseLife(){
-  if(G.over)return;
-  G.hearts=Math.max(0,G.hearts-1);
-  updateHud();
-  missFlash=1;
-  missText='MISS!';
-  // 실패 순간에는 현재 점프를 완전히 종료하고, 땅에 고정된 원래 널판지로 돌아온다.
-  player.onBoard=true;
-  player.vy=0;
-  player.x=board.cx-board.w*0.42*0.8;
-  player.y=board.y-player.r*0.5;
-  G.cam=0;
-  G.curM=0;
-  G.lastJumpM=0;
-  board.gaugePhase=0;
-  board.gaugeVal=0.5;
-  board.tilt=0;
-  jumpTrail=[];
-  landingSquash=0;
-  landingKick=0;
-  shake=Math.min(1,shake+0.8);
-  updateHud();
-  // 목숨이 남아 있으면 바로 다시 도전할 수 있다. 0개일 때만 최종 결과.
-  if(G.hearts<=0){
-    gameOver();
-  }
+  const j=$('judge');j.textContent=t;j.style.color=c;
+  const px=player?player.x:W/2, py=player?(player.y-G.cam-player.r*2):H*0.4;
+  j.style.left=(px/W*100)+'%';j.style.top=(Math.max(60,py)/H*100)+'%';
+  j.style.transition='none';j.style.opacity='1';j.style.transform='translate(-50%,-50%) scale(1.8)';
+  requestAnimationFrame(()=>{j.style.transition='all .6s cubic-bezier(.2,.8,.2,1)';j.style.opacity='0';j.style.transform='translate(-50%,-50%) scale(1.0)';});
 }
 function gameOver(){
   if(G.over)return;G.over=true;
-  if(G.peakM>best){best=G.peakM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent='GAME OVER';
-  $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resCoin').textContent=G.coin;
+  if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
+  $('resTitle').textContent=G.curM>=best?'최고 기록!':'기록';
+  $('resM').textContent=G.curM;$('resStar').textContent=G.star;$('resGem').textContent=G.gem;
   show('result');
 }
 
@@ -452,70 +231,30 @@ function skyColor(m){
 function drawBG(){
   const [c1,c2,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.48,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
+  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.5,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-
-  // 따뜻한 태양빛과 하늘 깊이감을 위한 소프트 글로우
-  const sun=ctx.createRadialGradient(W*.18,H*.15,0,W*.18,H*.15,W*.38);
-  sun.addColorStop(0,'rgba(255,248,205,.48)');sun.addColorStop(.45,'rgba(255,244,194,.16)');sun.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
-
-  // 멀리 떠 있는 섬과 작은 폭포
+  if(G.curM>300){
+    ctx.fillStyle=`rgba(255,255,255,${Math.min(1,(G.curM-300)/200)})`;
+    for(let i=0;i<30;i++){const sx=(i*137+G.cam*0.1)%W,sy=(i*197)%H;ctx.beginPath();ctx.arc(sx,sy,1.5,0,7);ctx.fill();}
+  }
+  // distant floating islands / Korean silhouettes
   const night=G.curM>380;
-  ctx.save();ctx.globalAlpha=night?.34:.38;
+  ctx.save(); ctx.globalAlpha=.28;
   for(let i=0;i<7;i++){
     const ix=(i*171+Math.sin(i*2.3)*60)%W;
-    const iy=((i*119)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
-    ctx.fillStyle=night?'#26365e':'#4d8d94';
-    ctx.beginPath();ctx.ellipse(ix,iy,W*.095,H*.018,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.moveTo(ix-W*.068,iy);ctx.lineTo(ix+W*.068,iy);ctx.lineTo(ix+W*.026,iy+H*.062);ctx.lineTo(ix-W*.03,iy+H*.078);ctx.closePath();ctx.fill();
-    if(!night){
-      ctx.strokeStyle='rgba(190,240,255,.34)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(ix,iy+H*.045);ctx.lineTo(ix+W*.005,iy+H*.075);ctx.stroke();
-    }
+    const iy=((i*119-G.cam*.18)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
+    ctx.fillStyle=night?'#27365f':'#477d8a';
+    ctx.beginPath();ctx.ellipse(ix,iy,W*.09,H*.018,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.moveTo(ix-W*.065,iy);ctx.lineTo(ix+W*.065,iy);ctx.lineTo(ix+W*.025,iy+H*.065);ctx.lineTo(ix-W*.03,iy+H*.08);ctx.closePath();ctx.fill();
   }
   ctx.restore();
 
-  // 부드러운 구름층
-  ctx.save();ctx.fillStyle='rgba(255,255,255,.86)';
-  for(let i=0;i<7;i++){
-    const cy=((i*H*.58)%(H*2.3)+H*2.3)%(H*2.3)-H*.42;
-    cloud((i*151)%W,cy,W*(.13+(i%3)*.018));
-  }
-  ctx.restore();
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  for(let i=0;i<6;i++){const cy=((i*H*0.6-G.cam*0.4)%(H*2.2)+H*2.2)%(H*2.2)-H*0.5;cloud((i*151)%W,cy,W*0.15);}
+}
+function cloud(x,y,r){ctx.beginPath();ctx.arc(x,y,r*.6,0,7);ctx.arc(x+r*.5,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.45,0,7);ctx.arc(x,y+r*.3,r*.6,0,7);ctx.fill();}
 
-  // 100m 아래쪽에서 한국 마을이 살짝 보이도록 레이어링
-  if((G.curM||0)<140){
-    const base=H*.94;
-    ctx.save();ctx.globalAlpha=.72;
-    ctx.fillStyle='#78a85c';ctx.beginPath();ctx.ellipse(W*.18,base,W*.42,H*.09,0,0,7);ctx.fill();
-    ctx.fillStyle='#659451';ctx.beginPath();ctx.ellipse(W*.78,base+H*.02,W*.48,H*.11,0,0,7);ctx.fill();
-    for(let i=0;i<4;i++){
-      const x=W*(.07+i*.27), y=base-H*(.02+(i%2)*.015), w=W*.15, h=H*.045;
-      ctx.fillStyle='#e7c17a';ctx.fillRect(x,y,w,h);
-      ctx.fillStyle='#56412f';ctx.beginPath();ctx.moveTo(x-W*.015,y);ctx.lineTo(x+w/2,y-H*.035);ctx.lineTo(x+w+W*.015,y);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#6b4d2e';ctx.fillRect(x+w*.44,y+h*.35,w*.11,h*.65);
-    }
-    ctx.restore();
-  }
-}
-function cloud(x,y,r){
-  ctx.beginPath();
-  ctx.arc(x,y,r*.62,0,7);ctx.arc(x+r*.48,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.46,0,7);ctx.arc(x,y+r*.28,r*.62,0,7);ctx.fill();
-}
-
-function drawStar(x,y,r,c){
-  ctx.save();ctx.translate(x,y);ctx.rotate(-.08);
-  ctx.fillStyle=c;ctx.shadowColor='rgba(255,213,67,.9)';ctx.shadowBlur=10;
-  ctx.beginPath();
-  for(let i=0;i<5;i++){
-    ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*r,-Math.sin((18+i*72)/180*Math.PI)*r);
-    ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*r*.44,-Math.sin((54+i*72)/180*Math.PI)*r*.44);
-  }
-  ctx.closePath();ctx.fill();
-  ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,.72)';ctx.beginPath();ctx.arc(-r*.2,-r*.22,r*.18,0,7);ctx.fill();
-  ctx.restore();
-}
+function drawStar(x,y,r,c){ctx.save();ctx.translate(x,y);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.beginPath();for(let i=0;i<5;i++){ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*r,-Math.sin((18+i*72)/180*Math.PI)*r);ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*r*.45,-Math.sin((54+i*72)/180*Math.PI)*r*.45);}ctx.closePath();ctx.fill();ctx.restore();}
 function drawGem(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#39b7ff';ctx.strokeStyle='#bfeaff';ctx.lineWidth=2;ctx.shadowColor='#39b7ff';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.8,-r*.2);ctx.lineTo(r*.5,r);ctx.lineTo(-r*.5,r);ctx.lineTo(-r*.8,-r*.2);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 function drawRock(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#3a2a22';ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();ctx.fillStyle='#ff7a1a';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc((i*0.6-0.9)*r*0.5,(i%2?0.4:-0.4)*r,r*.18,0,7);ctx.fill();}ctx.restore();}
 
@@ -537,14 +276,11 @@ function drawJumpTrail(){
 }
 
 function drawPlayer(px,py,r){
-  // 캐릭터 원본 비율/크기를 항상 고정한다. 상승/하강/착지에 따른 이미지 변형은 사용하지 않는다.
+  const sq=1-squash,st=1+squash;
   const im=getImg(ASSETS.player);
-  ctx.save();
-  if(im&&im.complete&&im.naturalWidth){
-    const d=r*2.35;
-    ctx.drawImage(im,px-d/2,py-d*0.82,d,d);
-  }else{
-    ctx.translate(px,py);
+  ctx.save();ctx.translate(px,py);ctx.scale(st,sq);
+  if(im&&im.complete&&im.naturalWidth){const d=r*2.35;ctx.drawImage(im,-d/2,-d*0.82,d,d);}
+  else{
     ctx.fillStyle='#fdfdfd';ctx.beginPath();ctx.arc(0,r*0.4,r*0.95,0,7);ctx.fill();
     ctx.fillStyle='#2f6fd0';ctx.beginPath();ctx.arc(0,r*0.1,r*0.85,Math.PI*0.15,Math.PI*0.85);ctx.fill();
   }
@@ -565,109 +301,39 @@ function drawGame(){
     const sx=(Math.random()-0.5)*shake*W*0.03, sy=(Math.random()-0.5)*shake*W*0.03;
     ctx.translate(sx,sy);
   }
-
-  // 화면에 붙어 있는 배경/UI와, 카메라가 따라가는 월드 오브젝트를 분리한다.
   drawBG();
-  ctx.fillStyle='rgba(255,183,197,.85)';
-  petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
-
-  // ================= WORLD SPACE =================
-  // 플레이어를 따라 카메라가 이동하면 '땅에 놓인' 모든 월드 요소가
-  // 같은 양만큼 화면에서 이동해야 한다. 널판지는 월드 좌표에 고정한다.
-  ctx.save();
-  ctx.translate(0,-G.cam);
-
-  // 수집 아이템
-  for(const s of items){
-    if(s.got)continue;
-    const sy=s.wy;
-    if(sy-G.cam<-40||sy-G.cam>H+40)continue;
-    drawStar(s.wx,sy,W*0.045,'#ffd23f');
-  }
-
-  // 장애물
-  for(const r of rocks){
-    if(r.hit)continue;
-    const ry=r.wy;
-    if(ry-G.cam<-80||ry-G.cam>H+80)continue;
-    drawRock(r.wx,ry,r.r);
-  }
+  ctx.fillStyle='rgba(255,183,197,.85)';petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
+  for(const s of items){if(s.got)continue;const sy=s.wy-G.cam;if(sy<-30||sy>H+30)continue;if(s.type==='star')drawStar(s.wx,sy,W*0.045,'#ffd23f');else drawGem(s.wx,sy,W*0.04);}
+  for(const r of rocks){if(r.hit)continue;const ry=r.wy-G.cam;if(ry<-90||ry>H+90)continue;drawRock(r.wx,ry,r.r);}
 
   const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
-
-  // 널판지: 기존 물리/좌표는 그대로 두고, 확정한 고퀄 3D 널뛰기 아트로 교체한다.
-  const boardImg=getImg(ASSETS.board);
-  if(boardImg && boardImg.complete && boardImg.naturalWidth){
-    const drawW=board.w*1.02;
-    const drawH=drawW*(boardImg.naturalHeight/boardImg.naturalWidth);
-    const anchorY=H*0.018;
-    ctx.save();
-    ctx.translate(pivotX,pivotY+anchorY);
-    ctx.rotate(tilt);
-    ctx.imageSmoothingEnabled=true;
-    ctx.drawImage(boardImg,-drawW/2,-drawH*0.285,drawW,drawH);
-    ctx.restore();
-  } else {
-    // 이미지 로딩 전에도 게임 물리가 깨지지 않도록 기존 간단 판을 유지한다.
-    ctx.save();
-    ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
-    ctx.fillStyle='#9b6330';ctx.fillRect(-halfW,-H*.014,board.w,H*.032);
-    ctx.restore();
-  }
-
-  // 착지 가능 영역은 물리 판정과 동일하게 시각적으로만 표시한다.
+  ctx.save();
+  ctx.fillStyle='#7a7f87';ctx.beginPath();ctx.moveTo(pivotX-W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX+W*0.05,pivotY+H*0.02);ctx.lineTo(pivotX,pivotY-H*0.01);ctx.closePath();ctx.fill();
+  ctx.translate(pivotX,pivotY);ctx.rotate(tilt);
+  ctx.fillStyle='#a9743a';ctx.fillRect(-halfW,-H*0.012,board.w,H*0.024);
+  ctx.strokeStyle='#6e4620';ctx.lineWidth=1.5;ctx.strokeRect(-halfW,-H*0.012,board.w,H*0.024);
   if(!player.onBoard&&board.landR){
-    const zoneX=board.cx+Math.cos(tilt)*halfW*0.8;
-    const zoneY=board.y+Math.sin(tilt)*halfW*0.8;
-    const pulse=0.5+0.5*Math.sin(Date.now()/180);
-    ctx.save();
-    ctx.translate(zoneX,zoneY);ctx.rotate(tilt);
-    ctx.globalAlpha=0.26+0.22*pulse;ctx.fillStyle='#7CFC5A';
-    ctx.beginPath();ctx.ellipse(0,-H*0.008,board.landR*1.15,board.landR*0.34,0,0,7);ctx.fill();
-    ctx.globalAlpha=0.75;ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
-    ctx.beginPath();ctx.ellipse(0,-H*0.008,board.landR*1.15,board.landR*0.34,0,0,7);ctx.stroke();
-    ctx.restore();
-  }
-
-  if(landingKick>0.03){
-    ctx.save();
-    ctx.globalAlpha=landingKick*0.45;
-    ctx.strokeStyle='#fff3b0';ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.ellipse(pivotX+halfW*0.8,pivotY+2,player.r*(0.8+landingKick*1.4),player.r*(0.22+landingKick*0.18),0,0,7);
-    ctx.stroke();ctx.restore();
-  }
-
-  // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
-  const partX=pivotX+Math.cos(tilt)*halfW*0.8;
-  const partY=pivotY+Math.sin(tilt)*halfW*0.8;
-  drawPartner(partX,partY-W*0.085,W*0.11);
-
-  if(!player.onBoard)drawJumpTrail();
-  if(!player.onBoard&&launchFlash>0.05){
-    ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
-  }
-  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
-
-  // 월드 파티클도 월드와 함께 움직인다.
-  drawParticles();
-  if(missFlash>0){
-    ctx.save();
-    ctx.globalAlpha=Math.min(1,missFlash*1.5);
-    ctx.fillStyle='#ff4d6d';
-    ctx.font='900 '+Math.round(W*0.11)+'px system-ui';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.shadowColor='rgba(0,0,0,.25)';ctx.shadowBlur=10;
-    ctx.fillText(missText,W*.5,H*.34);
+    const zoneX=halfW*0.8*0.8,pulse=0.5+0.5*Math.sin(Date.now()/180);
+    ctx.save();ctx.globalAlpha=0.35+0.35*pulse;ctx.fillStyle='#7CFC5A';
+    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.fill();
+    ctx.strokeStyle='#3ea832';ctx.lineWidth=3;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.ellipse(zoneX,-H*0.02,board.landR*1.15,board.landR*0.4,0,0,7);ctx.stroke();
     ctx.restore();
   }
   ctx.restore();
+  const partX=pivotX+Math.cos(tilt)*halfW*0.8,partY=pivotY+Math.sin(tilt)*halfW*0.8;
+  drawPartner(partX,partY-W*0.14,W*0.11);
+  if(!player.onBoard){
+    drawJumpTrail();
+    if(launchFlash>0.05){
+      ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
+    }
+  }
+  drawPlayer(player.x,player.y,player.r);
 
-  // ================= SCREEN SPACE UI =================
-  drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
-  floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-G.cam);ctx.globalAlpha=1;});
+  floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y);ctx.globalAlpha=1;});
 
   if(player.onBoard){
     const q=board.gaugeVal||0,bx=W*0.5,by=H*0.875,rr=W*0.13;
@@ -680,7 +346,8 @@ function drawGame(){
     ctx.fillStyle='#ffb733';ctx.beginPath();ctx.arc(bx,by,7,0,7);ctx.fill();
     ctx.restore();
   }
-  ctx.restore();
+  drawParticles();
+  ctx.restore();   // shake translate 닫기
 }
 function loop(){
   if(current==='game'){updateGame();drawGame();}
