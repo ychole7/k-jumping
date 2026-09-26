@@ -623,6 +623,25 @@ function gameOver(){
   show('result');
 }
 
+// V69: 0~100m 실제 게임 배경 이미지
+const V69_BG=new Image();
+V69_BG.src='assets/bg_skyvillage.jpg';
+
+function drawV69PhotoBG(){
+  if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
+  const iw=V69_BG.naturalWidth, ih=V69_BG.naturalHeight;
+  const scale=Math.max(W/iw,H/ih);
+  const sw=W/scale, sh=H/scale;
+  const sx=(iw-sw)*0.5, sy=Math.max(0,(ih-sh)*0.5);
+  ctx.drawImage(V69_BG,sx,sy,sw,sh,0,0,W,H);
+  const veil=ctx.createLinearGradient(0,0,0,H);
+  veil.addColorStop(0,'rgba(80,175,245,.03)');
+  veil.addColorStop(.62,'rgba(255,255,255,.015)');
+  veil.addColorStop(1,'rgba(255,245,225,.04)');
+  ctx.fillStyle=veil;ctx.fillRect(0,0,W,H);
+  return true;
+}
+
 function skyColor(m){
   const stops=[
     [0,   [74,163,239],[143,208,255],[223,247,255]],
@@ -638,6 +657,7 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
+  if((G.curM||0)<140 && drawV69PhotoBG())return;
   const [c1,c2,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.48,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
