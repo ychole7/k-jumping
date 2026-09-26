@@ -832,6 +832,11 @@ function drawRegionBanner(){
 }
 
 function drawGame(){
+  // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
+  ctx.save();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.restore();
   ctx.save();
   if(shake>0.02){
     const sx=(Math.random()-0.5)*shake*W*0.03, sy=(Math.random()-0.5)*shake*W*0.03;
@@ -1015,6 +1020,7 @@ function drawGame(){
   drawRegionBanner();
 }
 function loop(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
   if(current==='game'){updateGame();drawGame();}
   else ctx.clearRect(0,0,W,H);
   requestAnimationFrame(loop);
