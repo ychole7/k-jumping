@@ -60,7 +60,7 @@ function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,nextBoost:1,lastRegionIndex:0}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -113,23 +113,32 @@ function spawnAhead(fromY){
   }
 }
 
-function tapGame(){
-  if(current!=='game'||G.over||!player.onBoard)return;
-  const q=Math.max(0,Math.min(1,board.gaugeVal||0));
-  let power,label,col;
-  if(q>0.8){power=1.0;label='PERFECT!';col='#ff4d6d';}
-  else if(q>0.5){power=0.7;label='GOOD';col='#ffb703';}
-  else{power=0.45;label='OK';col='#8ecae6';}
+function launchWithPower(mult=1){
   player.onBoard=false;
-  // V38: 100m 1스테이지를 실제로 도달할 수 있도록 점프 높이를 상향.
-  // PERFECT 약 110m / GOOD 약 83m / OK 약 62m 수준.
-  const boost=G.nextBoost||1;
-  player.vy=-(H*0.0484)*(0.7+power*0.6)*boost;
-  if(boost>1){ addFloat(player.x,player.y-H*0.055,'PERFECT BOOST!','#ffcf4a'); G.nextBoost=1; }
-  launchFlash=1;
-  jumpTrail=[];
-  G.lastJudge={label,col};
+  player.vy=-(H*0.0484)*1.30*mult;
+  launchFlash=1; jumpTrail=[];
 }
+function tapGame(){
+  if(current!=='game'||G.over||paused)return;
+  // V61: 바닥에서는 기다리는 파워게이지 없이 즉시 점프한다.
+  if(player.onBoard){
+    if(G.relaunchFrames>0)return;
+    G.combo=0; G.landingTap=null;
+    launchWithPower(1);
+    return;
+  }
+  // 하강 중에는 '착지 타이밍' 입력으로 사용한다. 널에 가까울수록 높은 판정.
+  if(player.vy>0){
+    const d=Math.max(0,board.y-(player.y+player.r));
+    const norm=d/(H*0.18);
+    let label='OK', col='#8ecae6', mult=1.00;
+    if(norm<=0.22){label='PERFECT!';col='#ff4d6d';mult=1.16;}
+    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.08;}
+    G.landingTap={label,col,mult,d};
+    addFloat(player.x,player.y-H*0.045,label,col);
+  }
+}
+
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
 let paused=false;
@@ -306,9 +315,17 @@ function updateGame(){
     }else{
       squash+=(0-squash)*0.2;
     }
-    board.gaugePhase+=0.045;
-    board.gaugeVal=(Math.sin(board.gaugePhase-Math.PI/2)+1)/2;
-    board.tilt=board.gaugeVal*0.4;
+    // V61: 자동 충전 게이지 제거. 착지 후 짧은 탄성만 보여주고 바로 연속 점프한다.
+    board.gaugeVal=0;
+    board.tilt+=(0-board.tilt)*0.18;
+    if(G.relaunchFrames>0){
+      G.relaunchFrames--;
+      if(G.relaunchFrames===0){
+        const tap=G.landingTap||{label:'OK',col:'#8ecae6',mult:1};
+        launchWithPower(tap.mult*(1+Math.min(G.combo,8)*0.025));
+        G.landingTap=null;
+      }
+    }
     player.x=board.cx-Math.cos(board.tilt)*halfW*0.8;
     player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
@@ -373,25 +390,16 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V34: 착지 자체의 위치를 판정한다. 플레이어 사이드 안에서는
-      // 이상적인 착지점에 가까울수록 PERFECT / GOOD / OK로 보여준다.
-      const idealX=board.cx-board.w*0.30;
-      const dist=Math.abs(player.x-idealX);
-      const perfectRange=board.w*0.085;
-      const goodRange=board.w*0.18;
-      let landingJudge;
-      if(dist<=perfectRange) landingJudge={label:'PERFECT!',col:'#ff4d6d',power:1.6};
-      else if(dist<=goodRange) landingJudge={label:'GOOD',col:'#ffb703',power:1.1};
-      else landingJudge={label:'OK',col:'#8ecae6',power:0.7};
-      spawnDust(player.x,board.y,Math.round(7*landingJudge.power),landingJudge.power);
-      shake=Math.min(1,shake+0.55*landingJudge.power);
-      board.tilt += landingJudge.label==='PERFECT!' ? 0.16 : landingJudge.label==='GOOD' ? 0.10 : 0.05;
+      // V61: 판정은 착지 위치가 아니라 하강 중 탭 타이밍으로 결정한다.
+      const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:1};
+      if(landingJudge.label==='PERFECT!') G.combo++;
+      else if(landingJudge.label==='GOOD') G.combo=Math.max(0,G.combo);
+      else G.combo=0;
+      spawnDust(player.x,board.y,landingJudge.label==='PERFECT!'?11:landingJudge.label==='GOOD'?8:5,landingJudge.label==='PERFECT!'?1.6:1);
+      shake=Math.min(1,shake+(landingJudge.label==='PERFECT!'?.75:.45));
       bigJudge(landingJudge.label,landingJudge.col);
-      // V60: 착지 PERFECT는 다음 점프를 12% 강화한다. 한 번 사용하면 즉시 소모된다.
-      if(landingJudge.label==='PERFECT!'){
-        G.nextBoost=1.12;
-        addFloat(player.x,board.y-H*0.075,'NEXT JUMP +12%','#ffcf4a');
-      }
+      if(G.combo>=2) addFloat(player.x,board.y-H*0.105,'COMBO x'+G.combo,'#ffcf4a');
+      G.relaunchFrames=10; // 약 0.15초 뒤 자동 재점프
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
@@ -781,17 +789,7 @@ function drawGame(){
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-G.cam);ctx.globalAlpha=1;});
 
-  if(player.onBoard){
-    const q=board.gaugeVal||0,bx=W*0.5,by=H*0.875,rr=W*0.13;
-    ctx.save();ctx.lineWidth=W*0.045;ctx.lineCap='round';
-    ctx.strokeStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.arc(bx,by,rr,Math.PI,0);ctx.stroke();
-    const seg=[['#4aa3ef',0,.5],['#F7E85B',.5,.8],['#ff4d6d',.8,1]];
-    seg.forEach(([c,a,b])=>{ctx.strokeStyle=c;ctx.beginPath();ctx.arc(bx,by,rr,Math.PI+Math.PI*a,Math.PI+Math.PI*b);ctx.stroke();});
-    const ang=Math.PI+Math.PI*q;
-    ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.cos(ang)*rr,by+Math.sin(ang)*rr);ctx.stroke();
-    ctx.fillStyle='#ffb733';ctx.beginPath();ctx.arc(bx,by,7,0,7);ctx.fill();
-    ctx.restore();
-  }
+  // V61: 대기형 MAX 파워게이지 제거. 착지 타이밍이 다음 점프 파워를 결정한다.
   ctx.restore();
 }
 function loop(){
