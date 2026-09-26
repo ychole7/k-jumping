@@ -411,8 +411,7 @@ function updateGame(){
   const halfW=board.w/2;
   if(player.onBoard){
     // 널은 board.y에 고정. 착지 후에는 카메라만 부드럽게 원점으로 복귀한다.
-    G.cam += (0-G.cam)*0.28;
-    if(Math.abs(G.cam)<0.35)G.cam=0;
+    if(Math.abs(G.cam)<0.75)G.cam=0;
     if(landingSquash>0.01){
       squash=Math.max(squash,landingSquash*0.34);
       board.tilt += (0-board.tilt)*0.28;
@@ -454,8 +453,12 @@ function updateGame(){
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
     // V75: 카메라는 플레이어를 따라 상승/하강하되 지면(0) 아래로는 가지 않는다.
     // 이 값 하나로 월드 전체(널/상대/아이템)가 움직이므로 널 자체 좌표는 절대 변경하지 않는다.
-    const cameraTarget=Math.min(0,player.y-H*0.40);
-    G.cam += (cameraTarget-G.cam)*(player.vy>0 ? 0.22 : 0.16);
+    const landingDist=board.y-(player.y+player.r);
+    // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
+    // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
+    const nearGround=player.vy>0 && landingDist < H*0.22;
+    const cameraTarget=nearGround ? 0 : Math.min(0,player.y-H*0.40);
+    G.cam += (cameraTarget-G.cam)*(nearGround ? 0.34 : (player.vy>0 ? 0.22 : 0.16));
     if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
@@ -670,7 +673,6 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  if((G.curM||0)<140 && drawV69PhotoBG())return;
   const [c1,c2,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.48,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
@@ -680,6 +682,15 @@ function drawBG(){
   const sun=ctx.createRadialGradient(W*.18,H*.15,0,W*.18,H*.15,W*.38);
   sun.addColorStop(0,'rgba(255,248,205,.48)');sun.addColorStop(.45,'rgba(255,244,194,.16)');sun.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
+
+  // V77: 지상 사진 레이어를 하늘 레이어 위에 연결.
+  // 카메라가 올라가면 사진은 아래로 내려가고, 위쪽은 이미 그려진 하늘이 자연스럽게 이어진다.
+  if((G.curM||0)<150){
+    ctx.save();
+    ctx.globalAlpha=Math.max(0,Math.min(1,1-(G.curM||0)/145));
+    drawV69PhotoBG();
+    ctx.restore();
+  }
 
   // 멀리 떠 있는 섬과 작은 폭포
   const night=G.curM>380;
@@ -706,7 +717,7 @@ function drawBG(){
   ctx.restore();
 
   // 100m 아래쪽에서 한국 마을이 살짝 보이도록 레이어링
-  if((G.curM||0)<140){
+  if((G.curM||0)>=105 && (G.curM||0)<140){
     const base=H*.94;
     ctx.save();ctx.globalAlpha=.72;
     ctx.fillStyle='#78a85c';ctx.beginPath();ctx.ellipse(W*.18,base,W*.42,H*.09,0,0,7);ctx.fill();
