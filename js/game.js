@@ -410,6 +410,9 @@ function updateGame(){
   if(current!=='game'||G.over||paused)return;
   const halfW=board.w/2;
   if(player.onBoard){
+    // 널은 board.y에 고정. 착지 후에는 카메라만 부드럽게 원점으로 복귀한다.
+    G.cam += (0-G.cam)*0.28;
+    if(Math.abs(G.cam)<0.35)G.cam=0;
     if(landingSquash>0.01){
       squash=Math.max(squash,landingSquash*0.34);
       board.tilt += (0-board.tilt)*0.28;
@@ -487,8 +490,8 @@ function updateGame(){
       player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
-      // 착지 완료 = 카메라도 원래 지면 위치. 널은 항상 같은 board.y에 있다.
-      G.cam=0;
+      // V76: 착지 순간 카메라를 0으로 강제 스냅하지 않는다.
+      // 마지막 남은 카메라 오프셋은 지상 상태에서 부드럽게 0으로 복귀시킨다.
       updateHud();
       jumpTrail=[];
       landingSquash=1;
