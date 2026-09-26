@@ -57,6 +57,7 @@ const TARGET_HEIGHT=100; // 현재 1스테이지 목표 높이
 let board,player,items,rocks,floats,petals;
 
 function startGame(){
+  up();
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
@@ -131,6 +132,8 @@ let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
 let paused=false;
 let inputLock=false;
+let activePointerId=null;
+let activeTouchId=null;
 
 function down(e){
   if(current!=='game'||G.over||paused)return;
@@ -150,7 +153,7 @@ function mv(e){
   const dx=t.clientX-tsx;tsx=t.clientX;
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*1.22));
 }
-function up(){tsx=null;airSteer=0;inputLock=false;}
+function up(){tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
 
 // 입력은 game 요소가 아니라 stage 전체에서 받는다.
 // 캔버스/HTML HUD가 위에 있어도 게임 영역 어디를 눌러도 점프하도록 한다.
@@ -160,25 +163,45 @@ function handlePointerDown(e){
   if(current!=='game'||G.over||paused)return;
   if(inputLock)return;
   inputLock=true;
+  if(e.pointerId!=null)activePointerId=e.pointerId;
   down(e);
 }
 if(window.PointerEvent){
-  stageEl.addEventListener('pointerdown',handlePointerDown,{passive:false});
-  stageEl.addEventListener('pointermove',mv,{passive:false});
-  stageEl.addEventListener('pointerup',up,{passive:false});
-  stageEl.addEventListener('pointercancel',up,{passive:false});
+  stageEl.addEventListener('pointerdown',e=>{
+    handlePointerDown(e);
+    if(activePointerId===e.pointerId && stageEl.setPointerCapture){
+      try{stageEl.setPointerCapture(e.pointerId);}catch(_){}
+    }
+  },{passive:false});
+  stageEl.addEventListener('pointermove',e=>{if(e.pointerId===activePointerId)mv(e);},{passive:false});
+  const releasePointer=e=>{if(e.pointerId===activePointerId)up();};
+  stageEl.addEventListener('pointerup',releasePointer,{passive:false});
+  stageEl.addEventListener('pointercancel',releasePointer,{passive:false});
+  stageEl.addEventListener('lostpointercapture',releasePointer);
 }
-// iOS/구형 WebView 등에서 pointer 이벤트가 막히는 경우를 위한 touch fallback
-gameScene.addEventListener('touchstart',e=>{
-  if(window.PointerEvent && e.pointerType!==undefined)return;
-  handlePointerDown(e);
-},{passive:false});
-gameScene.addEventListener('touchmove',mv,{passive:false});
-gameScene.addEventListener('touchend',up,{passive:false});
-// PC에서 pointer 이벤트가 없는 환경
-gameScene.addEventListener('mousedown',e=>{if(!window.PointerEvent)handlePointerDown(e);});
-gameScene.addEventListener('mousemove',e=>{if(!window.PointerEvent&&e.buttons)mv(e);});
+// Pointer Events 미지원 환경에서만 터치 fallback 사용: 중복 입력 방지.
+if(!window.PointerEvent){
+  gameScene.addEventListener('touchstart',e=>{
+    if(inputLock || !e.changedTouches.length)return;
+    activeTouchId=e.changedTouches[0].identifier;
+    handlePointerDown(e);
+  },{passive:false});
+  gameScene.addEventListener('touchmove',e=>{
+    if(activeTouchId==null)return;
+    const t=Array.from(e.changedTouches).find(t=>t.identifier===activeTouchId);
+    if(t)mv({touches:[t],cancelable:e.cancelable,preventDefault:()=>e.preventDefault()});
+  },{passive:false});
+  const releaseTouch=e=>{
+    if(activeTouchId!=null && Array.from(e.changedTouches).some(t=>t.identifier===activeTouchId))up();
+  };
+  gameScene.addEventListener('touchend',releaseTouch,{passive:false});
+  gameScene.addEventListener('touchcancel',releaseTouch,{passive:false});
+  gameScene.addEventListener('mousedown',handlePointerDown);
+  gameScene.addEventListener('mousemove',e=>{if(e.buttons)mv(e);});
+}
 addEventListener('mouseup',up);
+addEventListener('blur',up);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)up();});
 // 최후의 fallback: 실제 click이 발생해도 점프 처리
 gameScene.addEventListener('click',e=>{
   if(current==='game'&&!G.over&&!paused&&player.onBoard){
@@ -186,7 +209,7 @@ gameScene.addEventListener('click',e=>{
   }
 });
 
-addEventListener('deviceorientation',e=>{if(current==='game'&&!G.over&&!paused&&!player.onBoard&&e.gamma!=null)player.x=Math.max(player.r,Math.min(W-player.r,player.x+e.gamma*0.14));});
+
 
 function addFloat(x,y,t,c){floats.push({x,y,txt:t,col:c,life:1});}
 function ensureLifeHud(){
@@ -320,7 +343,7 @@ function updateGame(){
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
-      player.onBoard=true;airSteer=0;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
+      player.onBoard=true;up();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
       updateHud();
@@ -406,6 +429,7 @@ function drawJudgeFx(){
 }
 function clearGame(){
   if(G.over)return;
+  up();
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
   $('resTitle').textContent='100m CLEAR!';
@@ -416,6 +440,7 @@ function clearGame(){
 }
 function loseLife(){
   if(G.over)return;
+  up();
   G.hearts=Math.max(0,G.hearts-1);
   updateHud();
   missFlash=1;
@@ -748,12 +773,11 @@ function loop(){
 }
 
 
-$('pauseBtn').onclick=(e)=>{e.stopPropagation(); if(G.over)return; paused=true; $('pauseOverlay').classList.add('on');};
+$('pauseBtn').onclick=(e)=>{e.stopPropagation(); if(G.over)return; up(); paused=true; $('pauseOverlay').classList.add('on');};
 $('resumeBtn').onclick=()=>{paused=false; $('pauseOverlay').classList.remove('on');};
 $('pauseRetryBtn').onclick=()=>{paused=false; $('pauseOverlay').classList.remove('on'); startGame();};
 
 $('startBtn').onclick=()=>{
-  if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission)DeviceOrientationEvent.requestPermission().catch(()=>{});
   startGame();
 };
 $('retryBtn').onclick=startGame;
