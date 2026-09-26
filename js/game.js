@@ -297,82 +297,57 @@ function applyV65Hud(){
   if(!game)return;
   game.style.position='relative';
 
-  const hearts=ensureLifeHud();
-  Object.assign(hearts.style,{
-    position:'absolute',left:'4.5%',top:'2.2%',margin:'0',minWidth:'0',
-    padding:'7px 10px 6px',fontSize:'clamp(18px,5.4vw,25px)',
-    borderRadius:'18px',zIndex:'40',whiteSpace:'nowrap'
-  });
+  // V66: 기존 HUD 부모에는 절대 배경/크기 스타일을 주지 않는다.
+  // V65의 화면 중앙 갈색 세로판은 depth.parentElement가 전체 HUD 래퍼였기 때문에 생겼다.
+  const oldDepth=$('depth');
+  if(oldDepth) oldDepth.style.display='none';
 
-  const depth=$('depth');
-  if(depth){
-    depth.textContent=G.curM+'m';
-    Object.assign(depth.style,{
-      display:'block',fontWeight:'1000',fontSize:'clamp(31px,10vw,48px)',
-      lineHeight:'.95',color:'#fff',textShadow:'0 3px 2px rgba(0,0,0,.45)',
-      textAlign:'center',whiteSpace:'nowrap'
-    });
-    const box=depth.parentElement;
-    if(box){
-      Object.assign(box.style,{
-        position:'absolute',left:'50%',top:'1.7%',transform:'translateX(-50%)',
-        zIndex:'39',minWidth:'31%',padding:'8px 13px 9px',margin:'0',
-        borderRadius:'13px',background:'linear-gradient(180deg,#80512f,#59351f)',
-        border:'3px solid #b98555',boxShadow:'inset 0 2px 0 rgba(255,255,255,.18),0 4px 8px rgba(0,0,0,.28)',
-        textAlign:'center'
-      });
-      box.setAttribute('data-v65-height','1');
-      let cap=box.querySelector('.v65-height-label');
-      if(!cap){
-        cap=document.createElement('div');cap.className='v65-height-label';
-        cap.textContent='현재 높이'; box.insertBefore(cap,depth);
-      }
-      Object.assign(cap.style,{fontSize:'11px',fontWeight:'900',color:'#fff',lineHeight:'1.05',marginBottom:'3px'});
-      let bestEl=box.querySelector('.v65-best');
-      if(!bestEl){
-        bestEl=document.createElement('div');bestEl.className='v65-best';box.appendChild(bestEl);
-      }
-      bestEl.textContent='♛ BEST '+Math.max(best,G.peakM||0)+'m';
-      Object.assign(bestEl.style,{
-        position:'absolute',left:'50%',top:'calc(100% + 5px)',transform:'translateX(-50%)',
-        padding:'3px 9px',borderRadius:'12px',background:'rgba(26,49,72,.92)',
-        border:'2px solid rgba(224,178,102,.9)',color:'#ffe3a0',fontSize:'10px',
-        fontWeight:'900',whiteSpace:'nowrap',boxShadow:'0 2px 5px rgba(0,0,0,.22)'
-      });
-    }
+  let hud=document.getElementById('v66CleanHud');
+  if(!hud){
+    hud=document.createElement('div');
+    hud.id='v66CleanHud';
+    hud.innerHTML=`
+      <div class="v66-hearts"></div>
+      <div class="v66-height"><small>현재 높이</small><b>0m</b><em>♛ BEST 0m</em></div>
+      <div class="v66-money"><span class="v66-star">⭐ <b>0</b></span><span class="v66-coin">🪙 <b>0</b></span></div>`;
+    game.appendChild(hud);
+    Object.assign(hud.style,{position:'absolute',inset:'0',zIndex:'39',pointerEvents:'none'});
+    const hearts=hud.querySelector('.v66-hearts');
+    Object.assign(hearts.style,{position:'absolute',left:'3.5%',top:'2.3%',padding:'6px 9px',borderRadius:'18px',background:'rgba(25,57,91,.92)',fontSize:'clamp(18px,5.2vw,25px)',whiteSpace:'nowrap',boxShadow:'0 3px 7px rgba(0,0,0,.22)'});
+    const h=hud.querySelector('.v66-height');
+    Object.assign(h.style,{position:'absolute',left:'50%',top:'1.8%',transform:'translateX(-50%)',minWidth:'28%',padding:'6px 12px 8px',borderRadius:'13px',background:'linear-gradient(180deg,#80512f,#59351f)',border:'3px solid #b98555',boxShadow:'0 4px 8px rgba(0,0,0,.25)',textAlign:'center',color:'#fff'});
+    Object.assign(h.querySelector('small').style,{display:'block',fontSize:'10px',fontWeight:'900',lineHeight:'1'});
+    Object.assign(h.querySelector('b').style,{display:'block',fontSize:'clamp(28px,8vw,42px)',lineHeight:'1',textShadow:'0 3px 2px rgba(0,0,0,.4)'});
+    Object.assign(h.querySelector('em').style,{position:'absolute',left:'50%',top:'calc(100% + 4px)',transform:'translateX(-50%)',padding:'3px 8px',borderRadius:'11px',background:'rgba(25,57,91,.94)',border:'2px solid #d8a45f',color:'#ffe2a0',fontSize:'9px',fontWeight:'900',fontStyle:'normal',whiteSpace:'nowrap'});
+    const money=hud.querySelector('.v66-money');
+    Object.assign(money.style,{position:'absolute',right:'13.5%',top:'2.1%',display:'flex',flexDirection:'column',gap:'4px'});
+    money.querySelectorAll('span').forEach(x=>Object.assign(x.style,{minWidth:'60px',padding:'3px 8px',borderRadius:'13px',background:'rgba(25,57,91,.94)',color:'#fff',fontSize:'14px',fontWeight:'900',textAlign:'center'}));
+  }
+  hud.querySelector('.v66-hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
+  hud.querySelector('.v66-height b').textContent=G.curM+'m';
+  hud.querySelector('.v66-height em').textContent='♛ BEST '+Math.max(best,G.peakM||0)+'m';
+  hud.querySelector('.v66-star b').textContent=G.star;
+  hud.querySelector('.v66-coin b').textContent=G.coin;
+
+  // 기존 중복 HUD 요소 숨김
+  const life=$('lifeHud'); if(life)life.style.display='none';
+  const star=$('gStar'), coin=$('gCoin');
+  if(star&&star.parentElement)star.parentElement.style.display='none';
+  if(coin&&coin.parentElement)coin.parentElement.style.display='none';
+  const rn=$('regionName'), rs=$('regionSub'), ph=$('progressHUD');
+  if(rn&&rn.parentElement)rn.parentElement.style.display='none';
+  if(rs&&rs.parentElement&&rs.parentElement!==rn?.parentElement)rs.parentElement.style.display='none';
+  if(ph)ph.style.display='none';
+
+  // 목표 높이 카드는 기존 것을 유지하되 중앙을 가리지 않게 한다.
+  const target=$('targetHeight');
+  if(target&&target.parentElement){
+    Object.assign(target.parentElement.style,{position:'absolute',left:'3.5%',top:'13%',zIndex:'38',width:'auto',height:'auto',maxWidth:'27%',margin:'0'});
   }
 
-  // 재화 두 줄을 오른쪽 상단에 작게 정리한다.
-  const star=$('gStar'), coin=$('gCoin');
-  [star,coin].forEach((el,i)=>{
-    if(!el)return;
-    const row=el.parentElement;
-    if(row){
-      Object.assign(row.style,{
-        position:'absolute',right:'15.5%',top:(i===0?'2.3%':'6.6%'),
-        zIndex:'40',minWidth:'72px',height:'28px',padding:'2px 10px',
-        margin:'0',borderRadius:'14px',background:'rgba(25,57,91,.94)',
-        border:'0',boxShadow:'0 3px 6px rgba(0,0,0,.2)',
-        display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',
-        fontSize:'16px',fontWeight:'900',color:'#fff'
-      });
-    }
-  });
-
   const pause=$('pauseBtn');
-  if(pause)Object.assign(pause.style,{
-    position:'absolute',right:'4.2%',top:'2.0%',zIndex:'41',
-    width:'46px',height:'46px',margin:'0',borderRadius:'50%',
-    boxShadow:'0 4px 8px rgba(0,0,0,.28)'
-  });
-
-  // 기존 좌측 지역 카드와 하단 상시 진행바는 시안대로 제거.
-  const rn=$('regionName'), rs=$('regionSub'), ph=$('progressHUD');
-  if(rn && rn.parentElement)rn.parentElement.style.display='none';
-  if(rs && rs.parentElement && rs.parentElement!==rn?.parentElement)rs.parentElement.style.display='none';
-  if(ph)ph.style.display='none';
+  if(pause)Object.assign(pause.style,{position:'absolute',right:'3.5%',top:'2.0%',zIndex:'41',width:'44px',height:'44px',margin:'0',borderRadius:'50%'});
 }
-
 function updateHud(){
   $('gStar').textContent=G.star;$('gCoin').textContent=G.coin;
   const heartEl=ensureLifeHud();
