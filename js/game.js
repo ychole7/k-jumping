@@ -67,7 +67,7 @@ function startGame(){
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
-  board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
+  board={cx:W*0.5,y:H*0.835,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
