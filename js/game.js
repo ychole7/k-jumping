@@ -105,7 +105,7 @@ function spawnAhead(fromY){
       items.push({
         wx:Math.max(30,Math.min(W-30,ox)),
         wy:y+oy,
-        type:'star',
+        type:(Math.random()<0.24?'coin':'star'),
         got:false
       });
     }
@@ -128,6 +128,7 @@ function tapGame(){
   G.lastJudge={label,col};
 }
 let tsx=null;
+let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
 let paused=false;
 let inputLock=false;
 
@@ -136,7 +137,11 @@ function down(e){
   if(e.cancelable)e.preventDefault();
   const t=e.touches&&e.touches.length?e.touches[0]:e;
   tsx=t.clientX;
+  const wasOnBoard=player.onBoard;
   tapGame();
+  // V56: 이미 공중에 있을 때 새로 누르면 화면 좌/우 절반으로 이동한다.
+  // 점프를 시작한 최초 탭은 조향으로 취급하지 않아 기존 타이밍 입력을 보존한다.
+  if(!wasOnBoard) airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
 }
 function mv(e){
   if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;
@@ -145,7 +150,7 @@ function mv(e){
   const dx=t.clientX-tsx;tsx=t.clientX;
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));
 }
-function up(){tsx=null;inputLock=false;}
+function up(){tsx=null;airSteer=0;inputLock=false;}
 
 // 입력은 game 요소가 아니라 stage 전체에서 받는다.
 // 캔버스/HTML HUD가 위에 있어도 게임 영역 어디를 눌러도 점프하도록 한다.
@@ -285,6 +290,8 @@ function updateGame(){
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.000387;player.y+=player.vy;
+    // V56: 한 손 공중 조향. 누르고 있는 쪽으로 부드럽게 이동하며 화면 밖으로 나가지 않는다.
+    if(airSteer) player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*0.0105));
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
@@ -313,7 +320,7 @@ function updateGame(){
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
-      player.onBoard=true;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
+      player.onBoard=true;airSteer=0;player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
       updateHud();
@@ -349,9 +356,16 @@ function updateGame(){
     if(screenY<-80||screenY>H+80)continue;
     if(!player.onBoard&&Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+W*0.045){
       s.got=true;
-      G.star++;
-      addFloat(s.wx,s.wy,'+1','#ffd166');
-      spawnSparkle(s.wx,s.wy,'#ffd166');
+      if(s.type==='coin'){
+        G.coin++;
+        localStorage.setItem('kjump_coin',G.coin);
+        addFloat(s.wx,s.wy,'+1 엽','#f4b942');
+        spawnSparkle(s.wx,s.wy,'#f4b942');
+      }else{
+        G.star++;
+        addFloat(s.wx,s.wy,'+1','#ffd166');
+        spawnSparkle(s.wx,s.wy,'#ffd166');
+      }
       updateHud();
     }
   }
@@ -582,7 +596,16 @@ function drawGame(){
     if(s.got)continue;
     const sy=s.wy;
     if(sy-G.cam<-40||sy-G.cam>H+40)continue;
-    drawStar(s.wx,sy,W*0.045,'#ffd23f');
+    if(s.type==='coin'){
+      ctx.save();
+      ctx.translate(s.wx,sy);
+      ctx.fillStyle='#f6c64d';ctx.strokeStyle='#b87924';ctx.lineWidth=Math.max(2,W*0.006);
+      ctx.beginPath();ctx.arc(0,0,W*0.040,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#8b5a22';ctx.font='900 '+Math.round(W*0.030)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('엽',0,1);
+      ctx.restore();
+    }else{
+      drawStar(s.wx,sy,W*0.045,'#ffd23f');
+    }
   }
 
   // 장애물
