@@ -309,19 +309,21 @@ function applyV65Hud(){
     hud.innerHTML=`
       <div class="v66-hearts"></div>
       <div class="v66-height"><small>현재 높이</small><b>0m</b><em>♛ BEST 0m</em></div>
-      <div class="v66-money"><span class="v66-star">⭐ <b>0</b></span><span class="v66-coin">🪙 <b>0</b></span></div>`;
+      <div class="v66-money"><span class="v66-star">⭐ <b>0</b></span><span class="v66-coin"><i class="v67-coin-icon">₩</i> <b>0</b></span></div>`;
     game.appendChild(hud);
     Object.assign(hud.style,{position:'absolute',inset:'0',zIndex:'39',pointerEvents:'none'});
     const hearts=hud.querySelector('.v66-hearts');
     Object.assign(hearts.style,{position:'absolute',left:'3.5%',top:'2.3%',padding:'6px 9px',borderRadius:'18px',background:'rgba(25,57,91,.92)',fontSize:'clamp(18px,5.2vw,25px)',whiteSpace:'nowrap',boxShadow:'0 3px 7px rgba(0,0,0,.22)'});
     const h=hud.querySelector('.v66-height');
-    Object.assign(h.style,{position:'absolute',left:'50%',top:'1.8%',transform:'translateX(-50%)',minWidth:'28%',padding:'6px 12px 8px',borderRadius:'13px',background:'linear-gradient(180deg,#80512f,#59351f)',border:'3px solid #b98555',boxShadow:'0 4px 8px rgba(0,0,0,.25)',textAlign:'center',color:'#fff'});
+    Object.assign(h.style,{position:'absolute',left:'50%',top:'1.25%',transform:'translateX(-50%)',minWidth:'25%',padding:'5px 10px 6px',borderRadius:'13px',background:'linear-gradient(180deg,#80512f,#59351f)',border:'3px solid #b98555',boxShadow:'0 4px 8px rgba(0,0,0,.25)',textAlign:'center',color:'#fff'});
     Object.assign(h.querySelector('small').style,{display:'block',fontSize:'10px',fontWeight:'900',lineHeight:'1'});
-    Object.assign(h.querySelector('b').style,{display:'block',fontSize:'clamp(28px,8vw,42px)',lineHeight:'1',textShadow:'0 3px 2px rgba(0,0,0,.4)'});
-    Object.assign(h.querySelector('em').style,{position:'absolute',left:'50%',top:'calc(100% + 4px)',transform:'translateX(-50%)',padding:'3px 8px',borderRadius:'11px',background:'rgba(25,57,91,.94)',border:'2px solid #d8a45f',color:'#ffe2a0',fontSize:'9px',fontWeight:'900',fontStyle:'normal',whiteSpace:'nowrap'});
+    Object.assign(h.querySelector('b').style,{display:'block',fontSize:'clamp(25px,7vw,36px)',lineHeight:'1',textShadow:'0 3px 2px rgba(0,0,0,.4)'});
+    Object.assign(h.querySelector('em').style,{position:'absolute',left:'50%',top:'calc(100% + 3px)',transform:'translateX(-50%)',padding:'2px 7px',borderRadius:'11px',background:'rgba(25,57,91,.94)',border:'2px solid #d8a45f',color:'#ffe2a0',fontSize:'9px',fontWeight:'900',fontStyle:'normal',whiteSpace:'nowrap'});
     const money=hud.querySelector('.v66-money');
     Object.assign(money.style,{position:'absolute',right:'13.5%',top:'2.1%',display:'flex',flexDirection:'column',gap:'4px'});
     money.querySelectorAll('span').forEach(x=>Object.assign(x.style,{minWidth:'60px',padding:'3px 8px',borderRadius:'13px',background:'rgba(25,57,91,.94)',color:'#fff',fontSize:'14px',fontWeight:'900',textAlign:'center'}));
+    const ci=money.querySelector('.v67-coin-icon');
+    if(ci)Object.assign(ci.style,{display:'inline-flex',width:'18px',height:'18px',borderRadius:'50%',alignItems:'center',justifyContent:'center',background:'linear-gradient(145deg,#ffe06a,#d89408)',border:'2px solid #fff0a8',boxShadow:'inset 0 -2px 0 rgba(120,70,0,.28)',color:'#8a5100',fontSize:'10px',fontWeight:'1000',fontStyle:'normal',verticalAlign:'middle'});
   }
   hud.querySelector('.v66-hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
   hud.querySelector('.v66-height b').textContent=G.curM+'m';
@@ -342,7 +344,7 @@ function applyV65Hud(){
   // 목표 높이 카드는 기존 것을 유지하되 중앙을 가리지 않게 한다.
   const target=$('targetHeight');
   if(target&&target.parentElement){
-    Object.assign(target.parentElement.style,{position:'absolute',left:'3.5%',top:'13%',zIndex:'38',width:'auto',height:'auto',maxWidth:'27%',margin:'0'});
+    Object.assign(target.parentElement.style,{position:'absolute',left:'3.5%',top:'11.2%',zIndex:'38',width:'auto',height:'auto',maxWidth:'22%',transform:'scale(.86)',transformOrigin:'top left',margin:'0'});
   }
 
   const pause=$('pauseBtn');
