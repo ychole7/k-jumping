@@ -606,9 +606,10 @@ function drawGame(){
     const sourceW=boardImg.naturalWidth;
     const sourceH=boardImg.naturalHeight;
 
-    // 원본 이미지 기준: 판은 대략 y=145~345, 받침은 y=345~724.
+    // 원본 이미지 기준: 회전 판과 고정 받침을 분리.
+    // 고정 받침은 y=382부터 사용해 원본에 남은 얇은 수평 널 조각을 완전히 제외한다.
     const plankSy=145, plankEy=Math.min(350,sourceH);
-    const supportSy=345, supportEy=sourceH;
+    const supportSy=382, supportEy=sourceH;
 
     // 받침/꽃/통나무는 땅에 고정. 절대 board.tilt를 적용하지 않는다.
     const supportTop=anchorY + (supportSy/boardImg.naturalHeight)*(drawW*(boardImg.naturalHeight/boardImg.naturalWidth)) -
