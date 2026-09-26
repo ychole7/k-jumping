@@ -148,7 +148,7 @@ function mv(e){
   if(e.cancelable)e.preventDefault();
   const t=e.touches&&e.touches.length?e.touches[0]:e;
   const dx=t.clientX-tsx;tsx=t.clientX;
-  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*0.95));
+  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*1.22));
 }
 function up(){tsx=null;airSteer=0;inputLock=false;}
 
@@ -290,8 +290,8 @@ function updateGame(){
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.000387;player.y+=player.vy;
-    // V56: 한 손 공중 조향. 누르고 있는 쪽으로 부드럽게 이동하며 화면 밖으로 나가지 않는다.
-    if(airSteer) player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*0.0105));
+    // V57: 더 민감한 한 손 공중 조향. 누르고 있는 쪽으로 부드럽게 이동하며 화면 밖으로 나가지 않는다.
+    if(airSteer) player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*0.0145));
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
