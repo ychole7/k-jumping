@@ -616,8 +616,13 @@ function drawGame(){
     const supportH=(supportEy-supportSy)*scale;
     ctx.save();
     ctx.imageSmoothingEnabled=true;
-    ctx.drawImage(boardImg,0,supportSy,sourceW,supportEy-supportSy,
-      pivotX-drawW/2,pivotY+supportTop,drawW,supportH);
+    // 받침 이미지 양옆에 남아 있는 원본의 얇은 수평 널 조각은 제외하고,
+    // 중앙의 통나무/꽃 받침 영역만 고정 렌더링한다.
+    const supportSx=Math.round(sourceW*0.27);
+    const supportCropW=Math.round(sourceW*0.46);
+    const supportDrawW=drawW*0.46;
+    ctx.drawImage(boardImg,supportSx,supportSy,supportCropW,supportEy-supportSy,
+      pivotX-supportDrawW/2,pivotY+supportTop,supportDrawW,supportH);
     ctx.restore();
 
     // 널판만 중앙 회전축을 기준으로 회전.
