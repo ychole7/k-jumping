@@ -636,6 +636,8 @@ function gameOver(){
 // V69: 0~100m 실제 게임 배경 이미지
 const V69_BG=new Image();
 V69_BG.src='assets/bg_skyvillage.jpg';
+const V78_UPPER_BG=new Image();
+V78_UPPER_BG.src='assets/bg_upper_sky.jpg';
 
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
@@ -658,6 +660,17 @@ function drawV69PhotoBG(){
   return true;
 }
 
+function drawV78UpperBG(){
+  if(!V78_UPPER_BG.complete||!V78_UPPER_BG.naturalWidth)return false;
+  const iw=V78_UPPER_BG.naturalWidth,ih=V78_UPPER_BG.naturalHeight;
+  const scale=Math.max(W/iw,H/ih)*1.12,dw=iw*scale,dh=ih*scale,dx=(W-dw)*0.5;
+  const rise=Math.max(0,-(G.cam||0));
+  // 상공 배경은 지상 배경보다 느리게 움직여 멀리 있는 하늘처럼 보인다.
+  const dy=-(dh-H)*0.88 + rise*0.20;
+  ctx.drawImage(V78_UPPER_BG,0,0,iw,ih,dx,dy,dw,dh);
+  return true;
+}
+
 function skyColor(m){
   const stops=[
     [0,   [74,163,239],[143,208,255],[223,247,255]],
@@ -673,63 +686,32 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  const [c1,c2,c3]=skyColor(G.curM||0);
+  // V78: 실제 이미지 A(지상) + B(상공)를 크로스페이드로 연결한다.
+  // 코드로 그리던 임시 구름/삼각 부유섬은 사용하지 않는다.
+  const m=G.curM||0;
+  const [c1,c2,c3]=skyColor(m);
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.48,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
+  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.55,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
 
-  // 따뜻한 태양빛과 하늘 깊이감을 위한 소프트 글로우
-  const sun=ctx.createRadialGradient(W*.18,H*.15,0,W*.18,H*.15,W*.38);
-  sun.addColorStop(0,'rgba(255,248,205,.48)');sun.addColorStop(.45,'rgba(255,244,194,.16)');sun.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
-
-  // V77: 지상 사진 레이어를 하늘 레이어 위에 연결.
-  // 카메라가 올라가면 사진은 아래로 내려가고, 위쪽은 이미 그려진 하늘이 자연스럽게 이어진다.
-  if((G.curM||0)<150){
-    ctx.save();
-    ctx.globalAlpha=Math.max(0,Math.min(1,1-(G.curM||0)/145));
-    drawV69PhotoBG();
-    ctx.restore();
-  }
-
-  // 멀리 떠 있는 섬과 작은 폭포
-  const night=G.curM>380;
-  ctx.save();ctx.globalAlpha=night?.34:.38;
-  for(let i=0;i<7;i++){
-    const ix=(i*171+Math.sin(i*2.3)*60)%W;
-    const iy=((i*119)%(H*1.8)+H*1.8)%(H*1.8)-H*.2;
-    ctx.fillStyle=night?'#26365e':'#4d8d94';
-    ctx.beginPath();ctx.ellipse(ix,iy,W*.095,H*.018,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.moveTo(ix-W*.068,iy);ctx.lineTo(ix+W*.068,iy);ctx.lineTo(ix+W*.026,iy+H*.062);ctx.lineTo(ix-W*.03,iy+H*.078);ctx.closePath();ctx.fill();
-    if(!night){
-      ctx.strokeStyle='rgba(190,240,255,.34)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(ix,iy+H*.045);ctx.lineTo(ix+W*.005,iy+H*.075);ctx.stroke();
-    }
-  }
+  // B 상공 배경은 먼저 깔고, A 지상 배경이 상승하며 아래로 사라진다.
+  ctx.save();
+  const upperA=Math.max(0,Math.min(1,(m-18)/32));
+  ctx.globalAlpha=upperA;
+  drawV78UpperBG();
   ctx.restore();
 
-  // 부드러운 구름층
-  ctx.save();ctx.fillStyle='rgba(255,255,255,.86)';
-  for(let i=0;i<7;i++){
-    const cy=((i*H*.58)%(H*2.3)+H*2.3)%(H*2.3)-H*.42;
-    cloud((i*151)%W,cy,W*(.13+(i%3)*.018));
-  }
+  ctx.save();
+  const groundA=1-Math.max(0,Math.min(1,(m-18)/32));
+  ctx.globalAlpha=groundA;
+  drawV69PhotoBG();
   ctx.restore();
 
-  // 100m 아래쪽에서 한국 마을이 살짝 보이도록 레이어링
-  if((G.curM||0)>=105 && (G.curM||0)<140){
-    const base=H*.94;
-    ctx.save();ctx.globalAlpha=.72;
-    ctx.fillStyle='#78a85c';ctx.beginPath();ctx.ellipse(W*.18,base,W*.42,H*.09,0,0,7);ctx.fill();
-    ctx.fillStyle='#659451';ctx.beginPath();ctx.ellipse(W*.78,base+H*.02,W*.48,H*.11,0,0,7);ctx.fill();
-    for(let i=0;i<4;i++){
-      const x=W*(.07+i*.27), y=base-H*(.02+(i%2)*.015), w=W*.15, h=H*.045;
-      ctx.fillStyle='#e7c17a';ctx.fillRect(x,y,w,h);
-      ctx.fillStyle='#56412f';ctx.beginPath();ctx.moveTo(x-W*.015,y);ctx.lineTo(x+w/2,y-H*.035);ctx.lineTo(x+w+W*.015,y);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#6b4d2e';ctx.fillRect(x+w*.44,y+h*.35,w*.11,h*.65);
-    }
-    ctx.restore();
-  }
+  // 18~50m 구간에서 두 이미지가 겹치며 경계선 없이 전환된다.
+  const veil=ctx.createLinearGradient(0,0,0,H);
+  veil.addColorStop(0,'rgba(88,183,247,.035)');
+  veil.addColorStop(1,'rgba(255,255,255,.018)');
+  ctx.fillStyle=veil;ctx.fillRect(0,0,W,H);
 }
 function cloud(x,y,r){
   ctx.beginPath();
@@ -863,7 +845,7 @@ function drawGame(){
 
   // 화면에 붙어 있는 배경/UI와, 카메라가 따라가는 월드 오브젝트를 분리한다.
   drawBG();
-  if((G.curM||0)>=140)drawAltitudeWorld();
+  
   ctx.fillStyle='rgba(255,183,197,.85)';
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
 
