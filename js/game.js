@@ -27,7 +27,7 @@ function show(name){
   scenes.forEach(s=>$(s).classList.toggle('on',s===name));
   current=name;
   const ph=$('progressHUD');
-  if(ph) ph.style.display=(name==='game')?'block':'none';
+  if(ph) ph.style.display='none';
 }
 
 let best=+(localStorage.getItem('kjump_best_m')||0);
@@ -288,11 +288,98 @@ function ensureLifeHud(){
   el.style.filter='none';
   return el;
 }
+
+// ================= V65 CLEAN PLAY HUD =================
+// 확정 시안 기준: ❤️ 좌측 / 현재 높이 중앙 / ⭐·🪙·일시정지 우측.
+// 지역명·상시 진행바는 플레이 중 숨기고, 공중 시야를 최대한 확보한다.
+function applyV65Hud(){
+  const game=$('game')||stageEl;
+  if(!game)return;
+  game.style.position='relative';
+
+  const hearts=ensureLifeHud();
+  Object.assign(hearts.style,{
+    position:'absolute',left:'4.5%',top:'2.2%',margin:'0',minWidth:'0',
+    padding:'7px 10px 6px',fontSize:'clamp(18px,5.4vw,25px)',
+    borderRadius:'18px',zIndex:'40',whiteSpace:'nowrap'
+  });
+
+  const depth=$('depth');
+  if(depth){
+    depth.textContent=G.curM+'m';
+    Object.assign(depth.style,{
+      display:'block',fontWeight:'1000',fontSize:'clamp(31px,10vw,48px)',
+      lineHeight:'.95',color:'#fff',textShadow:'0 3px 2px rgba(0,0,0,.45)',
+      textAlign:'center',whiteSpace:'nowrap'
+    });
+    const box=depth.parentElement;
+    if(box){
+      Object.assign(box.style,{
+        position:'absolute',left:'50%',top:'1.7%',transform:'translateX(-50%)',
+        zIndex:'39',minWidth:'31%',padding:'8px 13px 9px',margin:'0',
+        borderRadius:'13px',background:'linear-gradient(180deg,#80512f,#59351f)',
+        border:'3px solid #b98555',boxShadow:'inset 0 2px 0 rgba(255,255,255,.18),0 4px 8px rgba(0,0,0,.28)',
+        textAlign:'center'
+      });
+      box.setAttribute('data-v65-height','1');
+      let cap=box.querySelector('.v65-height-label');
+      if(!cap){
+        cap=document.createElement('div');cap.className='v65-height-label';
+        cap.textContent='현재 높이'; box.insertBefore(cap,depth);
+      }
+      Object.assign(cap.style,{fontSize:'11px',fontWeight:'900',color:'#fff',lineHeight:'1.05',marginBottom:'3px'});
+      let bestEl=box.querySelector('.v65-best');
+      if(!bestEl){
+        bestEl=document.createElement('div');bestEl.className='v65-best';box.appendChild(bestEl);
+      }
+      bestEl.textContent='♛ BEST '+Math.max(best,G.peakM||0)+'m';
+      Object.assign(bestEl.style,{
+        position:'absolute',left:'50%',top:'calc(100% + 5px)',transform:'translateX(-50%)',
+        padding:'3px 9px',borderRadius:'12px',background:'rgba(26,49,72,.92)',
+        border:'2px solid rgba(224,178,102,.9)',color:'#ffe3a0',fontSize:'10px',
+        fontWeight:'900',whiteSpace:'nowrap',boxShadow:'0 2px 5px rgba(0,0,0,.22)'
+      });
+    }
+  }
+
+  // 재화 두 줄을 오른쪽 상단에 작게 정리한다.
+  const star=$('gStar'), coin=$('gCoin');
+  [star,coin].forEach((el,i)=>{
+    if(!el)return;
+    const row=el.parentElement;
+    if(row){
+      Object.assign(row.style,{
+        position:'absolute',right:'15.5%',top:(i===0?'2.3%':'6.6%'),
+        zIndex:'40',minWidth:'72px',height:'28px',padding:'2px 10px',
+        margin:'0',borderRadius:'14px',background:'rgba(25,57,91,.94)',
+        border:'0',boxShadow:'0 3px 6px rgba(0,0,0,.2)',
+        display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',
+        fontSize:'16px',fontWeight:'900',color:'#fff'
+      });
+    }
+  });
+
+  const pause=$('pauseBtn');
+  if(pause)Object.assign(pause.style,{
+    position:'absolute',right:'4.2%',top:'2.0%',zIndex:'41',
+    width:'46px',height:'46px',margin:'0',borderRadius:'50%',
+    boxShadow:'0 4px 8px rgba(0,0,0,.28)'
+  });
+
+  // 기존 좌측 지역 카드와 하단 상시 진행바는 시안대로 제거.
+  const rn=$('regionName'), rs=$('regionSub'), ph=$('progressHUD');
+  if(rn && rn.parentElement)rn.parentElement.style.display='none';
+  if(rs && rs.parentElement && rs.parentElement!==rn?.parentElement)rs.parentElement.style.display='none';
+  if(ph)ph.style.display='none';
+}
+
 function updateHud(){
   $('gStar').textContent=G.star;$('gCoin').textContent=G.coin;
   const heartEl=ensureLifeHud();
   heartEl.textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
-  $('depth').textContent=G.curM+' m'; updateRegion();
+  $('depth').textContent=G.curM+'m';
+  updateRegion();
+  applyV65Hud();
 }
 
 let squash=0;
