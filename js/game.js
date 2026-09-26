@@ -623,7 +623,7 @@ function drawGame(){
     const supportCropW=Math.round(sourceW*0.46);
     const supportDrawW=drawW*0.46;
     ctx.drawImage(boardImg,supportSx,supportSy,supportCropW,supportEy-supportSy,
-      pivotX-supportDrawW/2,pivotY+supportTop,supportDrawW,supportH);
+      pivotX-supportDrawW/2,pivotY+supportTop-H*0.012,supportDrawW,supportH);
     ctx.restore();
 
     // 널판만 중앙 회전축을 기준으로 회전.
