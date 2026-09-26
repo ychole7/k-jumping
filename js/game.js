@@ -151,7 +151,11 @@ function mv(e){
   if(e.cancelable)e.preventDefault();
   const t=e.touches&&e.touches.length?e.touches[0]:e;
   const dx=t.clientX-tsx;tsx=t.clientX;
-  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*1.22));
+  // V59: 손가락의 현재 위치를 기준으로 방향을 즉시 갱신해 이전 방향이 남지 않게 한다.
+  airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
+  // 상승은 민감하게, 하강은 약 60%로 낮춰 착지 직전 과조향을 줄인다.
+  const dragGain=player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004 ? 0.98 : 1.22);
+  player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*dragGain));
 }
 function up(){tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
 
@@ -313,8 +317,17 @@ function updateGame(){
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
     player.vy+=H*0.000387;player.y+=player.vy;
-    // V57: 더 민감한 한 손 공중 조향. 누르고 있는 쪽으로 부드럽게 이동하며 화면 밖으로 나가지 않는다.
-    if(airSteer) player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*0.0145));
+    // V59: 상승/정점/하강 조향을 분리한다.
+    // 상승은 V57의 민감도를 유지하고, 정점은 조금 완화, 하강은 60%로 낮춘다.
+    // 자동 착지 보정은 하지 않으며 손을 떼면 airSteer=0으로 즉시 중립이다.
+    if(airSteer){
+      const absVy=Math.abs(player.vy);
+      let steerGain;
+      if(player.vy>0) steerGain=0.0087;       // 하강: V57의 약 60%
+      else if(absVy<H*0.004) steerGain=0.0112; // 정점 부근
+      else steerGain=0.0145;                  // 상승: V57 유지
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain));
+    }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
