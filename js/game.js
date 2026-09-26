@@ -52,6 +52,12 @@ function updateRegion(){
   const max=1000; const pct=Math.min(100,(G.peakM/max)*100);
   $('progressFill').style.width=pct+'%';
   document.querySelectorAll('.mile').forEach((el,i)=>el.classList.toggle('active',G.curM>=points[i]));
+
+  const idx=REGIONS.indexOf(r);
+  if(idx>G.lastRegionIndex){
+    G.lastRegionIndex=idx;
+    G.regionBanner={name:r.name,t:150};
+  }
 }
 const TARGET_HEIGHT=100; // 현재 1스테이지 목표 높이
 let board,player,items,rocks,floats,petals;
@@ -761,6 +767,44 @@ function drawPartner(px,py,r){
   ctx.restore();
 }
 
+
+// ================= V68 ALTITUDE WORLD =================
+function altitudeWorld(){
+  const m=Math.max(G.curM||0,G.peakM||0);
+  if(m<100)return {top:'rgba(74,176,244,.06)',bottom:'rgba(120,214,255,.02)',accent:'#fff2b0'};
+  if(m<250)return {top:'rgba(105,150,235,.18)',bottom:'rgba(235,247,255,.10)',accent:'#dff6ff'};
+  if(m<500)return {top:'rgba(79,126,194,.24)',bottom:'rgba(185,221,240,.08)',accent:'#d8f2ff'};
+  if(m<1000)return {top:'rgba(31,57,122,.36)',bottom:'rgba(88,139,200,.12)',accent:'#b9d9ff'};
+  return {top:'rgba(7,15,55,.54)',bottom:'rgba(40,55,120,.20)',accent:'#d9ddff'};
+}
+function drawAltitudeWorld(){
+  const a=altitudeWorld(), m=Math.max(G.curM||0,G.peakM||0);
+  const gr=ctx.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,a.top);gr.addColorStop(1,a.bottom);
+  ctx.save();ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+  if(m>=100){
+    ctx.globalAlpha=Math.min(.55,.14+m/2200);ctx.fillStyle=a.accent;
+    for(let k=0;k<11;k++){
+      const x=(k*97+G.cam*.11)%W, y=(k*151-G.cam*.035)%(H*.70);
+      ctx.beginPath();ctx.arc((x+W)%W,(y+H)%H,1.1+(k%3)*.5,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawRegionBanner(){
+  if(!G.regionBanner||G.regionBanner.t<=0)return;
+  G.regionBanner.t--;
+  const t=G.regionBanner.t, alpha=Math.min(1,(150-t)/18,t/28);
+  ctx.save();ctx.globalAlpha=alpha;
+  const bw=W*.58,bh=H*.062,x=(W-bw)/2,y=H*.19;
+  ctx.fillStyle='rgba(24,47,73,.80)';roundRect(x,y,bw,bh,16);ctx.fill();
+  ctx.strokeStyle='rgba(255,230,155,.85)';ctx.lineWidth=2;roundRect(x,y,bw,bh,16);ctx.stroke();
+  ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font=`900 ${Math.max(17,W*.050)}px system-ui`;
+  ctx.fillText(G.regionBanner.name,W/2,y+bh*.55);
+  ctx.fillStyle='#ffe6a0';ctx.font=`800 ${Math.max(9,W*.025)}px system-ui`;
+  ctx.fillText('새로운 고도 영역',W/2,y+bh*.82);ctx.restore();
+}
+
 function drawGame(){
   ctx.save();
   if(shake>0.02){
@@ -770,6 +814,7 @@ function drawGame(){
 
   // 화면에 붙어 있는 배경/UI와, 카메라가 따라가는 월드 오브젝트를 분리한다.
   drawBG();
+  drawAltitudeWorld();
   ctx.fillStyle='rgba(255,183,197,.85)';
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
 
@@ -940,6 +985,8 @@ function drawGame(){
 
   // V61: 대기형 MAX 파워게이지 제거. 착지 타이밍이 다음 점프 파워를 결정한다.
   ctx.restore();
+
+  drawRegionBanner();
 }
 function loop(){
   if(current==='game'){updateGame();drawGame();}
