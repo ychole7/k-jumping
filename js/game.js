@@ -122,18 +122,16 @@ function spawnAhead(fromY){
 
 function launchWithPower(mult=1){
   player.onBoard=false;
-  player.vy=-(H*0.0484)*1.30*mult;
+  // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
+  player.vy=-(H*0.0484)*1.066*mult;
   launchFlash=1; jumpTrail=[];
 }
 function tapGame(){
   if(current!=='game'||G.over||paused)return;
   // V62: 착지 후 첫 탭은 빠른 파워 게이지를 시작하고, 두 번째 탭으로 힘을 확정해 점프한다.
   if(player.onBoard){
-    if(!G.powerMode){
-      G.powerMode=true; G.powerVal=0.12; G.powerDir=1;
-      addFloat(player.x,board.y-H*0.08,'POWER!','#ffffff');
-      return;
-    }
+    // V63: 착지하면 게이지가 이미 움직인다. 탭 한 번으로 판정과 동시에 발사.
+    if(!G.powerMode){ G.powerMode=true; G.powerVal=0.12; G.powerDir=1; }
     const p=Math.max(0,Math.min(1,G.powerVal));
     let label='OK', col='#8ecae6', power=0.78+0.42*p;
     if(p>=0.88){label='PERFECT!';col='#ff4d6d';power=1.28;}
@@ -339,7 +337,7 @@ function updateGame(){
     }
     // V62: 자동 재점프 없음. 첫 탭으로 시작한 파워 게이지만 빠르게 왕복한다.
     if(G.powerMode){
-      G.powerVal += G.powerDir*0.055;
+      G.powerVal += G.powerDir*0.040;
       if(G.powerVal>=1){G.powerVal=1;G.powerDir=-1;}
       if(G.powerVal<=0.06){G.powerVal=0.06;G.powerDir=1;}
       board.gaugeVal=G.powerVal;
@@ -354,7 +352,7 @@ function updateGame(){
     jumpTrail.forEach(p=>p.life-=0.055);
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
-    player.vy+=H*0.000387;player.y+=player.vy;
+    player.vy+=H*0.000260;player.y+=player.vy;
     // V59: 상승/정점/하강 조향을 분리한다.
     // 상승은 V57의 민감도를 유지하고, 정점은 조금 완화, 하강은 60%로 낮춘다.
     // 자동 착지 보정은 하지 않으며 손을 떼면 airSteer=0으로 즉시 중립이다.
@@ -414,7 +412,7 @@ function updateGame(){
       spawnDust(player.x,board.y,landingJudge.label==='PERFECT!'?11:landingJudge.label==='GOOD'?8:5,landingJudge.label==='PERFECT!'?1.6:1);
       shake=Math.min(1,shake+(landingJudge.label==='PERFECT!'?.75:.45));
       bigJudge(landingJudge.label,landingJudge.col);
-      G.powerMode=false; G.powerVal=0; G.relaunchFrames=0;
+      G.powerMode=true; G.powerVal=0.12; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
@@ -523,7 +521,7 @@ function loseLife(){
   G.lastJumpM=0;
   board.gaugePhase=0;
   board.gaugeVal=0;
-  G.powerMode=false;G.powerVal=0;G.landingTap=null;G.combo=0;
+  G.powerMode=true;G.powerVal=0.12;G.powerDir=1;G.landingTap=null;G.combo=0;
   board.tilt=0;
   jumpTrail=[];
   landingSquash=0;
@@ -838,17 +836,24 @@ function drawGame(){
   ctx.restore();
 
   // ================= SCREEN SPACE UI =================
-  // V62: 낚시게임처럼 빠르게 왕복하는 파워 타이밍 바. MAX 대기형이 아니라 두 번째 탭으로 즉시 확정한다.
+  // V63: 첨부 레퍼런스처럼 반원형 타이밍 게이지. 착지 즉시 활성화되고 탭 한 번으로 발사한다.
   if(player.onBoard && G.powerMode){
-    const gx=W*.14, gy=H*.80, gw=W*.72, gh=H*.022;
+    const cx=W*.5, cy=H*.835, r=W*.235;
+    const a0=Math.PI, a1=Math.PI*2;
+    const arc=(from,to,col,w)=>{ctx.beginPath();ctx.arc(cx,cy,r,from,to);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.lineCap='butt';ctx.stroke();};
     ctx.save();
-    ctx.fillStyle='rgba(18,28,45,.72)';ctx.beginPath();ctx.roundRect(gx-5,gy-5,gw+10,gh+10,10);ctx.fill();
-    ctx.fillStyle='#6fa8dc';ctx.fillRect(gx,gy,gw*.68,gh);
-    ctx.fillStyle='#ffbf3f';ctx.fillRect(gx+gw*.68,gy,gw*.20,gh);
-    ctx.fillStyle='#ff4d6d';ctx.fillRect(gx+gw*.88,gy,gw*.12,gh);
-    const px=gx+gw*Math.max(0,Math.min(1,G.powerVal));
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px,gy-9);ctx.lineTo(px-7,gy-18);ctx.lineTo(px+7,gy-18);ctx.closePath();ctx.fill();
-    ctx.textAlign='center';ctx.font='800 '+Math.round(W*.035)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('한 번 더 탭!',W*.5,gy-H*.018);
+    ctx.fillStyle='rgba(12,25,45,.78)';ctx.beginPath();ctx.arc(cx,cy,r+W*.045,Math.PI,Math.PI*2);ctx.lineTo(cx+W*.28,cy+W*.035);ctx.lineTo(cx-W*.28,cy+W*.035);ctx.closePath();ctx.fill();
+    arc(a0,a0+Math.PI*.68,'#5aa9e6',W*.055);
+    arc(a0+Math.PI*.68,a0+Math.PI*.88,'#ffbf3f',W*.055);
+    arc(a0+Math.PI*.88,a1,'#ff4d6d',W*.055);
+    const v=Math.max(0,Math.min(1,G.powerVal));
+    const ang=a0+Math.PI*v;
+    ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(4,W*.012);ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*r*.90,cy+Math.sin(ang)*r*.90);ctx.stroke();
+    ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,W*.048,0,Math.PI*2);ctx.fill();
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 '+Math.round(W*.050)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('TAP!',cx,cy+W*.004);
+    ctx.font='900 '+Math.round(W*.032)+'px system-ui';ctx.fillStyle='#ff4d6d';ctx.fillText('PERFECT',cx,cy-r*.63);
+    ctx.font='800 '+Math.round(W*.027)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('타이밍에 맞춰 탭!',cx,cy+W*.095);
     ctx.restore();
   }
   drawJudgeFx();
