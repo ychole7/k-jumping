@@ -601,11 +601,32 @@ function drawGame(){
     const drawW=board.w*1.02;
     const drawH=drawW*(boardImg.naturalHeight/boardImg.naturalWidth);
     const anchorY=H*0.018;
+    const imgX=-drawW/2;
+    const imgY=-drawH*0.285;
+
+    // 받침대/고정점은 월드에 고정하고, 널판지만 회전시킨다.
+    // 기존 한 장짜리 아트를 두 번 그려 영역을 분리한다.
     ctx.save();
     ctx.translate(pivotX,pivotY+anchorY);
-    ctx.rotate(tilt);
     ctx.imageSmoothingEnabled=true;
-    ctx.drawImage(boardImg,-drawW/2,-drawH*0.285,drawW,drawH);
+
+    // 1) 고정 받침대 + 잔디 영역: 회전하지 않는다.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-drawW*0.5, drawH*0.10, drawW, drawH*0.60);
+    ctx.clip();
+    ctx.drawImage(boardImg,imgX,imgY,drawW,drawH);
+    ctx.restore();
+
+    // 2) 널판 영역만 중심축을 기준으로 회전한다.
+    ctx.save();
+    ctx.rotate(tilt);
+    ctx.beginPath();
+    ctx.rect(-drawW*0.52, -drawH*0.30, drawW*1.04, drawH*0.40);
+    ctx.clip();
+    ctx.drawImage(boardImg,imgX,imgY,drawW,drawH);
+    ctx.restore();
+
     ctx.restore();
   } else {
     // 이미지 로딩 전에도 게임 물리가 깨지지 않도록 기존 간단 판을 유지한다.
@@ -641,7 +662,7 @@ function drawGame(){
   // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
-  drawPartner(partX,partY-W*0.030,W*0.11);
+  drawPartner(partX,partY-W*0.055,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
   if(!player.onBoard&&launchFlash>0.05){
