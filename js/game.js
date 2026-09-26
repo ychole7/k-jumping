@@ -60,7 +60,7 @@ function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -110,6 +110,13 @@ function spawnAhead(fromY){
         got:false
       });
     }
+    // V62: 고도별 장애물. 하늘마을=새, 구름마을=먹구름, 그 위=연/유성.
+    if(Math.random()<0.48){
+      const alt=Math.max(0,(board.y-y)/PPM());
+      const type=alt<100?'bird':alt<250?'cloud':alt<500?'kite':'meteor';
+      rocks.push({wx:Math.random()<.5?-W*.12:W*1.12,wy:y-H*.06,r:W*(type==='cloud'?.065:.045),type,dir:Math.random()<.5?1:-1,hit:false,phase:Math.random()*6.28});
+      const o=rocks[rocks.length-1]; if(o.wx<0)o.dir=1; else o.dir=-1;
+    }
   }
 }
 
@@ -120,20 +127,35 @@ function launchWithPower(mult=1){
 }
 function tapGame(){
   if(current!=='game'||G.over||paused)return;
-  // V61: 바닥에서는 기다리는 파워게이지 없이 즉시 점프한다.
+  // V62: 착지 후 첫 탭은 빠른 파워 게이지를 시작하고, 두 번째 탭으로 힘을 확정해 점프한다.
   if(player.onBoard){
-    if(G.relaunchFrames>0)return;
-    G.combo=0; G.landingTap=null;
-    launchWithPower(1);
+    if(!G.powerMode){
+      G.powerMode=true; G.powerVal=0.12; G.powerDir=1;
+      addFloat(player.x,board.y-H*0.08,'POWER!','#ffffff');
+      return;
+    }
+    const p=Math.max(0,Math.min(1,G.powerVal));
+    let label='OK', col='#8ecae6', power=0.78+0.42*p;
+    if(p>=0.88){label='PERFECT!';col='#ff4d6d';power=1.28;}
+    else if(p>=0.68){label='GOOD';col='#ffb703';power=1.10;}
+    const timing=G.landingTap||{label:'OK',mult:1};
+    // 착지 타이밍과 파워 타이밍이 모두 좋아야 가장 높은 점프가 나온다.
+    power*=timing.mult||1;
+    if(timing.label==='PERFECT!' && label==='PERFECT!') G.combo++;
+    else if(label==='OK') G.combo=0;
+    bigJudge(label,col);
+    if(G.combo>=2) addFloat(player.x,board.y-H*0.12,'COMBO x'+G.combo,'#ffcf4a');
+    G.powerMode=false; G.landingTap=null;
+    launchWithPower(power*(1+Math.min(G.combo,8)*0.025));
     return;
   }
-  // 하강 중에는 '착지 타이밍' 입력으로 사용한다. 널에 가까울수록 높은 판정.
+  // 공중 하강 중 탭은 착지 타이밍 입력. 자동 재점프는 절대 하지 않는다.
   if(player.vy>0){
     const d=Math.max(0,board.y-(player.y+player.r));
     const norm=d/(H*0.18);
-    let label='OK', col='#8ecae6', mult=1.00;
-    if(norm<=0.22){label='PERFECT!';col='#ff4d6d';mult=1.16;}
-    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.08;}
+    let label='OK', col='#8ecae6', mult=0.96;
+    if(norm<=0.22){label='PERFECT!';col='#ff4d6d';mult=1.10;}
+    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.04;}
     G.landingTap={label,col,mult,d};
     addFloat(player.x,player.y-H*0.045,label,col);
   }
@@ -315,17 +337,14 @@ function updateGame(){
     }else{
       squash+=(0-squash)*0.2;
     }
-    // V61: 자동 충전 게이지 제거. 착지 후 짧은 탄성만 보여주고 바로 연속 점프한다.
-    board.gaugeVal=0;
+    // V62: 자동 재점프 없음. 첫 탭으로 시작한 파워 게이지만 빠르게 왕복한다.
+    if(G.powerMode){
+      G.powerVal += G.powerDir*0.055;
+      if(G.powerVal>=1){G.powerVal=1;G.powerDir=-1;}
+      if(G.powerVal<=0.06){G.powerVal=0.06;G.powerDir=1;}
+      board.gaugeVal=G.powerVal;
+    }else board.gaugeVal=0;
     board.tilt+=(0-board.tilt)*0.18;
-    if(G.relaunchFrames>0){
-      G.relaunchFrames--;
-      if(G.relaunchFrames===0){
-        const tap=G.landingTap||{label:'OK',col:'#8ecae6',mult:1};
-        launchWithPower(tap.mult*(1+Math.min(G.combo,8)*0.025));
-        G.landingTap=null;
-      }
-    }
     player.x=board.cx-Math.cos(board.tilt)*halfW*0.8;
     player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
@@ -390,16 +409,12 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V61: 판정은 착지 위치가 아니라 하강 중 탭 타이밍으로 결정한다.
-      const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:1};
-      if(landingJudge.label==='PERFECT!') G.combo++;
-      else if(landingJudge.label==='GOOD') G.combo=Math.max(0,G.combo);
-      else G.combo=0;
+      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
+      const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:0.96};
       spawnDust(player.x,board.y,landingJudge.label==='PERFECT!'?11:landingJudge.label==='GOOD'?8:5,landingJudge.label==='PERFECT!'?1.6:1);
       shake=Math.min(1,shake+(landingJudge.label==='PERFECT!'?.75:.45));
       bigJudge(landingJudge.label,landingJudge.col);
-      if(G.combo>=2) addFloat(player.x,board.y-H*0.105,'COMBO x'+G.combo,'#ffcf4a');
-      G.relaunchFrames=10; // 약 0.15초 뒤 자동 재점프
+      G.powerMode=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
@@ -408,6 +423,23 @@ function updateGame(){
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
     if(player.vy>0&&player.y+player.r>bw+player.r*2.4)loseLife();
   }
+  // V62: 고도별 장애물 이동 + 충돌. 충돌 시 하트 1개 감소하고 같은 장애물은 제거한다.
+  if(G.hitCooldown>0)G.hitCooldown--;
+  for(const o of rocks){
+    if(o.hit)continue;
+    const speed=(o.type==='bird'?W*.0048:o.type==='cloud'?W*.0025:o.type==='kite'?W*.0036:W*.0055);
+    o.wx+=o.dir*speed;
+    o.phase=(o.phase||0)+0.08;
+    o.wy+=Math.sin(o.phase)*0.12;
+    if(o.wx<-W*.2)o.wx=W*1.15; else if(o.wx>W*1.2)o.wx=-W*.15;
+    if(!player.onBoard && G.hitCooldown<=0 && Math.hypot(o.wx-player.x,o.wy-player.y)<player.r+o.r*.78){
+      o.hit=true; G.hitCooldown=45; G.hearts=Math.max(0,G.hearts-1); updateHud();
+      missFlash=1; missText='HIT!'; shake=Math.min(1,shake+.85);
+      addFloat(player.x,player.y-H*.05,'❤️ -1','#ff5b6e');
+      if(G.hearts<=0){gameOver();return;}
+    }
+  }
+
   // STAR COLLECTION: items stay in world space; collision uses world coordinates.
   for(const s of items){
     if(s.got)continue;
@@ -490,7 +522,8 @@ function loseLife(){
   G.curM=0;
   G.lastJumpM=0;
   board.gaugePhase=0;
-  board.gaugeVal=0.5;
+  board.gaugeVal=0;
+  G.powerMode=false;G.powerVal=0;G.landingTap=null;G.combo=0;
   board.tilt=0;
   jumpTrail=[];
   landingSquash=0;
@@ -610,6 +643,26 @@ function drawJumpTrail(){
   ctx.globalAlpha=1;
   ctx.restore();
 }
+function drawObstacle(o){
+  const x=o.wx,y=o.wy,r=o.r;
+  ctx.save();ctx.translate(x,y);
+  if(o.type==='bird'){
+    ctx.strokeStyle='#263238';ctx.lineWidth=Math.max(3,r*.18);ctx.lineCap='round';
+    ctx.beginPath();ctx.arc(-r*.48,0,r*.55,3.55,5.95);ctx.stroke();
+    ctx.beginPath();ctx.arc(r*.48,0,r*.55,3.48,5.88);ctx.stroke();
+  }else if(o.type==='cloud'){
+    ctx.fillStyle='#66717d';
+    ctx.beginPath();ctx.arc(-r*.45,0,r*.55,0,7);ctx.arc(0,-r*.18,r*.72,0,7);ctx.arc(r*.55,0,r*.5,0,7);ctx.fill();
+    ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,r*.45);ctx.lineTo(-r*.18,r*.95);ctx.lineTo(r*.12,r*.82);ctx.lineTo(-r*.02,r*1.35);ctx.stroke();
+  }else if(o.type==='kite'){
+    ctx.rotate(.25);ctx.fillStyle='#ef476f';ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.75,0);ctx.lineTo(0,r);ctx.lineTo(-r*.75,0);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#444';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,r);ctx.quadraticCurveTo(r*.7,r*1.6,0,r*2.2);ctx.stroke();
+  }else{
+    ctx.rotate(-.55);ctx.fillStyle='#ff8c42';ctx.beginPath();ctx.arc(0,0,r*.65,0,7);ctx.fill();
+    ctx.fillStyle='rgba(255,190,80,.65)';ctx.beginPath();ctx.moveTo(-r*.4,0);ctx.lineTo(-r*2.2,-r*.45);ctx.lineTo(-r*1.7,r*.45);ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+}
 
 function drawPlayer(px,py,r){
   // 캐릭터 원본 비율/크기를 항상 고정한다. 상승/하강/착지에 따른 이미지 변형은 사용하지 않는다.
@@ -674,7 +727,7 @@ function drawGame(){
     if(r.hit)continue;
     const ry=r.wy;
     if(ry-G.cam<-80||ry-G.cam>H+80)continue;
-    drawRock(r.wx,ry,r.r);
+    drawObstacle(r);
   }
 
   const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
@@ -785,6 +838,19 @@ function drawGame(){
   ctx.restore();
 
   // ================= SCREEN SPACE UI =================
+  // V62: 낚시게임처럼 빠르게 왕복하는 파워 타이밍 바. MAX 대기형이 아니라 두 번째 탭으로 즉시 확정한다.
+  if(player.onBoard && G.powerMode){
+    const gx=W*.14, gy=H*.80, gw=W*.72, gh=H*.022;
+    ctx.save();
+    ctx.fillStyle='rgba(18,28,45,.72)';ctx.beginPath();ctx.roundRect(gx-5,gy-5,gw+10,gh+10,10);ctx.fill();
+    ctx.fillStyle='#6fa8dc';ctx.fillRect(gx,gy,gw*.68,gh);
+    ctx.fillStyle='#ffbf3f';ctx.fillRect(gx+gw*.68,gy,gw*.20,gh);
+    ctx.fillStyle='#ff4d6d';ctx.fillRect(gx+gw*.88,gy,gw*.12,gh);
+    const px=gx+gw*Math.max(0,Math.min(1,G.powerVal));
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px,gy-9);ctx.lineTo(px-7,gy-18);ctx.lineTo(px+7,gy-18);ctx.closePath();ctx.fill();
+    ctx.textAlign='center';ctx.font='800 '+Math.round(W*.035)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('한 번 더 탭!',W*.5,gy-H*.018);
+    ctx.restore();
+  }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-G.cam);ctx.globalAlpha=1;});
