@@ -60,7 +60,7 @@ function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -128,37 +128,47 @@ function launchWithPower(mult=1){
 }
 function tapGame(){
   if(current!=='game'||G.over||paused)return;
-  // V62: 착지 후 첫 탭은 빠른 파워 게이지를 시작하고, 두 번째 탭으로 힘을 확정해 점프한다.
+  // V64: 누르는 순간. 공중에서는 '착지 타이밍'을 예약하고,
+  // 널 위에서는 바로 힘을 눌러 담기 시작한다.
+  G.pressHeld=true;
   if(player.onBoard){
-    // V63: 착지하면 게이지가 이미 움직인다. 탭 한 번으로 판정과 동시에 발사.
-    if(!G.powerMode){ G.powerMode=true; G.powerVal=0.12; G.powerDir=1; }
-    const p=Math.max(0,Math.min(1,G.powerVal));
-    let label='OK', col='#8ecae6', power=0.78+0.42*p;
-    if(p>=0.88){label='PERFECT!';col='#ff4d6d';power=1.28;}
-    else if(p>=0.68){label='GOOD';col='#ffb703';power=1.10;}
-    const timing=G.landingTap||{label:'OK',mult:1};
-    // 착지 타이밍과 파워 타이밍이 모두 좋아야 가장 높은 점프가 나온다.
-    power*=timing.mult||1;
-    if(timing.label==='PERFECT!' && label==='PERFECT!') G.combo++;
-    else if(label==='OK') G.combo=0;
-    bigJudge(label,col);
-    if(G.combo>=2) addFloat(player.x,board.y-H*0.12,'COMBO x'+G.combo,'#ffcf4a');
-    G.powerMode=false; G.landingTap=null;
-    launchWithPower(power*(1+Math.min(G.combo,8)*0.025));
+    G.pressArmed=true;
+    G.powerMode=true;
+    if(G.powerVal<=0.06)G.powerVal=0.08;
     return;
   }
-  // 공중 하강 중 탭은 착지 타이밍 입력. 자동 재점프는 절대 하지 않는다.
   if(player.vy>0){
     const d=Math.max(0,board.y-(player.y+player.r));
     const norm=d/(H*0.18);
-    let label='OK', col='#8ecae6', mult=0.96;
+    let label='OK', col='#8ecae6', mult=0.94;
     if(norm<=0.22){label='PERFECT!';col='#ff4d6d';mult=1.10;}
-    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.04;}
+    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.03;}
     G.landingTap={label,col,mult,d};
+    G.pressArmed=true;
     addFloat(player.x,player.y-H*0.045,label,col);
   }
 }
 
+function releaseCharge(){
+  if(!G.pressHeld)return;
+  G.pressHeld=false;
+  // V64: 착지 후에도 계속 누르고 있었을 때만 손을 떼는 순간 발사.
+  if(!player.onBoard || !G.pressArmed || !G.powerMode)return;
+  const p=Math.max(0,Math.min(1,G.powerVal));
+  // 너무 오래 누르면 과충전 구간으로 넘어가 다시 약해진다.
+  let label='OK', col='#8ecae6', power=0.76+0.34*p;
+  if(p>=0.72 && p<=0.88){label='PERFECT!';col='#ff4d6d';power=1.28;}
+  else if((p>=0.55&&p<0.72)||(p>0.88&&p<=0.96)){label='GOOD';col='#ffb703';power=1.08;}
+  else if(p>0.96){label='OVER!';col='#ff7b54';power=0.86;}
+  const timing=G.landingTap||{label:'OK',mult:0.96};
+  power*=timing.mult||1;
+  if(timing.label==='PERFECT!' && label==='PERFECT!')G.combo++;
+  else if(label==='OK'||label==='OVER!')G.combo=0;
+  bigJudge(label,col);
+  if(G.combo>=2)addFloat(player.x,board.y-H*0.12,'COMBO x'+G.combo,'#ffcf4a');
+  G.powerMode=false;G.pressArmed=false;G.landingTap=null;
+  launchWithPower(power*(1+Math.min(G.combo,8)*0.025));
+}
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
 let paused=false;
@@ -175,7 +185,7 @@ function down(e){
   tapGame();
   // V56: 이미 공중에 있을 때 새로 누르면 화면 좌/우 절반으로 이동한다.
   // 점프를 시작한 최초 탭은 조향으로 취급하지 않아 기존 타이밍 입력을 보존한다.
-  if(!wasOnBoard) airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
+  if(!wasOnBoard && !G.pressArmed) airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
 }
 function mv(e){
   if(current!=='game'||G.over||paused||player.onBoard||tsx==null)return;
@@ -188,7 +198,8 @@ function mv(e){
   const dragGain=player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004 ? 0.98 : 1.22);
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*dragGain));
 }
-function up(){tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
+function up(){releaseCharge();tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
+function clearAirInput(){tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
 
 // 입력은 game 요소가 아니라 stage 전체에서 받는다.
 // 캔버스/HTML HUD가 위에 있어도 게임 영역 어디를 눌러도 점프하도록 한다.
@@ -336,12 +347,13 @@ function updateGame(){
       squash+=(0-squash)*0.2;
     }
     // V62: 자동 재점프 없음. 첫 탭으로 시작한 파워 게이지만 빠르게 왕복한다.
-    if(G.powerMode){
-      G.powerVal += G.powerDir*0.040;
-      if(G.powerVal>=1){G.powerVal=1;G.powerDir=-1;}
-      if(G.powerVal<=0.06){G.powerVal=0.06;G.powerDir=1;}
+    if(G.powerMode && G.pressHeld){
+      // V64: 누르고 있는 동안 0→100%로 차오른다. PERFECT를 지나면 과충전.
+      G.powerVal=Math.min(1,G.powerVal+0.018);
       board.gaugeVal=G.powerVal;
-    }else board.gaugeVal=0;
+      // 힘을 모으는 동안 널이 눌리는 느낌.
+      board.tilt += (0.035*G.powerVal-board.tilt)*0.10;
+    }else board.gaugeVal=G.powerMode?G.powerVal:0;
     board.tilt+=(0-board.tilt)*0.18;
     player.x=board.cx-Math.cos(board.tilt)*halfW*0.8;
     player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
@@ -400,7 +412,7 @@ function updateGame(){
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
-      player.onBoard=true;up();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
+      player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
       updateHud();
@@ -412,7 +424,7 @@ function updateGame(){
       spawnDust(player.x,board.y,landingJudge.label==='PERFECT!'?11:landingJudge.label==='GOOD'?8:5,landingJudge.label==='PERFECT!'?1.6:1);
       shake=Math.min(1,shake+(landingJudge.label==='PERFECT!'?.75:.45));
       bigJudge(landingJudge.label,landingJudge.col);
-      G.powerMode=true; G.powerVal=0.12; G.powerDir=1; G.relaunchFrames=0;
+      G.powerMode=!!G.pressHeld; G.powerVal=G.pressHeld?0.08:0; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
@@ -521,7 +533,7 @@ function loseLife(){
   G.lastJumpM=0;
   board.gaugePhase=0;
   board.gaugeVal=0;
-  G.powerMode=true;G.powerVal=0.12;G.powerDir=1;G.landingTap=null;G.combo=0;
+  G.powerMode=false;G.powerVal=0;G.powerDir=1;G.landingTap=null;G.combo=0;G.pressHeld=false;G.pressArmed=false;
   board.tilt=0;
   jumpTrail=[];
   landingSquash=0;
@@ -843,17 +855,19 @@ function drawGame(){
     const arc=(from,to,col,w)=>{ctx.beginPath();ctx.arc(cx,cy,r,from,to);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.lineCap='butt';ctx.stroke();};
     ctx.save();
     ctx.fillStyle='rgba(12,25,45,.78)';ctx.beginPath();ctx.arc(cx,cy,r+W*.045,Math.PI,Math.PI*2);ctx.lineTo(cx+W*.28,cy+W*.035);ctx.lineTo(cx-W*.28,cy+W*.035);ctx.closePath();ctx.fill();
-    arc(a0,a0+Math.PI*.68,'#5aa9e6',W*.055);
-    arc(a0+Math.PI*.68,a0+Math.PI*.88,'#ffbf3f',W*.055);
-    arc(a0+Math.PI*.88,a1,'#ff4d6d',W*.055);
+    arc(a0,a0+Math.PI*.55,'#5aa9e6',W*.055);
+    arc(a0+Math.PI*.55,a0+Math.PI*.72,'#ffbf3f',W*.055);
+    arc(a0+Math.PI*.72,a0+Math.PI*.88,'#66e07a',W*.055);
+    arc(a0+Math.PI*.88,a0+Math.PI*.96,'#ffbf3f',W*.055);
+    arc(a0+Math.PI*.96,a1,'#ff5b5b',W*.055);
     const v=Math.max(0,Math.min(1,G.powerVal));
     const ang=a0+Math.PI*v;
     ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(4,W*.012);ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=10;
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*r*.90,cy+Math.sin(ang)*r*.90);ctx.stroke();
     ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,W*.048,0,Math.PI*2);ctx.fill();
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 '+Math.round(W*.050)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('TAP!',cx,cy+W*.004);
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 '+Math.round(W*.050)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('HOLD',cx,cy+W*.004);
     ctx.font='900 '+Math.round(W*.032)+'px system-ui';ctx.fillStyle='#ff4d6d';ctx.fillText('PERFECT',cx,cy-r*.63);
-    ctx.font='800 '+Math.round(W*.027)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('타이밍에 맞춰 탭!',cx,cy+W*.095);
+    ctx.font='800 '+Math.round(W*.027)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('PERFECT에서 손을 떼!',cx,cy+W*.095);
     ctx.restore();
   }
   drawJudgeFx();
