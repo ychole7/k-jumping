@@ -60,7 +60,7 @@ function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,nextBoost:1,lastRegionIndex:0}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.72,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -123,7 +123,9 @@ function tapGame(){
   player.onBoard=false;
   // V38: 100m 1스테이지를 실제로 도달할 수 있도록 점프 높이를 상향.
   // PERFECT 약 110m / GOOD 약 83m / OK 약 62m 수준.
-  player.vy=-(H*0.0484)*(0.7+power*0.6);
+  const boost=G.nextBoost||1;
+  player.vy=-(H*0.0484)*(0.7+power*0.6)*boost;
+  if(boost>1){ addFloat(player.x,player.y-H*0.055,'PERFECT BOOST!','#ffcf4a'); G.nextBoost=1; }
   launchFlash=1;
   jumpTrail=[];
   G.lastJudge={label,col};
@@ -343,6 +345,14 @@ function updateGame(){
     if(m>G.peakM)G.peakM=m;
     if(m>G.lastJumpM)G.lastJumpM=m;
     if(changed)updateHud();
+    // V60: 고도 구간에 처음 진입할 때 짧은 월드 이벤트를 표시한다.
+    const regionIndex=REGIONS.findIndex(r=>m<r.max);
+    if(regionIndex>G.lastRegionIndex){
+      G.lastRegionIndex=regionIndex;
+      const rr=REGIONS[regionIndex];
+      addFloat(player.x,player.y-H*0.10,rr.name+' 진입!','#ffffff');
+      spawnDust(player.x,player.y,10,1.15);
+    }
     if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
 
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
@@ -377,6 +387,11 @@ function updateGame(){
       shake=Math.min(1,shake+0.55*landingJudge.power);
       board.tilt += landingJudge.label==='PERFECT!' ? 0.16 : landingJudge.label==='GOOD' ? 0.10 : 0.05;
       bigJudge(landingJudge.label,landingJudge.col);
+      // V60: 착지 PERFECT는 다음 점프를 12% 강화한다. 한 번 사용하면 즉시 소모된다.
+      if(landingJudge.label==='PERFECT!'){
+        G.nextBoost=1.12;
+        addFloat(player.x,board.y-H*0.075,'NEXT JUMP +12%','#ffcf4a');
+      }
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
