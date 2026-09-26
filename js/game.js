@@ -412,7 +412,7 @@ function updateGame(){
   if(player.onBoard){
     if(landingSquash>0.01){
       squash=Math.max(squash,landingSquash*0.34);
-      board.tilt += Math.sin(landingSquash*Math.PI)*0.012;
+      board.tilt += (0-board.tilt)*0.28;
     }else{
       squash+=(0-squash)*0.2;
     }
@@ -449,8 +449,10 @@ function updateGame(){
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
     // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
-    const cameraTarget=player.y-H*0.40;
-    G.cam += (cameraTarget-G.cam)*0.16;
+    // V75: 카메라는 플레이어를 따라 상승/하강하되 지면(0) 아래로는 가지 않는다.
+    // 이 값 하나로 월드 전체(널/상대/아이템)가 움직이므로 널 자체 좌표는 절대 변경하지 않는다.
+    const cameraTarget=Math.min(0,player.y-H*0.40);
+    G.cam += (cameraTarget-G.cam)*(player.vy>0 ? 0.22 : 0.16);
     if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
@@ -485,6 +487,8 @@ function updateGame(){
       player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
+      // 착지 완료 = 카메라도 원래 지면 위치. 널은 항상 같은 board.y에 있다.
+      G.cam=0;
       updateHud();
       jumpTrail=[];
       landingSquash=1;
