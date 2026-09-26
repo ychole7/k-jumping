@@ -67,7 +67,7 @@ function startGame(){
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
-  board={cx:W*0.5,y:H*0.835,w:W*0.82,tilt:0,gaugePhase:0};
+  board={cx:W*0.5,y:H*0.785,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
@@ -630,10 +630,16 @@ V69_BG.src='assets/bg_skyvillage.jpg';
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
   const iw=V69_BG.naturalWidth, ih=V69_BG.naturalHeight;
-  const scale=Math.max(W/iw,H/ih);
-  const sw=W/scale, sh=H/scale;
-  const sx=(iw-sw)*0.5, sy=Math.max(0,(ih-sh)*0.5);
-  ctx.drawImage(V69_BG,sx,sy,sw,sh,0,0,W,H);
+  // 화면보다 약간 확대해 세로 이동 여유를 만든다.
+  const baseScale=Math.max(W/iw,H/ih);
+  const scale=baseScale*1.18;
+  const dw=iw*scale, dh=ih*scale;
+  const dx=(W-dw)*0.5;
+  // 0m에서는 마을/지면을 더 많이 보여주고, 상승할수록 배경도 함께 내려가며 하늘 쪽으로 이동.
+  const climb=Math.max(0,Math.min(1,(G.curM||0)/85));
+  const travel=Math.max(0,dh-H);
+  const dy=-travel + travel*climb;
+  ctx.drawImage(V69_BG,0,0,iw,ih,dx,dy,dw,dh);
   const veil=ctx.createLinearGradient(0,0,0,H);
   veil.addColorStop(0,'rgba(80,175,245,.03)');
   veil.addColorStop(.62,'rgba(255,255,255,.015)');
