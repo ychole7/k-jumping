@@ -67,7 +67,7 @@ function startGame(){
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
-  board={cx:W*0.5,y:H*0.785,w:W*0.82,tilt:0,gaugePhase:0};
+  board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
@@ -630,15 +630,15 @@ V69_BG.src='assets/bg_skyvillage.jpg';
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
   const iw=V69_BG.naturalWidth, ih=V69_BG.naturalHeight;
-  // 화면보다 약간 확대해 세로 이동 여유를 만든다.
-  const baseScale=Math.max(W/iw,H/ih);
-  const scale=baseScale*1.18;
-  const dw=iw*scale, dh=ih*scale;
-  const dx=(W-dw)*0.5;
-  // 0m에서는 마을/지면을 더 많이 보여주고, 상승할수록 배경도 함께 내려가며 하늘 쪽으로 이동.
-  const climb=Math.max(0,Math.min(1,(G.curM||0)/85));
+  // V73: 배경도 월드의 일부처럼 카메라를 따라 움직인다.
+  // 시작 화면에서는 지면/마을이 보이고, 플레이어가 상승하면 지상 풍경은 아래로 사라진다.
+  const scale=Math.max(W/iw,H/ih)*1.14;
+  const dw=iw*scale, dh=ih*scale, dx=(W-dw)*0.5;
   const travel=Math.max(0,dh-H);
-  const dy=-travel + travel*climb;
+  const startY=-travel; // 시작 시 이미지 하단(지면)을 화면 하단에 맞춤
+  // G.cam은 상승 시 음수가 된다. 배경은 전경보다 느리게 움직여 깊이감을 준다.
+  const cameraRise=Math.max(0,-(G.cam||0));
+  const dy=startY + cameraRise*0.34;
   ctx.drawImage(V69_BG,0,0,iw,ih,dx,dy,dw,dh);
   const veil=ctx.createLinearGradient(0,0,0,H);
   veil.addColorStop(0,'rgba(80,175,245,.03)');
@@ -840,7 +840,7 @@ function drawGame(){
 
   // 화면에 붙어 있는 배경/UI와, 카메라가 따라가는 월드 오브젝트를 분리한다.
   drawBG();
-  drawAltitudeWorld();
+  if((G.curM||0)>=140)drawAltitudeWorld();
   ctx.fillStyle='rgba(255,183,197,.85)';
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
 
