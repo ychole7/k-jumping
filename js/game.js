@@ -74,6 +74,8 @@ function startGame(){
   items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.4);
+  // V89: first simple flying obstacle.
+  rocks=[{kind:'bird',x:-W*.12,y:-H*.78,vx:W*.0019,dir:1,r:W*.064,phase:Math.random()*6.28,hit:false}];
   updateHud();
 }
 
@@ -568,6 +570,34 @@ function updateGame(){
       updateHud();
     }
   }
+  // V89 bird obstacle: horizontal patrol in world space.
+  for(const b of rocks){
+    if(b.kind!=='bird')continue;
+    b.x+=b.vx*b.dir;
+    if(b.x>W*1.12){b.x=W*1.12;b.dir=-1;}
+    if(b.x<-W*.12){b.x=-W*.12;b.dir=1;}
+    b.phase+=.12;
+    const birdDist=Math.hypot(b.x-player.x,b.y-player.y);
+    // V90: bird is a trajectory hazard, not direct life damage.
+    // Visual bird stays readable, but the damaging body hitbox is deliberately smaller.
+    if(G.hitCooldown<=0&&!player.onBoard&&!b.hit&&birdDist<player.r*.58+b.r*.40){
+      b.hit=true;G.hitCooldown=34;
+      const push=(player.x<b.x?-1:1)*W*.034;
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x+push));
+      player.vy-=H*.055;
+      airSteer=0;
+      missFlash=.55;missText='BUMP!';shake=Math.min(1,shake+.62);
+      addFloat(player.x,player.y-H*.05,'BUMP!','#ffcf66');spawnSparkle(player.x,player.y,'#fff1a8');
+    }
+    // Wing graze: small sideways nudge only, no flash/life loss.
+    else if(G.hitCooldown<=0&&!player.onBoard&&!b.hit&&birdDist<player.r*.72+b.r*.82){
+      b.hit=true;G.hitCooldown=24;
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x+(player.x<b.x?-1:1)*W*.014));
+      addFloat(player.x,player.y-H*.035,'SWISH!','#d9f3ff');
+    }
+    if(birdDist>player.r+b.r*2.5)b.hit=false;
+  }
+  if(G.hitCooldown>0)G.hitCooldown--;
   // 장애물은 이번 단계에서 비활성화. 수집 시스템만 먼저 확정한다.
   const topY=items.length?items.reduce((mn,s)=>Math.min(mn,s.wy),Infinity):-H*0.4;
   if(topY-G.cam>H*1.5)spawnAhead(topY);
@@ -1033,6 +1063,23 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V89 simple commercial-style bird obstacle.
+  for(const b of rocks){
+    if(b.kind!=='bird')continue;
+    const sy=b.y-G.cam;if(sy<-100||sy>H+100)continue;
+    const flap=Math.sin(b.phase)*W*.014;
+    ctx.save();ctx.translate(b.x,sy);ctx.scale(b.dir,1);
+    ctx.shadowColor='rgba(0,0,0,.18)';ctx.shadowBlur=W*.012;
+    ctx.fillStyle='#334b63';
+    ctx.beginPath();ctx.ellipse(0,0,b.r*.72,b.r*.40,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#466985';
+    ctx.beginPath();ctx.moveTo(-b.r*.15,0);ctx.quadraticCurveTo(-b.r*.65,-b.r*.55-flap,-b.r*.95,-b.r*.18);ctx.quadraticCurveTo(-b.r*.55,-b.r*.08,-b.r*.12,b.r*.10);ctx.fill();
+    ctx.beginPath();ctx.moveTo(b.r*.08,0);ctx.quadraticCurveTo(b.r*.48,-b.r*.52+flap,b.r*.72,-b.r*.16);ctx.quadraticCurveTo(b.r*.45,-b.r*.05,b.r*.10,b.r*.12);ctx.fill();
+    ctx.fillStyle='#f0b44c';ctx.beginPath();ctx.moveTo(b.r*.65,-b.r*.05);ctx.lineTo(b.r*1.02,b.r*.08);ctx.lineTo(b.r*.65,b.r*.20);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.r*.40,-b.r*.13,b.r*.12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#17212b';ctx.beginPath();ctx.arc(b.r*.43,-b.r*.13,b.r*.055,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
   // V88 consecutive PERFECT combo badge — visual only.
   if((G.combo||0)>=2&&comboPulse>0){ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const sc=1+comboPulse*.18;ctx.translate(W*.5,H*.165);ctx.scale(sc,sc);ctx.globalAlpha=Math.min(1,.65+comboPulse*.35);ctx.font='900 '+Math.round(W*.046)+'px system-ui';ctx.lineWidth=Math.max(3,W*.009);ctx.strokeStyle='rgba(108,58,0,.65)';ctx.fillStyle='#fff2a6';ctx.strokeText('PERFECT ×'+G.combo,0,0);ctx.fillText('PERFECT ×'+G.combo,0,0);ctx.restore();}
   // V86 PERFECT landing impact ring. Purely visual; no jump physics/reward changes.
