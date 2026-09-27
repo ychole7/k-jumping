@@ -372,7 +372,8 @@ function updateHud(){
 
 let squash=0;
 let particles=[];
-let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;   // 먼지·반짝임 파티클
+let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;
+let perfectFX=[];   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -507,8 +508,13 @@ function updateGame(){
       landingKick=1;
       // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
       const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:0.96};
-      spawnDust(player.x,board.y,landingJudge.label==='PERFECT!'?11:landingJudge.label==='GOOD'?8:5,landingJudge.label==='PERFECT!'?1.6:1);
-      shake=Math.min(1,shake+(landingJudge.label==='PERFECT!'?.75:.45));
+      const isPerfect=landingJudge.label==='PERFECT!';
+      spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
+      shake=Math.min(1,shake+(isPerfect?.82:.45));
+      if(isPerfect){
+        perfectFX.push({x:player.x,y:board.y-G.cam,life:1});
+        spawnSparkle(player.x,board.y,'#fff1a8');
+      }
       bigJudge(landingJudge.label,landingJudge.col);
       G.powerMode=!!G.pressHeld; G.powerVal=G.pressHeld?0.08:0; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
@@ -567,6 +573,7 @@ function updateGame(){
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
   pickupFly.forEach(f=>{f.life-=0.055;const tx=W*.82,ty=H*.075;const k=.12+(1-f.life)*.12;f.x+=(tx-f.x)*k;f.y+=(ty-f.y)*k;});pickupFly=pickupFly.filter(f=>f.life>0);
   hudPopStar=Math.max(0,hudPopStar-.07);hudPopCoin=Math.max(0,hudPopCoin-.07);
+  perfectFX.forEach(f=>f.life-=.055);perfectFX=perfectFX.filter(f=>f.life>0);
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1023,6 +1030,14 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V86 PERFECT landing impact ring. Purely visual; no jump physics/reward changes.
+  for(const f of perfectFX){
+    const t=1-f.life,r=W*(.07+t*.24);
+    ctx.save();ctx.globalAlpha=Math.max(0,f.life)*.72;ctx.strokeStyle='#fff1a8';ctx.lineWidth=Math.max(2,W*.012*f.life);
+    ctx.beginPath();ctx.ellipse(f.x,f.y,r,r*.22,0,0,Math.PI*2);ctx.stroke();
+    ctx.globalAlpha=Math.max(0,f.life)*.32;ctx.strokeStyle='#ffd34d';ctx.lineWidth=Math.max(1,W*.006*f.life);
+    ctx.beginPath();ctx.ellipse(f.x,f.y,r*.72,r*.14,0,0,Math.PI*2);ctx.stroke();ctx.restore();
+  }
   // V85 pickup reward flight: collected icon zips toward HUD.
   for(const f of pickupFly){
     ctx.save();ctx.globalAlpha=Math.min(1,f.life*2.4);
