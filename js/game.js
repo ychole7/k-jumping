@@ -891,6 +891,7 @@ function drawRegionBanner(){
   ctx.fillText('새로운 고도 영역',W/2,y+bh*.82);ctx.restore();
 }
 
+function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
 function drawGame(){
   // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
   ctx.save();
@@ -1042,24 +1043,40 @@ function drawGame(){
   // ================= SCREEN SPACE UI =================
   // V63: 첨부 레퍼런스처럼 반원형 타이밍 게이지. 착지 즉시 활성화되고 탭 한 번으로 발사한다.
   if(player.onBoard && G.powerMode){
-    const cx=W*.5, cy=H*.835, r=W*.235;
-    const a0=Math.PI, a1=Math.PI*2;
-    const arc=(from,to,col,w)=>{ctx.beginPath();ctx.arc(cx,cy,r,from,to);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.lineCap='butt';ctx.stroke();};
+    // V92: compact commercial-style rebound timing bar, anchored just below the plank.
+    const gx=W*.12, gy=Math.min(H*.91,board.y-G.cam+H*.075), gw=W*.76, gh=Math.max(24,W*.072);
+    const rr=gh*.48, v=Math.max(0,Math.min(1,G.powerVal)), px=gx+gw*v;
     ctx.save();
-    ctx.fillStyle='rgba(12,25,45,.78)';ctx.beginPath();ctx.arc(cx,cy,r+W*.045,Math.PI,Math.PI*2);ctx.lineTo(cx+W*.28,cy+W*.035);ctx.lineTo(cx-W*.28,cy+W*.035);ctx.closePath();ctx.fill();
-    arc(a0,a0+Math.PI*.55,'#5aa9e6',W*.055);
-    arc(a0+Math.PI*.55,a0+Math.PI*.72,'#ffbf3f',W*.055);
-    arc(a0+Math.PI*.72,a0+Math.PI*.88,'#66e07a',W*.055);
-    arc(a0+Math.PI*.88,a0+Math.PI*.96,'#ffbf3f',W*.055);
-    arc(a0+Math.PI*.96,a1,'#ff5b5b',W*.055);
-    const v=Math.max(0,Math.min(1,G.powerVal));
-    const ang=a0+Math.PI*v;
-    ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(4,W*.012);ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=10;
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*r*.90,cy+Math.sin(ang)*r*.90);ctx.stroke();
-    ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,W*.048,0,Math.PI*2);ctx.fill();
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 '+Math.round(W*.050)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('HOLD',cx,cy+W*.004);
-    ctx.font='900 '+Math.round(W*.032)+'px system-ui';ctx.fillStyle='#ff4d6d';ctx.fillText('PERFECT',cx,cy-r*.63);
-    ctx.font='800 '+Math.round(W*.027)+'px system-ui';ctx.fillStyle='#fff';ctx.fillText('PERFECT에서 손을 떼!',cx,cy+W*.095);
+    // outer housing
+    ctx.shadowColor='rgba(0,0,0,.32)';ctx.shadowBlur=10;
+    ctx.fillStyle='rgba(22,28,38,.94)';roundRect(ctx,gx-W*.018,gy-gh*.62,gw+W*.036,gh*1.24,rr+4);ctx.fill();
+    ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,255,255,.72)';ctx.lineWidth=Math.max(2,W*.006);
+    roundRect(ctx,gx-W*.018,gy-gh*.62,gw+W*.036,gh*1.24,rr+4);ctx.stroke();
+
+    // symmetric quality zones: MISS | OK | GOOD | PERFECT | GOOD | OK | MISS
+    const zones=[
+      [0,.06,'#7d3cff'],[.06,.355,'#f06b43'],[.355,.445,'#58d68d'],
+      [.445,.555,'#ffd43b'],[.555,.645,'#58d68d'],[.645,.94,'#f06b43'],[.94,1,'#7d3cff']
+    ];
+    ctx.save();roundRect(ctx,gx,gy-gh*.38,gw,gh*.76,gh*.34);ctx.clip();
+    for(const z of zones){ctx.fillStyle=z[2];ctx.fillRect(gx+gw*z[0],gy-gh*.38,gw*(z[1]-z[0]),gh*.76);}
+    // soft center glow
+    const cg=ctx.createLinearGradient(gx+gw*.40,0,gx+gw*.60,0);
+    cg.addColorStop(0,'rgba(255,255,255,0)');cg.addColorStop(.5,'rgba(255,255,255,.58)');cg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=cg;ctx.fillRect(gx+gw*.40,gy-gh*.38,gw*.20,gh*.76);ctx.restore();
+
+    // center target
+    ctx.strokeStyle='#fff7bf';ctx.lineWidth=Math.max(2,W*.006);ctx.shadowColor='#ffd43b';ctx.shadowBlur=12;
+    ctx.beginPath();ctx.moveTo(gx+gw*.5,gy-gh*.55);ctx.lineTo(gx+gw*.5,gy+gh*.55);ctx.stroke();
+
+    // moving pointer
+    ctx.shadowColor='rgba(80,220,255,.9)';ctx.shadowBlur=14;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(3,W*.009);
+    ctx.beginPath();ctx.moveTo(px,gy-gh*.58);ctx.lineTo(px,gy+gh*.58);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px,gy-gh*.72);ctx.lineTo(px-W*.018,gy-gh*.48);ctx.lineTo(px+W*.018,gy-gh*.48);ctx.closePath();ctx.fill();
+
+    ctx.shadowBlur=0;ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.font='900 '+Math.round(W*.036)+'px system-ui';ctx.lineWidth=3;ctx.strokeStyle='rgba(66,35,0,.65)';ctx.fillStyle='#fff5b8';
+    ctx.strokeText('중앙에 맞춰 놓기!',W*.5,gy-gh*.82);ctx.fillText('중앙에 맞춰 놓기!',W*.5,gy-gh*.82);
     ctx.restore();
   }
   drawJudgeFx();
