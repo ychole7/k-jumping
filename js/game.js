@@ -146,11 +146,14 @@ function tapGame(){
   }
   if(player.vy>0){
     const d=Math.max(0,board.y-(player.y+player.r));
-    const norm=d/(H*0.18);
-    let label='OK', col='#8ecae6', mult=0.94;
-    if(norm<=0.22){label='PERFECT!';col='#ff4d6d';mult=1.10;}
-    else if(norm<=0.52){label='GOOD';col='#ffb703';mult=1.03;}
-    G.landingTap={label,col,mult,d};
+    // V87: predict frames-to-impact from current fall speed.
+    // This makes the grade depend on when the player actually taps, rather than a broad distance band.
+    const fallSpeed=Math.max(0.001,player.vy);
+    const framesToImpact=d/fallSpeed;
+    let label='OK',col='#8ecae6',mult=0.96;
+    if(framesToImpact<=2.6){label='PERFECT!';col='#ff4d6d';mult=1.10;}
+    else if(framesToImpact<=6.5){label='GOOD';col='#ffb703';mult=1.03;}
+    G.landingTap={label,col,mult,d,framesToImpact};
     G.pressArmed=true;
     addFloat(player.x,player.y-H*0.045,label,col);
   }
@@ -169,12 +172,9 @@ function releaseCharge(){
   else if(p>0.96){label='OVER!';col='#ff7b54';power=0.86;}
   const timing=G.landingTap||{label:'OK',mult:0.96};
   power*=timing.mult||1;
-  if(timing.label==='PERFECT!' && label==='PERFECT!')G.combo++;
-  else if(label==='OK'||label==='OVER!')G.combo=0;
   bigJudge(label,col);
-  if(G.combo>=2)addFloat(player.x,board.y-H*0.12,'COMBO x'+G.combo,'#ffcf4a');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
-  launchWithPower(power*(1+Math.min(G.combo,8)*0.025));
+  launchWithPower(power);
 }
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
@@ -373,7 +373,7 @@ function updateHud(){
 let squash=0;
 let particles=[];
 let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;
-let perfectFX=[];   // 먼지·반짝임 파티클
+let perfectFX=[]; let comboPulse=0;   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -509,6 +509,7 @@ function updateGame(){
       // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
       const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:0.96};
       const isPerfect=landingJudge.label==='PERFECT!';
+      if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
       shake=Math.min(1,shake+(isPerfect?.82:.45));
       if(isPerfect){
@@ -516,6 +517,7 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#fff1a8');
       }
       bigJudge(landingJudge.label,landingJudge.col);
+      G.landingTap=null;
       G.powerMode=!!G.pressHeld; G.powerVal=G.pressHeld?0.08:0; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
@@ -574,6 +576,7 @@ function updateGame(){
   pickupFly.forEach(f=>{f.life-=0.055;const tx=W*.82,ty=H*.075;const k=.12+(1-f.life)*.12;f.x+=(tx-f.x)*k;f.y+=(ty-f.y)*k;});pickupFly=pickupFly.filter(f=>f.life>0);
   hudPopStar=Math.max(0,hudPopStar-.07);hudPopCoin=Math.max(0,hudPopCoin-.07);
   perfectFX.forEach(f=>f.life-=.055);perfectFX=perfectFX.filter(f=>f.life>0);
+  comboPulse=Math.max(0,comboPulse-.045);
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1030,6 +1033,8 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V88 consecutive PERFECT combo badge — visual only.
+  if((G.combo||0)>=2&&comboPulse>0){ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const sc=1+comboPulse*.18;ctx.translate(W*.5,H*.165);ctx.scale(sc,sc);ctx.globalAlpha=Math.min(1,.65+comboPulse*.35);ctx.font='900 '+Math.round(W*.046)+'px system-ui';ctx.lineWidth=Math.max(3,W*.009);ctx.strokeStyle='rgba(108,58,0,.65)';ctx.fillStyle='#fff2a6';ctx.strokeText('PERFECT ×'+G.combo,0,0);ctx.fillText('PERFECT ×'+G.combo,0,0);ctx.restore();}
   // V86 PERFECT landing impact ring. Purely visual; no jump physics/reward changes.
   for(const f of perfectFX){
     const t=1-f.life,r=W*(.07+t*.24);
