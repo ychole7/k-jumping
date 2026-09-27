@@ -364,10 +364,15 @@ function updateHud(){
   $('depth').textContent=G.curM+'m';
   updateRegion();
   applyV65Hud();
+
+  const hs=document.querySelector('.v66-star'),hc=document.querySelector('.v66-coin');
+  if(hs)hs.style.transform=`scale(${1+hudPopStar*.16})`;
+  if(hc)hc.style.transform=`scale(${1+hudPopCoin*.16})`;
 }
 
 let squash=0;
-let particles=[];   // 먼지·반짝임 파티클
+let particles=[];
+let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -538,15 +543,19 @@ function updateGame(){
     if(screenY<-80||screenY>H+80)continue;
     if(!player.onBoard&&Math.hypot(s.wx-player.x,s.wy-player.y)<player.r+W*0.045){
       s.got=true;
+      const pickupSY=s.wy-G.cam;
+      pickupFly.push({x:s.wx,y:pickupSY,type:s.type,life:1,phase:s.phase||0});
       if(s.type==='coin'){
         G.coin++;
         localStorage.setItem('kjump_coin',G.coin);
         addFloat(s.wx,s.wy,'+1 엽','#f4b942');
         spawnSparkle(s.wx,s.wy,'#f4b942');
+        hudPopCoin=1;
       }else{
         G.star++;
         addFloat(s.wx,s.wy,'+1','#ffd166');
         spawnSparkle(s.wx,s.wy,'#ffd166');
+        hudPopStar=1;
       }
       updateHud();
     }
@@ -556,6 +565,8 @@ function updateGame(){
   if(topY-G.cam>H*1.5)spawnAhead(topY);
   floats.forEach(f=>{f.y-=1.2;f.life-=0.02;});floats=floats.filter(f=>f.life>0);
   petals.forEach(p=>{p.y+=p.vy;p.x+=p.vx;if(p.y>H){p.y=-10;p.x=Math.random()*W;}});
+  pickupFly.forEach(f=>{f.life-=0.055;const tx=W*.82,ty=H*.075;const k=.12+(1-f.life)*.12;f.x+=(tx-f.x)*k;f.y+=(ty-f.y)*k;});pickupFly=pickupFly.filter(f=>f.life>0);
+  hudPopStar=Math.max(0,hudPopStar-.07);hudPopCoin=Math.max(0,hudPopCoin-.07);
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1012,6 +1023,13 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V85 pickup reward flight: collected icon zips toward HUD.
+  for(const f of pickupFly){
+    ctx.save();ctx.globalAlpha=Math.min(1,f.life*2.4);
+    const sc=.45+.55*f.life;ctx.translate(f.x,f.y);ctx.scale(sc,sc);
+    if(f.type==='coin')drawYeopjeon(0,0,W*.028,f.phase);else drawStar(0,0,W*.031,'#ffd23f',f.phase);
+    ctx.restore();
+  }
   floats.forEach(f=>{ctx.globalAlpha=f.life;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-G.cam);ctx.globalAlpha=1;});
 
   // V61: 대기형 MAX 파워게이지 제거. 착지 타이밍이 다음 점프 파워를 결정한다.
