@@ -59,14 +59,14 @@ function updateRegion(){
     G.regionBanner={name:r.name,t:150};
   }
 }
-const TARGET_HEIGHT=100; // 현재 1스테이지 목표 높이
+const TARGET_HEIGHT=1000; // V93: 100m에서 멈추지 않고 1000m까지 계속 플레이
 let board,player,items,rocks,floats,petals;
 
 function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -488,6 +488,12 @@ function updateGame(){
       spawnDust(player.x,player.y,10,1.15);
     }
     if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
+    // V93: 100m 단위는 클리어가 아니라 통과 이정표.
+    const milestone=Math.floor(G.peakM/100)*100;
+    if(milestone>=100 && milestone<TARGET_HEIGHT && milestone>(G.lastMilestone||0)){
+      G.lastMilestone=milestone;
+      addFloat(player.x,player.y-H*.10,milestone+'m 돌파!','#fff1a8');
+    }
 
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
     const bw=board.y;
