@@ -378,7 +378,8 @@ let squash=0;
 let particles=[];
 let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;
 let perfectFX=[]; let comboPulse=0;
-let launchGrade='OK',launchGradeLife=0,gaugeFlash=0;   // 먼지·반짝임 파티클
+let launchGrade='OK',launchGradeLife=0,gaugeFlash=0;
+let landingImpact=[];   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -508,6 +509,8 @@ function updateGame(){
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
+      const impactSpeed=Math.min(1.35,Math.max(.55,player.vy/(H*.018)));
+      landingImpact.push({x:player.x,y:board.y-G.cam,life:1,power:impactSpeed});gaugeFlash=1;
       player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
@@ -617,6 +620,7 @@ function updateGame(){
   perfectFX.forEach(f=>f.life-=.055);perfectFX=perfectFX.filter(f=>f.life>0);
   comboPulse=Math.max(0,comboPulse-.045);
   launchGradeLife=Math.max(0,launchGradeLife-.018);gaugeFlash=Math.max(0,gaugeFlash-.10);
+  landingImpact.forEach(f=>f.life-=.065);landingImpact=landingImpact.filter(f=>f.life>0);
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1055,7 +1059,7 @@ function drawGame(){
     // V94: chunky arcade rebound meter inspired by the approved reference.
     const gx=W*.105,gy=Math.min(H*.905,board.y-G.cam+H*.075),gw=W*.79,gh=Math.max(28,W*.078);
     const v=Math.max(0,Math.min(1,G.powerVal)),px=gx+gw*v,r=gh*.5;
-    ctx.save();
+    ctx.save();if(gaugeFlash>0){const gs=1+gaugeFlash*.055;ctx.translate(W*.5,gy);ctx.scale(gs,gs);ctx.translate(-W*.5,-gy);}
     // shadow + bronze/metal housing
     ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=12;
     const frame=ctx.createLinearGradient(0,gy-gh,0,gy+gh);
@@ -1084,6 +1088,9 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V95 descent + landing impact.
+  if(!player.onBoard&&player.vy>0){const d=board.y-(player.y+player.r);if(d>0&&d<H*.30){const a=Math.max(0,Math.min(1,1-d/(H*.30)));ctx.save();ctx.globalAlpha=a*.48;ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=Math.max(1.5,W*.005);ctx.lineCap='round';for(let i=-2;i<=2;i++){const x=player.x+i*player.r*.34,len=H*(.025+.012*Math.abs(i));ctx.beginPath();ctx.moveTo(x,player.y-G.cam-player.r*.95-len);ctx.lineTo(x,player.y-G.cam-player.r*1.05);ctx.stroke();}ctx.restore();}}
+  for(const f of landingImpact){const t=1-f.life,rr=W*(.045+t*.25)*f.power;ctx.save();ctx.translate(f.x,f.y);ctx.globalAlpha=Math.max(0,f.life);ctx.strokeStyle='rgba(255,244,205,.92)';ctx.lineWidth=Math.max(2,W*.010*f.life);ctx.beginPath();ctx.ellipse(0,0,rr,rr*.18,0,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=f.life*.55;ctx.strokeStyle='#f4d7a0';ctx.lineWidth=Math.max(1,W*.005);for(let i=0;i<8;i++){const a=-Math.PI*.92+i*(Math.PI*.84/7),r1=W*.045,r2=W*(.08+t*.10)*f.power;ctx.beginPath();ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1*.45);ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2*.45);ctx.stroke();}ctx.restore();}
   // V94 launch-grade trail: visual feedback only.
   if(!player.onBoard&&launchGradeLife>0){
     const cfg=launchGrade==='PERFECT!'?['#ffd84a',.95,4]:launchGrade==='GOOD'?['#63e6be',.72,3]:launchGrade==='MISS!'?['#c77dff',.48,2]:['#ffad55',.58,2];
