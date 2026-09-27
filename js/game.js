@@ -164,17 +164,18 @@ function tapGame(){
 function releaseCharge(){
   if(!G.pressHeld)return;
   G.pressHeld=false;
-  // V64: 착지 후에도 계속 누르고 있었을 때만 손을 떼는 순간 발사.
-  if(!player.onBoard || !G.pressArmed || !G.powerMode)return;
+  if(!player.onBoard||!G.pressArmed||!G.powerMode)return;
   const p=Math.max(0,Math.min(1,G.powerVal));
-  // 너무 오래 누르면 과충전 구간으로 넘어가 다시 약해진다.
-  let label='OK', col='#8ecae6', power=0.76+0.34*p;
-  if(p>=0.72 && p<=0.88){label='PERFECT!';col='#ff4d6d';power=1.28;}
-  else if((p>=0.55&&p<0.72)||(p>0.88&&p<=0.96)){label='GOOD';col='#ffb703';power=1.08;}
-  else if(p>0.96){label='OVER!';col='#ff7b54';power=0.86;}
-  const timing=G.landingTap||{label:'OK',mult:0.96};
-  power*=timing.mult||1;
+  // V91: one landing-rebound timing bar. Center is strongest.
+  const dist=Math.abs(p-.5);
+  let label='OK',col='#8ecae6',power=.88;
+  if(dist<=.055){label='PERFECT!';col='#ffd43b';power=1.28;}
+  else if(dist<=.145){label='GOOD';col='#58d68d';power=1.10;}
+  else if(dist>=.44){label='MISS!';col='#c77dff';power=.68;}
+  if(label==='PERFECT!'){G.combo=(G.combo||0)+1;comboPulse=1;}
+  else G.combo=0;
   bigJudge(label,col);
+  if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
   launchWithPower(power);
 }
@@ -520,7 +521,7 @@ function updateGame(){
       }
       bigJudge(landingJudge.label,landingJudge.col);
       G.landingTap=null;
-      G.powerMode=!!G.pressHeld; G.powerVal=G.pressHeld?0.08:0; G.powerDir=1; G.relaunchFrames=0;
+      G.powerMode=true; G.pressArmed=true; G.powerVal=0.08; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.targetReached)clearGame();
@@ -1063,6 +1064,17 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V91 landing timing cue: appears only on final descent.
+  if(!player.onBoard&&player.vy>0){
+    const d=board.y-(player.y+player.r);
+    if(d>0&&d<H*.24){
+      const a=Math.max(0,Math.min(1,1-d/(H*.24)));
+      ctx.save();ctx.globalAlpha=.35+.65*a;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='900 '+Math.round(W*.09)+'px system-ui';ctx.lineWidth=Math.max(4,W*.014);
+      ctx.strokeStyle='rgba(91,48,0,.72)';ctx.fillStyle='#fff3a6';
+      ctx.strokeText('TAP!',W*.5,H*.52);ctx.fillText('TAP!',W*.5,H*.52);ctx.restore();
+    }
+  }
   // V89 simple commercial-style bird obstacle.
   for(const b of rocks){
     if(b.kind!=='bird')continue;
