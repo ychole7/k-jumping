@@ -642,6 +642,8 @@ const V79_WORLD_BG=new Image();
 V79_WORLD_BG.src='assets/bg_world_01.jpg';
 const V80_STAGE_BG=new Image();
 V80_STAGE_BG.src='assets/bg_stage1_chunks.jpg';
+const V81_WORLD1000=new Image();
+V81_WORLD1000.src='assets/bg_world_1000m.jpg';
 
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
@@ -690,26 +692,21 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  // V80 Stage 1: 모바일게임식 세로 월드 청크.
-  // 한 장의 stage texture 안에서 0~100m 고도에 대응하는 source window만 카메라가 읽는다.
-  if(V80_STAGE_BG.complete&&V80_STAGE_BG.naturalWidth){
-    const iw=V80_STAGE_BG.naturalWidth,ih=V80_STAGE_BG.naturalHeight;
+  // V81 prototype: 0~1000m 배경 청크 8개를 하나의 월드 스트립으로 배치.
+  if(V81_WORLD1000.complete&&V81_WORLD1000.naturalWidth){
+    const iw=V81_WORLD1000.naturalWidth, ih=V81_WORLD1000.naturalHeight;
     const viewAspect=W/H;
     let sw=iw, sh=sw/viewAspect;
     if(sh>ih){sh=ih;sw=sh*viewAspect;}
     const sx=(iw-sw)*0.5;
-    // 이미지 하단=0m, 상단=100m. 현재 높이 대신 실제 카메라 상승량으로 부드럽게 이동.
-    const rise=Math.max(0,-(G.cam||0));
-    const worldSpan=Math.max(H*8.5,1);
-    const t=Math.max(0,Math.min(1,rise/worldSpan));
+    // 하단=0m, 상단=1000m. 고도와 배경 위치를 1:1로 대응.
+    const altitude=Math.max(0,Math.min(1000,G.curM||0));
+    const t=altitude/1000;
     const sy=(ih-sh)*(1-t);
-    ctx.drawImage(V80_STAGE_BG,sx,sy,sw,sh,0,0,W,H);
+    ctx.drawImage(V81_WORLD1000,sx,sy,sw,sh,0,0,W,H);
     return;
   }
-  const [c1,,c3]=skyColor(G.curM||0);
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(1,`rgb(${c3})`);
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#72c7ff';ctx.fillRect(0,0,W,H);
 }
 function cloud(x,y,r){
   ctx.beginPath();
