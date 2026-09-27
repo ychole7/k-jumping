@@ -646,6 +646,8 @@ const V81_WORLD1000=new Image();
 V81_WORLD1000.src='assets/bg_world_1000m.jpg';
 const V82_WORLD1000=new Image();
 V82_WORLD1000.src='assets/bg_world_1000m_simple.jpg';
+const V83_WORLD1000=new Image();
+V83_WORLD1000.src='assets/bg_world_1000m_medium.jpg';
 
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
@@ -694,23 +696,21 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  // V82: 저디테일 캐주얼 1000m 월드. 현재 점프 높이가 아니라 누적 카메라 월드 위치로 스크롤.
-  if(V82_WORLD1000.complete&&V82_WORLD1000.naturalWidth){
-    const iw=V82_WORLD1000.naturalWidth,ih=V82_WORLD1000.naturalHeight;
+  // V83: 중간 퀄리티 0~1000m 월드.
+  // 현재 고도(m)를 월드 스트립의 실제 세로 위치에 직접 대응한다.
+  if(V83_WORLD1000.complete&&V83_WORLD1000.naturalWidth){
+    const iw=V83_WORLD1000.naturalWidth,ih=V83_WORLD1000.naturalHeight;
     const viewAspect=W/H;
     let sw=iw,sh=sw/viewAspect;
     if(sh>ih){sh=ih;sw=sh*viewAspect;}
     const sx=(iw-sw)*0.5;
-    // 실제 카메라 상승량을 0~1000m 월드에 대응시킨다.
-    const rise=Math.max(0,-(G.cam||0));
-    const pxPerMeter=Math.max(1,PPM());
-    const altitude=Math.max(0,Math.min(1000,rise/pxPerMeter));
+    const altitude=Math.max(0,Math.min(1000,G.curM||0));
     const t=altitude/1000;
     const sy=(ih-sh)*(1-t);
-    ctx.drawImage(V82_WORLD1000,sx,sy,sw,sh,0,0,W,H);
+    ctx.drawImage(V83_WORLD1000,sx,sy,sw,sh,0,0,W,H);
     return;
   }
-  ctx.fillStyle='#78c9ff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#73c8ff';ctx.fillRect(0,0,W,H);
 }
 function cloud(x,y,r){
   ctx.beginPath();
