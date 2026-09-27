@@ -548,7 +548,7 @@ function updateGame(){
       G.powerMode=true; G.pressArmed=true; G.powerVal=0.08; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
-      if(G.targetReached)clearGame();
+      if(G.peakM>=TARGET_HEIGHT)clearGame();
     }
     // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
@@ -564,12 +564,7 @@ function updateGame(){
     o.phase=(o.phase||0)+0.08;
     o.wy+=Math.sin(o.phase)*0.12;
     if(o.wx<-W*.2)o.wx=W*1.15; else if(o.wx>W*1.2)o.wx=-W*.15;
-    if(!player.onBoard && G.hitCooldown<=0 && Math.hypot(o.wx-player.x,o.wy-player.y)<player.r+o.r*.78){
-      o.hit=true; G.hitCooldown=45; G.hearts=Math.max(0,G.hearts-1); updateHud();
-      missFlash=1; missText='HIT!'; shake=Math.min(1,shake+.85);
-      addFloat(player.x,player.y-H*.05,'❤️ -1','#ff5b6e');
-      if(G.hearts<=0){gameOver();return;}
-    }
+    if(false){ /* V100: legacy direct-damage obstacle collision disabled */ }
   }
 
   // STAR COLLECTION: items stay in world space; collision uses world coordinates.
@@ -671,7 +666,7 @@ function clearGame(){
   up();
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent='100m CLEAR!';
+  $('resTitle').textContent=TARGET_HEIGHT+'m CLEAR!';
   $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
   $('resCoin').textContent=G.coin;
