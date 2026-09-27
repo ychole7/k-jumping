@@ -450,7 +450,17 @@ function updateGame(){
     jumpTrail.forEach(p=>p.life-=0.055);
     jumpTrail=jumpTrail.filter(p=>p.life>0);
     board.tilt+=(-0.15-board.tilt)*0.06;
-    player.vy+=H*0.000260;player.y+=player.vy;
+    // V97: smooth apex -> descent. Upward motion keeps the original gravity;
+    // once descending, gravity eases in and terminal fall speed is softened.
+    const baseG=H*0.000260;
+    if(player.vy<=0){
+      player.vy+=baseG;
+    }else{
+      const fallBlend=Math.min(1,player.vy/(H*.020));
+      player.vy+=baseG*(.58+.24*fallBlend);
+      player.vy=Math.min(player.vy,H*.0205);
+    }
+    player.y+=player.vy;
     // V59: 상승/정점/하강 조향을 분리한다.
     // 상승은 V57의 민감도를 유지하고, 정점은 조금 완화, 하강은 60%로 낮춘다.
     // 자동 착지 보정은 하지 않으며 손을 떼면 airSteer=0으로 즉시 중립이다.
