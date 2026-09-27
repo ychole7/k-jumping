@@ -66,7 +66,7 @@ function startGame(){
   up();
   show('game');
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -556,6 +556,7 @@ function updateGame(){
   }
   // V62: 고도별 장애물 이동 + 충돌. 충돌 시 하트 1개 감소하고 같은 장애물은 제거한다.
   if(G.hitCooldown>0)G.hitCooldown--;
+    if(G.birdGrace>0)G.birdGrace--;
   for(const o of rocks){
     if(o.hit)continue;
     const speed=(o.type==='bird'?W*.0048:o.type==='cloud'?W*.0025:o.type==='kite'?W*.0036:W*.0055);
@@ -616,7 +617,7 @@ function updateGame(){
     }
     // Wing graze: small sideways nudge only, no flash/life loss.
     else if(G.hitCooldown<=0&&!player.onBoard&&!b.hit&&birdDist<player.r*.72+b.r*.82){
-      b.hit=true;G.hitCooldown=24;
+      b.hit=true;G.hitCooldown=24;G.birdGrace=36;
       player.x=Math.max(player.r,Math.min(W-player.r,player.x+(player.x<b.x?-1:1)*W*.014));
       addFloat(player.x,player.y-H*.035,'SWISH!','#d9f3ff');
     }
