@@ -411,7 +411,7 @@ function updateGame(){
   const halfW=board.w/2;
   if(player.onBoard){
     // 널은 board.y에 고정. 착지 후에는 카메라만 부드럽게 원점으로 복귀한다.
-    if(Math.abs(G.cam)<0.75)G.cam=0;
+    G.cam=0;
     if(landingSquash>0.01){
       squash=Math.max(squash,landingSquash*0.34);
       board.tilt += (0-board.tilt)*0.28;
@@ -456,9 +456,9 @@ function updateGame(){
     const landingDist=board.y-(player.y+player.r);
     // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
     // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
-    const nearGround=player.vy>0 && landingDist < H*0.22;
+    const nearGround=player.vy>0 && landingDist < H*0.30;
     const cameraTarget=nearGround ? 0 : Math.min(0,player.y-H*0.40);
-    G.cam += (cameraTarget-G.cam)*(nearGround ? 0.34 : (player.vy>0 ? 0.22 : 0.16));
+    G.cam += (cameraTarget-G.cam)*(nearGround ? 0.52 : (player.vy>0 ? 0.22 : 0.16));
     if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
@@ -638,6 +638,8 @@ const V69_BG=new Image();
 V69_BG.src='assets/bg_skyvillage.jpg';
 const V78_UPPER_BG=new Image();
 V78_UPPER_BG.src='assets/bg_upper_sky.jpg';
+const V79_WORLD_BG=new Image();
+V79_WORLD_BG.src='assets/bg_world_01.jpg';
 
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
@@ -686,32 +688,23 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  // V78: 실제 이미지 A(지상) + B(상공)를 크로스페이드로 연결한다.
-  // 코드로 그리던 임시 구름/삼각 부유섬은 사용하지 않는다.
-  const m=G.curM||0;
-  const [c1,c2,c3]=skyColor(m);
+  // V79: 상용 게임 방식 - 하나의 긴 월드 텍스처를 카메라가 이동한다.
+  // A/B를 화면 전체에서 섞지 않으므로 가로 띠, 이중상, 크로스페이드가 없다.
+  if(V79_WORLD_BG.complete&&V79_WORLD_BG.naturalWidth){
+    const iw=V79_WORLD_BG.naturalWidth,ih=V79_WORLD_BG.naturalHeight;
+    const scale=W/iw,dw=W,dh=ih*scale;
+    // 0m에서 월드의 맨 아래를 화면 하단에 맞춘다.
+    // 카메라 상승량을 배경 월드에도 적용하되 약간 느리게 해 깊이감을 준다.
+    const rise=Math.max(0,-(G.cam||0));
+    const maxTravel=Math.max(0,dh-H);
+    const y=Math.min(0,-maxTravel+rise*0.72);
+    ctx.drawImage(V79_WORLD_BG,0,0,iw,ih,0,y,dw,dh);
+    return;
+  }
+  const [c1,c2,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(.55,`rgb(${c2})`);g.addColorStop(1,`rgb(${c3})`);
+  g.addColorStop(0,`rgb(${c1})`);g.addColorStop(1,`rgb(${c3})`);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-
-  // B 상공 배경은 먼저 깔고, A 지상 배경이 상승하며 아래로 사라진다.
-  ctx.save();
-  const upperA=Math.max(0,Math.min(1,(m-18)/32));
-  ctx.globalAlpha=upperA;
-  drawV78UpperBG();
-  ctx.restore();
-
-  ctx.save();
-  const groundA=1-Math.max(0,Math.min(1,(m-18)/32));
-  ctx.globalAlpha=groundA;
-  drawV69PhotoBG();
-  ctx.restore();
-
-  // 18~50m 구간에서 두 이미지가 겹치며 경계선 없이 전환된다.
-  const veil=ctx.createLinearGradient(0,0,0,H);
-  veil.addColorStop(0,'rgba(88,183,247,.035)');
-  veil.addColorStop(1,'rgba(255,255,255,.018)');
-  ctx.fillStyle=veil;ctx.fillRect(0,0,W,H);
 }
 function cloud(x,y,r){
   ctx.beginPath();
