@@ -174,6 +174,7 @@ function releaseCharge(){
   else if(dist>=.44){label='MISS!';col='#c77dff';power=.68;}
   if(label==='PERFECT!'){G.combo=(G.combo||0)+1;comboPulse=1;}
   else G.combo=0;
+  launchGrade=label;launchGradeLife=1;gaugeFlash=1;
   bigJudge(label,col);
   if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
@@ -376,7 +377,8 @@ function updateHud(){
 let squash=0;
 let particles=[];
 let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;
-let perfectFX=[]; let comboPulse=0;   // 먼지·반짝임 파티클
+let perfectFX=[]; let comboPulse=0;
+let launchGrade='OK',launchGradeLife=0,gaugeFlash=0;   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -614,6 +616,7 @@ function updateGame(){
   hudPopStar=Math.max(0,hudPopStar-.07);hudPopCoin=Math.max(0,hudPopCoin-.07);
   perfectFX.forEach(f=>f.life-=.055);perfectFX=perfectFX.filter(f=>f.life>0);
   comboPulse=Math.max(0,comboPulse-.045);
+  launchGradeLife=Math.max(0,launchGradeLife-.018);gaugeFlash=Math.max(0,gaugeFlash-.10);
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1049,44 +1052,46 @@ function drawGame(){
   // ================= SCREEN SPACE UI =================
   // V63: 첨부 레퍼런스처럼 반원형 타이밍 게이지. 착지 즉시 활성화되고 탭 한 번으로 발사한다.
   if(player.onBoard && G.powerMode){
-    // V92: compact commercial-style rebound timing bar, anchored just below the plank.
-    const gx=W*.12, gy=Math.min(H*.91,board.y-G.cam+H*.075), gw=W*.76, gh=Math.max(24,W*.072);
-    const rr=gh*.48, v=Math.max(0,Math.min(1,G.powerVal)), px=gx+gw*v;
+    // V94: chunky arcade rebound meter inspired by the approved reference.
+    const gx=W*.105,gy=Math.min(H*.905,board.y-G.cam+H*.075),gw=W*.79,gh=Math.max(28,W*.078);
+    const v=Math.max(0,Math.min(1,G.powerVal)),px=gx+gw*v,r=gh*.5;
     ctx.save();
-    // outer housing
-    ctx.shadowColor='rgba(0,0,0,.32)';ctx.shadowBlur=10;
-    ctx.fillStyle='rgba(22,28,38,.94)';roundRect(ctx,gx-W*.018,gy-gh*.62,gw+W*.036,gh*1.24,rr+4);ctx.fill();
-    ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,255,255,.72)';ctx.lineWidth=Math.max(2,W*.006);
-    roundRect(ctx,gx-W*.018,gy-gh*.62,gw+W*.036,gh*1.24,rr+4);ctx.stroke();
-
-    // symmetric quality zones: MISS | OK | GOOD | PERFECT | GOOD | OK | MISS
-    const zones=[
-      [0,.06,'#7d3cff'],[.06,.355,'#f06b43'],[.355,.445,'#58d68d'],
-      [.445,.555,'#ffd43b'],[.555,.645,'#58d68d'],[.645,.94,'#f06b43'],[.94,1,'#7d3cff']
-    ];
-    ctx.save();roundRect(ctx,gx,gy-gh*.38,gw,gh*.76,gh*.34);ctx.clip();
-    for(const z of zones){ctx.fillStyle=z[2];ctx.fillRect(gx+gw*z[0],gy-gh*.38,gw*(z[1]-z[0]),gh*.76);}
-    // soft center glow
-    const cg=ctx.createLinearGradient(gx+gw*.40,0,gx+gw*.60,0);
-    cg.addColorStop(0,'rgba(255,255,255,0)');cg.addColorStop(.5,'rgba(255,255,255,.58)');cg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=cg;ctx.fillRect(gx+gw*.40,gy-gh*.38,gw*.20,gh*.76);ctx.restore();
-
-    // center target
-    ctx.strokeStyle='#fff7bf';ctx.lineWidth=Math.max(2,W*.006);ctx.shadowColor='#ffd43b';ctx.shadowBlur=12;
-    ctx.beginPath();ctx.moveTo(gx+gw*.5,gy-gh*.55);ctx.lineTo(gx+gw*.5,gy+gh*.55);ctx.stroke();
-
-    // moving pointer
-    ctx.shadowColor='rgba(80,220,255,.9)';ctx.shadowBlur=14;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(3,W*.009);
-    ctx.beginPath();ctx.moveTo(px,gy-gh*.58);ctx.lineTo(px,gy+gh*.58);ctx.stroke();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px,gy-gh*.72);ctx.lineTo(px-W*.018,gy-gh*.48);ctx.lineTo(px+W*.018,gy-gh*.48);ctx.closePath();ctx.fill();
-
-    ctx.shadowBlur=0;ctx.textAlign='center';ctx.textBaseline='bottom';
-    ctx.font='900 '+Math.round(W*.036)+'px system-ui';ctx.lineWidth=3;ctx.strokeStyle='rgba(66,35,0,.65)';ctx.fillStyle='#fff5b8';
-    ctx.strokeText('중앙에 맞춰 놓기!',W*.5,gy-gh*.82);ctx.fillText('중앙에 맞춰 놓기!',W*.5,gy-gh*.82);
+    // shadow + bronze/metal housing
+    ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=12;
+    const frame=ctx.createLinearGradient(0,gy-gh,0,gy+gh);
+    frame.addColorStop(0,'#f4d8a0');frame.addColorStop(.22,'#8b5a32');frame.addColorStop(.55,'#2b2525');frame.addColorStop(.82,'#a87543');frame.addColorStop(1,'#f1d08d');
+    ctx.fillStyle=frame;roundRect(ctx,gx-W*.032,gy-gh*.72,gw+W*.064,gh*1.44,r+8);ctx.fill();
+    ctx.shadowBlur=0;ctx.fillStyle='#171a20';roundRect(ctx,gx-W*.012,gy-gh*.51,gw+W*.024,gh*1.02,r);ctx.fill();
+    // colored track
+    ctx.save();roundRect(ctx,gx,gy-gh*.34,gw,gh*.68,gh*.30);ctx.clip();
+    const grad=ctx.createLinearGradient(gx,0,gx+gw,0);
+    grad.addColorStop(0,'#7d35b5');grad.addColorStop(.10,'#e74c3c');grad.addColorStop(.28,'#f39c32');
+    grad.addColorStop(.40,'#58d66b');grad.addColorStop(.47,'#ffe34e');grad.addColorStop(.50,'#fff7b0');
+    grad.addColorStop(.53,'#ffe34e');grad.addColorStop(.60,'#58d66b');grad.addColorStop(.72,'#f39c32');
+    grad.addColorStop(.90,'#e74c3c');grad.addColorStop(1,'#7d35b5');
+    ctx.fillStyle=grad;ctx.fillRect(gx,gy-gh*.34,gw,gh*.68);
+    // inner shine
+    const shine=ctx.createLinearGradient(0,gy-gh*.34,0,gy+gh*.34);shine.addColorStop(0,'rgba(255,255,255,.42)');shine.addColorStop(.5,'rgba(255,255,255,0)');shine.addColorStop(1,'rgba(0,0,0,.24)');
+    ctx.fillStyle=shine;ctx.fillRect(gx,gy-gh*.34,gw,gh*.68);ctx.restore();
+    // center target beam
+    ctx.shadowColor='#ffd94a';ctx.shadowBlur=18;ctx.strokeStyle='#fff7c0';ctx.lineWidth=Math.max(4,W*.010);
+    ctx.beginPath();ctx.moveTo(gx+gw*.5,gy-gh*.66);ctx.lineTo(gx+gw*.5,gy+gh*.66);ctx.stroke();
+    // pointer
+    ctx.shadowColor='#6ee7ff';ctx.shadowBlur=15;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(3,W*.008);
+    ctx.beginPath();ctx.moveTo(px,gy-gh*.50);ctx.lineTo(px,gy+gh*.50);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px,gy-gh*.67);ctx.lineTo(px-W*.018,gy-gh*.48);ctx.lineTo(px+W*.018,gy-gh*.48);ctx.closePath();ctx.fill();
     ctx.restore();
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V94 launch-grade trail: visual feedback only.
+  if(!player.onBoard&&launchGradeLife>0){
+    const cfg=launchGrade==='PERFECT!'?['#ffd84a',.95,4]:launchGrade==='GOOD'?['#63e6be',.72,3]:launchGrade==='MISS!'?['#c77dff',.48,2]:['#ffad55',.58,2];
+    ctx.save();ctx.globalAlpha=launchGradeLife*cfg[1];ctx.strokeStyle=cfg[0];ctx.shadowColor=cfg[0];ctx.shadowBlur=launchGrade==='PERFECT!'?18:9;ctx.lineWidth=W*.012*cfg[2];
+    ctx.lineCap='round';ctx.beginPath();ctx.moveTo(player.x,player.y-G.cam+player.r*.45);ctx.quadraticCurveTo(player.x-W*.025,player.y-G.cam+H*.065,player.x-W*.01,player.y-G.cam+H*.13);ctx.stroke();
+    if(launchGrade==='PERFECT!'){ctx.globalAlpha=launchGradeLife*.75;for(let i=0;i<4;i++){const a=performance.now()*.004+i*1.57,rr=W*(.035+i*.009);ctx.fillStyle='#fff4a8';ctx.beginPath();ctx.arc(player.x+Math.cos(a)*rr,player.y-G.cam+H*.07+Math.sin(a)*rr*.35,W*.006,0,Math.PI*2);ctx.fill();}}
+    ctx.restore();
+  }
   // V91 landing timing cue: appears only on final descent.
   if(!player.onBoard&&player.vy>0){
     const d=board.y-(player.y+player.r);
