@@ -113,7 +113,8 @@ function spawnAhead(fromY){
         wx:Math.max(30,Math.min(W-30,ox)),
         wy:y+oy,
         type:(Math.random()<0.24?'coin':'star'),
-        got:false
+        got:false,
+        phase:Math.random()*Math.PI*2
       });
     }
     // V62: 고도별 장애물. 하늘마을=새, 구름마을=먹구름, 그 위=연/유성.
@@ -315,7 +316,7 @@ function applyV65Hud(){
     hud.innerHTML=`
       <div class="v66-hearts"></div>
       <div class="v66-height"><small>현재 높이</small><b>0m</b><em>♛ BEST 0m</em></div>
-      <div class="v66-money"><span class="v66-star">⭐ <b>0</b></span><span class="v66-coin"><i class="v67-coin-icon">₩</i> <b>0</b></span></div>`;
+      <div class="v66-money"><span class="v66-star"><i class="v84-star-icon">★</i> <b>0</b></span><span class="v66-coin"><i class="v67-coin-icon">◇</i> <b>0</b></span></div>`;
     game.appendChild(hud);
     Object.assign(hud.style,{position:'absolute',inset:'0',zIndex:'39',pointerEvents:'none'});
     const hearts=hud.querySelector('.v66-hearts');
@@ -328,7 +329,7 @@ function applyV65Hud(){
     const money=hud.querySelector('.v66-money');
     Object.assign(money.style,{position:'absolute',right:'13.5%',top:'2.1%',display:'flex',flexDirection:'column',gap:'4px'});
     money.querySelectorAll('span').forEach(x=>Object.assign(x.style,{minWidth:'60px',padding:'3px 8px',borderRadius:'13px',background:'rgba(25,57,91,.94)',color:'#fff',fontSize:'14px',fontWeight:'900',textAlign:'center'}));
-    const ci=money.querySelector('.v67-coin-icon');
+    const si=money.querySelector('.v84-star-icon');if(si)Object.assign(si.style,{color:'#ffd84a',fontSize:'19px',textShadow:'0 1px 0 #9a6200,0 0 5px rgba(255,210,50,.65)',verticalAlign:'middle',fontStyle:'normal'});const ci=money.querySelector('.v67-coin-icon');
     if(ci)Object.assign(ci.style,{display:'inline-flex',width:'18px',height:'18px',borderRadius:'50%',alignItems:'center',justifyContent:'center',background:'linear-gradient(145deg,#ffe06a,#d89408)',border:'2px solid #fff0a8',boxShadow:'inset 0 -2px 0 rgba(120,70,0,.28)',color:'#8a5100',fontSize:'10px',fontWeight:'1000',fontStyle:'normal',verticalAlign:'middle'});
   }
   hud.querySelector('.v66-hearts').textContent='❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
@@ -383,9 +384,9 @@ function spawnDust(x,y,n,power){
   }
 }
 function spawnSparkle(x,y,color){
-  for(let i=0;i<6;i++){
+  for(let i=0;i<10;i++){
     const a=Math.random()*Math.PI*2;
-    particles.push({x,y,vx:Math.cos(a)*2,vy:Math.sin(a)*2-1,life:1,type:'sparkle',color,size:2+Math.random()*2});
+    particles.push({x,y,vx:Math.cos(a)*(2.4+Math.random()*1.8),vy:Math.sin(a)*(2.4+Math.random()*1.8)-1,life:1,type:'sparkle',color,size:2.2+Math.random()*3});
   }
 }
 function updateParticles(){
@@ -717,17 +718,25 @@ function cloud(x,y,r){
   ctx.arc(x,y,r*.62,0,7);ctx.arc(x+r*.48,y+4,r*.5,0,7);ctx.arc(x-r*.5,y+4,r*.46,0,7);ctx.arc(x,y+r*.28,r*.62,0,7);ctx.fill();
 }
 
-function drawStar(x,y,r,c){
-  ctx.save();ctx.translate(x,y);ctx.rotate(-.08);
-  ctx.fillStyle=c;ctx.shadowColor='rgba(255,213,67,.9)';ctx.shadowBlur=10;
-  ctx.beginPath();
-  for(let i=0;i<5;i++){
-    ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*r,-Math.sin((18+i*72)/180*Math.PI)*r);
-    ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*r*.44,-Math.sin((54+i*72)/180*Math.PI)*r*.44);
-  }
-  ctx.closePath();ctx.fill();
-  ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,.72)';ctx.beginPath();ctx.arc(-r*.2,-r*.22,r*.18,0,7);ctx.fill();
+function drawStar(x,y,r,c,phase=0){
+  const pulse=1+Math.sin(performance.now()*0.004+phase)*0.055;
+  ctx.save();ctx.translate(x,y);ctx.scale(pulse,pulse);ctx.rotate(-.08);
+  ctx.shadowColor='rgba(255,190,30,.72)';ctx.shadowBlur=r*.42;
+  ctx.fillStyle='#f5a900';ctx.strokeStyle='#fff0a0';ctx.lineWidth=Math.max(2,r*.10);
+  ctx.beginPath();for(let i=0;i<10;i++){const rr=i%2===0?r:r*.46,ang=-Math.PI/2+i*Math.PI/5,px=Math.cos(ang)*rr,py=Math.sin(ang)*rr;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.shadowBlur=0;ctx.fillStyle='#ffd94a';ctx.beginPath();ctx.arc(0,r*.03,r*.49,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.86)';ctx.beginPath();ctx.ellipse(-r*.22,-r*.28,r*.18,r*.10,-.55,0,Math.PI*2);ctx.fill();
+  const tw=(Math.sin(performance.now()*0.007+phase)+1)*.5;if(tw>.68){ctx.globalAlpha=(tw-.68)/.32;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(r*.58,-r*.56);ctx.lineTo(r*.58,-r*.18);ctx.moveTo(r*.39,-r*.37);ctx.lineTo(r*.77,-r*.37);ctx.stroke();}
   ctx.restore();
+}
+function drawYeopjeon(x,y,r,phase=0){
+  const turn=.72+.28*Math.abs(Math.cos(performance.now()*0.0032+phase)),bob=Math.sin(performance.now()*0.0038+phase)*r*.06;
+  ctx.save();ctx.translate(x,y+bob);ctx.scale(turn,1);ctx.shadowColor='rgba(128,72,0,.42)';ctx.shadowBlur=r*.34;
+  const g=ctx.createRadialGradient(-r*.28,-r*.34,r*.08,0,0,r);g.addColorStop(0,'#fff1a0');g.addColorStop(.34,'#ffd34f');g.addColorStop(.72,'#e9a21b');g.addColorStop(1,'#a9650c');
+  ctx.fillStyle=g;ctx.strokeStyle='#fff0a0';ctx.lineWidth=Math.max(2,r*.10);ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.shadowBlur=0;ctx.strokeStyle='rgba(139,78,4,.65)';ctx.lineWidth=Math.max(2,r*.07);ctx.beginPath();ctx.arc(0,0,r*.67,0,Math.PI*2);ctx.stroke();
+  const q=r*.26;ctx.fillStyle='#70420c';ctx.strokeStyle='#ffe27a';ctx.lineWidth=Math.max(1.5,r*.06);ctx.beginPath();ctx.rect(-q,-q,q*2,q*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.52)';ctx.beginPath();ctx.arc(-r*.34,-r*.36,r*.13,0,Math.PI*2);ctx.fill();ctx.restore();
 }
 function drawGem(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#39b7ff';ctx.strokeStyle='#bfeaff';ctx.lineWidth=2;ctx.shadowColor='#39b7ff';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.8,-r*.2);ctx.lineTo(r*.5,r);ctx.lineTo(-r*.5,r);ctx.lineTo(-r*.8,-r*.2);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}
 function drawRock(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#3a2a22';ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();ctx.fillStyle='#ff7a1a';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc((i*0.6-0.9)*r*0.5,(i%2?0.4:-0.4)*r,r*.18,0,7);ctx.fill();}ctx.restore();}
@@ -859,16 +868,8 @@ function drawGame(){
     if(s.got)continue;
     const sy=s.wy;
     if(sy-G.cam<-40||sy-G.cam>H+40)continue;
-    if(s.type==='coin'){
-      ctx.save();
-      ctx.translate(s.wx,sy);
-      ctx.fillStyle='#f6c64d';ctx.strokeStyle='#b87924';ctx.lineWidth=Math.max(2,W*0.006);
-      ctx.beginPath();ctx.arc(0,0,W*0.040,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.fillStyle='#8b5a22';ctx.font='900 '+Math.round(W*0.030)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('엽',0,1);
-      ctx.restore();
-    }else{
-      drawStar(s.wx,sy,W*0.045,'#ffd23f');
-    }
+    if(s.type==='coin'){drawYeopjeon(s.wx,sy,W*0.041,s.phase||0);}
+    else{drawStar(s.wx,sy,W*0.045,'#ffd23f',s.phase||0);}
   }
 
   // 장애물
