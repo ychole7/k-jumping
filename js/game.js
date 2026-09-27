@@ -380,7 +380,8 @@ let particles=[];
 let pickupFly=[]; let hudPopStar=0,hudPopCoin=0;
 let perfectFX=[]; let comboPulse=0;
 let launchGrade='OK',launchGradeLife=0,gaugeFlash=0;
-let landingImpactFX=[];   // 먼지·반짝임 파티클
+let landingImpactFX=[];
+let milestoneFX=null;   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
@@ -506,7 +507,7 @@ function updateGame(){
     const milestone=Math.floor(G.peakM/100)*100;
     if(milestone>=100 && milestone<TARGET_HEIGHT && milestone>(G.lastMilestone||0)){
       G.lastMilestone=milestone;
-      addFloat(player.x,player.y-H*.10,milestone+'m 돌파!','#fff1a8');
+      const major=(milestone%500===0); milestoneFX={m:milestone,life:1,major}; addFloat(player.x,player.y-H*.10,milestone+'m 돌파!','#fff1a8'); if(major){shake=Math.min(1,shake+.32);spawnSparkle(player.x,player.y,'#fff1a8');}
     }
 
     // 널판지는 처음부터 끝까지 같은 월드 좌표에 고정.
@@ -633,6 +634,7 @@ function updateGame(){
   comboPulse=Math.max(0,comboPulse-.045);
   launchGradeLife=Math.max(0,launchGradeLife-.018);gaugeFlash=Math.max(0,gaugeFlash-.10);
   landingImpactFX.forEach(f=>f.life-=.065);landingImpactFX=landingImpactFX.filter(f=>f.life>0);
+  if(milestoneFX){milestoneFX.life-=milestoneFX.major?.020:.026;if(milestoneFX.life<=0)milestoneFX=null;}
   updateParticles();
 }
 function bigJudge(t,c){
@@ -1065,6 +1067,12 @@ function drawGame(){
   }
   ctx.restore();
 
+  // V98 milestone overlay.
+  if(milestoneFX){const f=milestoneFX,t=1-f.life,a=Math.min(1,t/.18,f.life/.22);ctx.save();ctx.globalAlpha=a;ctx.translate(W*.5,H*.30);
+    const rg=ctx.createRadialGradient(0,0,0,0,0,W*(f.major?.38:.30));rg.addColorStop(0,f.major?'rgba(255,224,112,.25)':'rgba(255,255,255,.17)');rg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(0,0,W*(f.major?.38:.30),0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=f.major?'rgba(255,218,82,.72)':'rgba(255,255,255,.5)';ctx.lineWidth=Math.max(2,W*.006);ctx.beginPath();ctx.ellipse(0,0,W*(.11+t*.17),H*(.018+t*.020),0,0,Math.PI*2);ctx.stroke();
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=8;ctx.font=`900 ${Math.floor(W*(f.major?.078:.066))}px system-ui,sans-serif`;ctx.lineWidth=Math.max(3,W*.010);ctx.strokeStyle='rgba(67,42,22,.72)';ctx.strokeText(f.m+'m 돌파!',0,0);ctx.fillStyle=f.major?'#ffe16b':'#fff7df';ctx.fillText(f.m+'m 돌파!',0,0);
+    ctx.shadowBlur=0;ctx.font=`800 ${Math.floor(W*.030)}px system-ui,sans-serif`;ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillText(f.major?'HALFWAY!':'KEEP JUMPING!',0,H*.052);ctx.restore();}
   // ================= SCREEN SPACE UI =================
   // V63: 첨부 레퍼런스처럼 반원형 타이밍 게이지. 착지 즉시 활성화되고 탭 한 번으로 발사한다.
   if(player.onBoard && G.powerMode){
