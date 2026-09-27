@@ -640,6 +640,8 @@ const V78_UPPER_BG=new Image();
 V78_UPPER_BG.src='assets/bg_upper_sky.jpg';
 const V79_WORLD_BG=new Image();
 V79_WORLD_BG.src='assets/bg_world_01.jpg';
+const V80_STAGE_BG=new Image();
+V80_STAGE_BG.src='assets/bg_stage1_chunks.jpg';
 
 function drawV69PhotoBG(){
   if(!V69_BG.complete || !V69_BG.naturalWidth)return false;
@@ -688,20 +690,23 @@ function skyColor(m){
   return [mix(lo[1],hi[1]),mix(lo[2],hi[2]),mix(lo[3],hi[3])];
 }
 function drawBG(){
-  // V79: 상용 게임 방식 - 하나의 긴 월드 텍스처를 카메라가 이동한다.
-  // A/B를 화면 전체에서 섞지 않으므로 가로 띠, 이중상, 크로스페이드가 없다.
-  if(V79_WORLD_BG.complete&&V79_WORLD_BG.naturalWidth){
-    const iw=V79_WORLD_BG.naturalWidth,ih=V79_WORLD_BG.naturalHeight;
-    const scale=W/iw,dw=W,dh=ih*scale;
-    // 0m에서 월드의 맨 아래를 화면 하단에 맞춘다.
-    // 카메라 상승량을 배경 월드에도 적용하되 약간 느리게 해 깊이감을 준다.
+  // V80 Stage 1: 모바일게임식 세로 월드 청크.
+  // 한 장의 stage texture 안에서 0~100m 고도에 대응하는 source window만 카메라가 읽는다.
+  if(V80_STAGE_BG.complete&&V80_STAGE_BG.naturalWidth){
+    const iw=V80_STAGE_BG.naturalWidth,ih=V80_STAGE_BG.naturalHeight;
+    const viewAspect=W/H;
+    let sw=iw, sh=sw/viewAspect;
+    if(sh>ih){sh=ih;sw=sh*viewAspect;}
+    const sx=(iw-sw)*0.5;
+    // 이미지 하단=0m, 상단=100m. 현재 높이 대신 실제 카메라 상승량으로 부드럽게 이동.
     const rise=Math.max(0,-(G.cam||0));
-    const maxTravel=Math.max(0,dh-H);
-    const y=Math.min(0,-maxTravel+rise*0.72);
-    ctx.drawImage(V79_WORLD_BG,0,0,iw,ih,0,y,dw,dh);
+    const worldSpan=Math.max(H*8.5,1);
+    const t=Math.max(0,Math.min(1,rise/worldSpan));
+    const sy=(ih-sh)*(1-t);
+    ctx.drawImage(V80_STAGE_BG,sx,sy,sw,sh,0,0,W,H);
     return;
   }
-  const [c1,c2,c3]=skyColor(G.curM||0);
+  const [c1,,c3]=skyColor(G.curM||0);
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,`rgb(${c1})`);g.addColorStop(1,`rgb(${c3})`);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
