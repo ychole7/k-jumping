@@ -1192,3 +1192,34 @@ $('startBtn').onclick=()=>{
 $('retryBtn').onclick=startGame;
 
 resize();$('bestNum').textContent=best;show('title');requestAnimationFrame(loop);
+
+
+/* V101 — Equipment shop phase 1. UI/state only; jump physics untouched. */
+const KJ_EQUIP={
+ shoes:[['flower','날아라 꽃신',0,'최대 점프 높이 +15%'],['wind','바람신',1200,'최대 점프 높이 +22%'],['cloud','구름신',2200,'최대 점프 높이 +30%']],
+ suit:[['basic','기본 한복',0,'기본 장비'],['cloudrobe','구름 도포',1500,'PERFECT 보너스 +20%'],['warrior','바람 전사복',2800,'PERFECT 보너스 +30%']],
+ charm:[['luck','행운 노리개',0,'공중 조작력 +10%'],['bell','구름 방울',1000,'엽전 획득량 +20%'],['starlight','별빛 노리개',2400,'별 획득량 +25%']]
+};
+let kjEquip=JSON.parse(localStorage.getItem('kjump_equipment')||'null')||{tab:'shoes',owned:['flower','basic','luck'],equipped:{shoes:'flower',suit:'basic',charm:'luck'}};
+function kjSaveEquip(){localStorage.setItem('kjump_equipment',JSON.stringify(kjEquip));}
+function kjEnsureShop(){
+ if(document.getElementById('kjShop'))return;
+ const e=document.createElement('div');e.id='kjShop';
+ e.innerHTML=`<section class="kjs"><button class="kjs-x">×</button><div class="kjs-money">🪙 <b id="kjsCoin"></b>　⭐ <b id="kjsStar"></b></div><h2>상점</h2><div class="kjs-tabs"><button data-tab="shoes">👟 신발</button><button data-tab="suit">🥋 의상</button><button data-tab="charm">🧿 노리개</button></div><p class="kjs-copy">장비를 갖추고 더 높은 하늘에 도전!</p><div id="kjsCards" class="kjs-cards"></div><div class="kjs-stat"><b>현재 장비</b><div id="kjsStat"></div></div></section>`;
+ document.body.appendChild(e);
+ const st=document.createElement('style');st.textContent=`#kjShop{display:none;position:fixed;inset:0;z-index:99999;background:#081522c9;align-items:center;justify-content:center;font-family:system-ui,sans-serif}.kjs{position:relative;width:min(91vw,430px);max-height:88vh;overflow:auto;box-sizing:border-box;padding:18px;background:linear-gradient(#f7dba5,#c98949);border:5px solid #70401f;border-radius:24px;box-shadow:0 16px 45px #0008;color:#4b2b18}.kjs h2{text-align:center;font-size:30px;margin:3px 0 14px}.kjs-x{position:absolute;right:11px;top:10px;width:39px;height:39px;border:0;border-radius:50%;background:#86502d;color:white;font-size:27px}.kjs-money{margin:0 48px 10px;padding:8px;text-align:center;border-radius:18px;background:#253746;color:white}.kjs-tabs{display:flex;gap:6px}.kjs-tabs button{flex:1;padding:11px 2px;border:2px solid #8a572f;border-radius:11px;background:#edd1a0;font-weight:900;color:#56321d}.kjs-tabs button.on{background:#ffbd35}.kjs-copy{text-align:center;font-weight:800}.kjs-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.kjs-card{min-height:154px;padding:9px 5px;box-sizing:border-box;text-align:center;background:#fff0cc;border:2px solid #99683d;border-radius:13px}.kjs-card.eq{outline:4px solid #3fa75c}.kjs-icon{font-size:35px}.kjs-name{font-size:13px;font-weight:900;min-height:38px}.kjs-bonus{min-height:31px;font-size:11px;font-weight:800;color:#248449}.kjs-card button{width:100%;padding:8px 1px;border:0;border-radius:8px;background:#e9a52d;color:white;font-weight:900}.kjs-card.eq button{background:#3ca15a}.kjs-stat{margin-top:13px;padding:12px;border-radius:13px;background:#57331f;color:#fff1cf}.kjs-stat div{margin-top:6px;font-size:12px;line-height:1.55}`;
+ document.head.appendChild(st);
+ e.querySelector('.kjs-x').onclick=()=>e.style.display='none';
+ e.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{kjEquip.tab=b.dataset.tab;kjSaveEquip();kjRenderShop();});
+}
+function kjRenderShop(){
+ kjEnsureShop();const e=document.getElementById('kjShop'),tab=kjEquip.tab||'shoes',icons={shoes:'👟',suit:'🥋',charm:'🧿'};
+ document.getElementById('kjsCoin').textContent=+(localStorage.getItem('kjump_coin')||0);document.getElementById('kjsStar').textContent=(G&&G.star)||0;
+ e.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+ document.getElementById('kjsCards').innerHTML=KJ_EQUIP[tab].map(x=>{const own=kjEquip.owned.includes(x[0]),eq=kjEquip.equipped[tab]===x[0];return `<div class="kjs-card ${eq?'eq':''}"><div class="kjs-icon">${icons[tab]}</div><div class="kjs-name">${x[1]}<br>Lv.1</div><div class="kjs-bonus">${x[3]}</div><button data-buy="${x[0]}">${eq?'장착중':own?'장착':`🪙 ${x[2]}`}</button></div>`}).join('');
+ e.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const x=KJ_EQUIP[tab].find(v=>v[0]===b.dataset.buy);if(!kjEquip.owned.includes(x[0])){let c=+(localStorage.getItem('kjump_coin')||0);if(c<x[2]){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-x[2]);kjEquip.owned.push(x[0]);}kjEquip.equipped[tab]=x[0];kjSaveEquip();kjRenderShop();});
+ const lines=['shoes','suit','charm'].map(k=>KJ_EQUIP[k].find(x=>x[0]===kjEquip.equipped[k])).filter(Boolean).map(x=>`${x[1]} · ${x[3]}`);
+ document.getElementById('kjsStat').innerHTML=lines.join('<br>');
+}
+function openEquipShop(){kjEnsureShop();kjRenderShop();document.getElementById('kjShop').style.display='flex';}
+window.openEquipShop=openEquipShop;
