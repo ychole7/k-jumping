@@ -132,15 +132,15 @@ function spawnAhead(fromY){
 
 function kjJumpEquipMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.shoes)||'flower';
- return ({flower:1.15,wind:1.22,cloud:1.30})[id]||1;
+ const lv=kjEquip.levels[id]||1;const base=({flower:.15,wind:.22,cloud:.30})[id]||0;return 1+base+(lv-1)*.035;
 }
 function kjSuitPerfectMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.suit)||'basic';
- return ({basic:1,cloudrobe:1.20,warrior:1.30})[id]||1;
+ const lv=kjEquip.levels[id]||1;const base=({basic:0,cloudrobe:.20,warrior:.30})[id]||0;return 1+base+(lv-1)*.04;
 }
 function kjCharmSteerMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.charm)||'luck';
- return id==='luck'?1.10:1;
+ const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
 function launchWithPower(mult=1){
   player.onBoard=false;
@@ -1214,6 +1214,7 @@ const KJ_EQUIP={
  charm:[['luck','행운 노리개',0,'공중 조작력 +10%'],['bell','구름 방울',1000,'엽전 획득량 +20%'],['starlight','별빛 노리개',2400,'별 획득량 +25%']]
 };
 let kjEquip=JSON.parse(localStorage.getItem('kjump_equipment')||'null')||{tab:'shoes',owned:['flower','basic','luck'],equipped:{shoes:'flower',suit:'basic',charm:'luck'}};
+kjEquip.levels=kjEquip.levels||{};kjEquip.owned.forEach(id=>{if(!kjEquip.levels[id])kjEquip.levels[id]=1;});
 function kjSaveEquip(){localStorage.setItem('kjump_equipment',JSON.stringify(kjEquip));}
 function kjEnsureShop(){
  if(document.getElementById('kjShop'))return;
@@ -1229,8 +1230,9 @@ function kjRenderShop(){
  kjEnsureShop();const e=document.getElementById('kjShop'),tab=kjEquip.tab||'shoes',icons={shoes:'👟',suit:'🥋',charm:'🧿'};
  document.getElementById('kjsCoin').textContent=+(localStorage.getItem('kjump_coin')||0);document.getElementById('kjsStar').textContent=(G&&G.star)||0;
  e.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
- document.getElementById('kjsCards').innerHTML=KJ_EQUIP[tab].map(x=>{const own=kjEquip.owned.includes(x[0]),eq=kjEquip.equipped[tab]===x[0];return `<div class="kjs-card ${eq?'eq':''}"><div class="kjs-icon">${icons[tab]}</div><div class="kjs-name">${x[1]}<br>Lv.1</div><div class="kjs-bonus">${x[3]}</div><button data-buy="${x[0]}">${eq?'장착중':own?'장착':`🪙 ${x[2]}`}</button></div>`}).join('');
- e.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const x=KJ_EQUIP[tab].find(v=>v[0]===b.dataset.buy);if(!kjEquip.owned.includes(x[0])){let c=+(localStorage.getItem('kjump_coin')||0);if(c<x[2]){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-x[2]);kjEquip.owned.push(x[0]);}kjEquip.equipped[tab]=x[0];kjSaveEquip();kjRenderShop();});
+ document.getElementById('kjsCards').innerHTML=KJ_EQUIP[tab].map(x=>{const own=kjEquip.owned.includes(x[0]),eq=kjEquip.equipped[tab]===x[0];const lv=kjEquip.levels[x[0]]||1,upCost=300*lv;return `<div class="kjs-card ${eq?'eq':''}"><div class="kjs-icon">${icons[tab]}</div><div class="kjs-name">${x[1]}<br>Lv.${lv} / 5</div><div class="kjs-bonus">${x[3]}</div><button data-buy="${x[0]}">${eq?'장착중':own?'장착':`🪙 ${x[2]}`}</button>${own&&lv<5?`<button data-up="${x[0]}">강화 🪙 ${upCost}</button>`:''}</div>`}).join('');
+ e.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const x=KJ_EQUIP[tab].find(v=>v[0]===b.dataset.buy);if(!kjEquip.owned.includes(x[0])){let c=+(localStorage.getItem('kjump_coin')||0);if(c<x[2]){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-x[2]);kjEquip.owned.push(x[0]);kjEquip.levels[x[0]]=1;}kjEquip.equipped[tab]=x[0];kjSaveEquip();kjRenderShop();});
+ e.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const id=b.dataset.up,lv=kjEquip.levels[id]||1;if(lv>=5)return;const cost=300*lv;let c=+(localStorage.getItem('kjump_coin')||0);if(c<cost){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-cost);kjEquip.levels[id]=lv+1;kjSaveEquip();kjRenderShop();});
  const lines=['shoes','suit','charm'].map(k=>KJ_EQUIP[k].find(x=>x[0]===kjEquip.equipped[k])).filter(Boolean).map(x=>`${x[1]} · ${x[3]}`);
  document.getElementById('kjsStat').innerHTML=lines.join('<br>');
 }
