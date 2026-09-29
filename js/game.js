@@ -912,8 +912,8 @@ function drawRegionBanner(){
   const t=G.regionBanner.t, alpha=Math.min(1,(150-t)/18,t/28);
   ctx.save();ctx.globalAlpha=alpha;
   const bw=W*.58,bh=H*.062,x=(W-bw)/2,y=H*.19;
-  ctx.fillStyle='rgba(24,47,73,.80)';roundRect(x,y,bw,bh,16);ctx.fill();
-  ctx.strokeStyle='rgba(255,230,155,.85)';ctx.lineWidth=2;roundRect(x,y,bw,bh,16);ctx.stroke();
+  ctx.fillStyle='rgba(24,47,73,.80)';roundRect(ctx,x,y,bw,bh,16);ctx.fill();
+  ctx.strokeStyle='rgba(255,230,155,.85)';ctx.lineWidth=2;roundRect(ctx,x,y,bw,bh,16);ctx.stroke();
   ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font=`900 ${Math.max(17,W*.050)}px system-ui`;
   ctx.fillText(G.regionBanner.name,W/2,y+bh*.55);
   ctx.fillStyle='#ffe6a0';ctx.font=`800 ${Math.max(9,W*.025)}px system-ui`;
@@ -1239,3 +1239,6 @@ function kjInstallShopButton(){
  document.head.appendChild(st);document.body.appendChild(b);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',kjInstallShopButton);else kjInstallShopButton();
+
+/* V103 one-time test wallet */
+if(!localStorage.getItem('kjump_v103_test_wallet')){const c=+(localStorage.getItem('kjump_coin')||0);localStorage.setItem('kjump_coin',Math.max(c,20000));localStorage.setItem('kjump_v103_test_wallet','1');}
