@@ -134,7 +134,14 @@ function kjJumpEquipMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.shoes)||'flower';
  return ({flower:1.15,wind:1.22,cloud:1.30})[id]||1;
 }
-
+function kjSuitPerfectMult(){
+ const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.suit)||'basic';
+ return ({basic:1,cloudrobe:1.20,warrior:1.30})[id]||1;
+}
+function kjCharmSteerMult(){
+ const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.charm)||'luck';
+ return id==='luck'?1.10:1;
+}
 function launchWithPower(mult=1){
   player.onBoard=false;
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
@@ -185,7 +192,7 @@ function releaseCharge(){
   bigJudge(label,col);
   if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
-  launchWithPower(power);
+  launchWithPower(power*(label==='PERFECT!'?kjSuitPerfectMult():1));
 }
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
@@ -213,7 +220,7 @@ function mv(e){
   // V59: 손가락의 현재 위치를 기준으로 방향을 즉시 갱신해 이전 방향이 남지 않게 한다.
   airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
   // 상승은 민감하게, 하강은 약 60%로 낮춰 착지 직전 과조향을 줄인다.
-  const dragGain=player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004 ? 0.98 : 1.22);
+  const dragGain=(player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004 ? 0.98 : 1.22))*kjCharmSteerMult();
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*dragGain));
 }
 function up(){releaseCharge();tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
@@ -477,7 +484,7 @@ function updateGame(){
       if(player.vy>0) steerGain=0.0087;       // 하강: V57의 약 60%
       else if(absVy<H*0.004) steerGain=0.0112; // 정점 부근
       else steerGain=0.0145;                  // 상승: V57 유지
-      player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain));
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()));
     }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
