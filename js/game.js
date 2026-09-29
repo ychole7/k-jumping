@@ -129,10 +129,16 @@ function spawnAhead(fromY){
   }
 }
 
+
+function kjJumpEquipMult(){
+ const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.shoes)||'flower';
+ return ({flower:1.15,wind:1.22,cloud:1.30})[id]||1;
+}
+
 function launchWithPower(mult=1){
   player.onBoard=false;
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
-  player.vy=-(H*0.0484)*1.066*mult;
+  player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
   launchFlash=1; jumpTrail=[];
 }
 function tapGame(){
@@ -1223,3 +1229,13 @@ function kjRenderShop(){
 }
 function openEquipShop(){kjEnsureShop();kjRenderShop();document.getElementById('kjShop').style.display='flex';}
 window.openEquipShop=openEquipShop;
+
+
+function kjInstallShopButton(){
+ if(document.getElementById('kjShopBtn'))return;
+ const b=document.createElement('button');b.id='kjShopBtn';b.type='button';b.innerHTML='🛍️<span>상점</span>';
+ b.onclick=()=>openEquipShop();
+ const st=document.createElement('style');st.textContent=`#kjShopBtn{position:fixed;z-index:8500;left:18px;bottom:max(18px,env(safe-area-inset-bottom));border:3px solid #70401f;border-radius:18px;background:linear-gradient(#ffd36a,#d98b27);color:#563019;box-shadow:0 5px 12px #0005;padding:8px 13px;font-size:23px;font-weight:900}#kjShopBtn span{display:block;font-size:11px;line-height:1}`;
+ document.head.appendChild(st);document.body.appendChild(b);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',kjInstallShopButton);else kjInstallShopButton();
