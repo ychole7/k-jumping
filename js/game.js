@@ -64,6 +64,7 @@ let board,player,items,rocks,floats,petals;
 
 function startGame(){
   up();
+  const targetEl=$('targetHeight'); if(targetEl) targetEl.textContent=TARGET_HEIGHT+'m';
   show('game');
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
@@ -114,17 +115,20 @@ function spawnAhead(fromY){
       items.push({
         wx:Math.max(30,Math.min(W-30,ox)),
         wy:y+oy,
-        type:(Math.random()<0.24?'coin':'star'),
+        type:(Math.random()<(Math.max(0,(board.y-y)/PPM())>=500?.34:Math.max(0,(board.y-y)/PPM())>=250?.29:.24)?'coin':'star'),
         got:false,
         phase:Math.random()*Math.PI*2
       });
     }
     // V62: 고도별 장애물. 하늘마을=새, 구름마을=먹구름, 그 위=연/유성.
-    if(Math.random()<0.48){
+    {
       const alt=Math.max(0,(board.y-y)/PPM());
-      const type=alt<100?'bird':alt<250?'cloud':alt<500?'kite':'meteor';
+      const hazardChance=alt<100?.30:alt<250?.38:alt<500?.46:alt<750?.54:.60;
+      if(Math.random()<hazardChance){
+      const type=alt<100?'bird':alt<250?'cloud':alt<500?'kite':alt<750?'wind':'meteor';
       rocks.push({wx:Math.random()<.5?-W*.12:W*1.12,wy:y-H*.06,r:W*(type==='cloud'?.065:.045),type,dir:Math.random()<.5?1:-1,hit:false,phase:Math.random()*6.28});
       const o=rocks[rocks.length-1]; if(o.wx<0)o.dir=1; else o.dir=-1;
+      }
     }
   }
 }
