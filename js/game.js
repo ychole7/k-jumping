@@ -59,13 +59,31 @@ function updateRegion(){
     G.regionBanner={name:r.name,t:150};
   }
 }
+
+/* V109 — stage target progression */
+const KJ_STAGE_TARGETS=[100,150,200,250,300,400,500,650,800,1000];
+function kjStageNo(){return Math.max(1,Math.min(KJ_STAGE_TARGETS.length,+(localStorage.getItem('kjump_stage')||1)));}
+function kjStageTarget(){return KJ_STAGE_TARGETS[kjStageNo()-1];}
+function kjAdvanceStage(){const n=kjStageNo();if(n<KJ_STAGE_TARGETS.length)localStorage.setItem('kjump_stage',String(n+1));}
+
 const TARGET_HEIGHT=1000; // V93: 100m에서 멈추지 않고 1000m까지 계속 플레이
 let board,player,items,rocks,floats,petals;
 
+function kjUpdateStageUI(){
+ const target=kjStageTarget(),stage=kjStageNo();
+ document.querySelectorAll('body *').forEach(el=>{
+   if(el.children.length===0&&/100m/.test(el.textContent||'')&&/목표|100m/.test((el.parentElement&&el.parentElement.textContent)||el.textContent)){
+     if((el.textContent||'').trim()==='100m')el.textContent=target+'m';
+   }
+ });
+ const card=[...document.querySelectorAll('body *')].find(el=>/목표 높이/.test(el.textContent||'')&&el.children.length<8);
+ if(card)card.setAttribute('data-stage','STAGE '+stage);
+}
+
 function startGame(){
   up();
-  const targetEl=$('targetHeight'); if(targetEl) targetEl.textContent=TARGET_HEIGHT+'m';
   show('game');
+  setTimeout(()=>{kjUpdateStageUI();kjToast('STAGE '+kjStageNo()+' · 목표 '+kjStageTarget()+'m');},0);
   if(!W||!H)resize();
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
@@ -115,20 +133,17 @@ function spawnAhead(fromY){
       items.push({
         wx:Math.max(30,Math.min(W-30,ox)),
         wy:y+oy,
-        type:(Math.random()<(Math.max(0,(board.y-y)/PPM())>=500?.34:Math.max(0,(board.y-y)/PPM())>=250?.29:.24)?'coin':'star'),
+        type:(Math.random()<0.24?'coin':'star'),
         got:false,
         phase:Math.random()*Math.PI*2
       });
     }
     // V62: 고도별 장애물. 하늘마을=새, 구름마을=먹구름, 그 위=연/유성.
-    {
+    if(Math.random()<0.48){
       const alt=Math.max(0,(board.y-y)/PPM());
-      const hazardChance=alt<100?.30:alt<250?.38:alt<500?.46:alt<750?.54:.60;
-      if(Math.random()<hazardChance){
-      const type=alt<100?'bird':alt<250?'cloud':alt<500?'kite':alt<750?'wind':'meteor';
+      const type=alt<100?'bird':alt<250?'cloud':alt<500?'kite':'meteor';
       rocks.push({wx:Math.random()<.5?-W*.12:W*1.12,wy:y-H*.06,r:W*(type==='cloud'?.065:.045),type,dir:Math.random()<.5?1:-1,hit:false,phase:Math.random()*6.28});
       const o=rocks[rocks.length-1]; if(o.wx<0)o.dir=1; else o.dir=-1;
-      }
     }
   }
 }
@@ -533,7 +548,7 @@ function updateGame(){
     if(G.peakM>=TARGET_HEIGHT)G.targetReached=true;
     // V93: 100m 단위는 클리어가 아니라 통과 이정표.
     const milestone=Math.floor(G.peakM/100)*100;
-    if(milestone>=100 && milestone<TARGET_HEIGHT && milestone>(G.lastMilestone||0)){
+    if(milestone>=100 && milestone<kjStageTarget() && milestone>(G.lastMilestone||0)){
       G.lastMilestone=milestone;
       const major=(milestone%500===0); milestoneFX={m:milestone,life:1,major}; addFloat(player.x,player.y-H*.10,milestone+'m 돌파!','#fff1a8'); if(major){shake=Math.min(1,shake+.32);spawnSparkle(player.x,player.y,'#fff1a8');}
     }
@@ -576,7 +591,7 @@ function updateGame(){
       G.powerMode=true; G.pressArmed=true; G.powerVal=0.08; G.powerDir=1; G.relaunchFrames=0;
       G.lastJudge=null;
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
-      if(G.peakM>=TARGET_HEIGHT)clearGame();
+      if(G.peakM>=kjStageTarget())clearGame();
     }
     // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
@@ -694,7 +709,7 @@ function clearGame(){
   up();
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent=TARGET_HEIGHT+'m CLEAR!';
+  $('resTitle').textContent='STAGE '+kjStageNo()+' CLEAR!';kjAdvanceStage();
   $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
   $('resCoin').textContent=G.coin;
