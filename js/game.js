@@ -162,10 +162,10 @@ function kjCharmSteerMult(){
  const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
 /* V115 fast partner rebound */
-let kjPartnerBeat={active:false,t:0,dur:.48,power:1,label:'OK'};
+let kjPartnerBeat={active:false,t:0,dur:.62,power:1,label:'OK'};
 function kjStartPartnerBeat(power,label){
- kjPartnerBeat={active:true,t:0,dur:.48,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
- setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},480);
+ kjPartnerBeat={active:true,t:0,dur:.62,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},620);
 }
 
 function launchWithPower(mult=1){
@@ -176,51 +176,26 @@ function launchWithPower(mult=1){
 }
 function tapGame(){
   if(current!=='game'||G.over||paused||kjPartnerBeat.active)return;
-  // V64: 누르는 순간. 공중에서는 '착지 타이밍'을 예약하고,
-  // 널 위에서는 바로 힘을 눌러 담기 시작한다.
-  G.pressHeld=true;
-  if(player.onBoard){
-    G.pressArmed=true;
-    G.powerMode=true;
-    if(G.powerVal<=0.06)G.powerVal=0.08;
-    return;
-  }
+  // V116: no power gauge. Only the descent timing tap matters.
+  if(player.onBoard){if(G.peakM===0&&!kjPartnerBeat.active)launchWithPower(1);return;}
   if(player.vy>0){
     const d=Math.max(0,board.y-(player.y+player.r));
-    // V87: predict frames-to-impact from current fall speed.
-    // This makes the grade depend on when the player actually taps, rather than a broad distance band.
     const fallSpeed=Math.max(0.001,player.vy);
     const framesToImpact=d/fallSpeed;
-    let label='OK',col='#8ecae6',mult=0.96;
-    if(framesToImpact<=2.6){label='PERFECT!';col='#ff4d6d';mult=1.10;}
-    else if(framesToImpact<=6.5){label='GOOD';col='#ffb703';mult=1.03;}
-    G.landingTap={label,col,mult,d,framesToImpact};
+    let label='MISS!',col='#c77dff',power=.78;
+    if(framesToImpact<=2.8){label='PERFECT!';col='#ffd43b';power=1.24;}
+    else if(framesToImpact<=6.8){label='GOOD';col='#58d68d';power=1.09;}
+    else if(framesToImpact<=11.5){label='OK';col='#f39c32';power=.94;}
+    G.landingTap={label,col,power,d,framesToImpact};
     G.pressArmed=true;
-    addFloat(player.x,player.y-H*0.045,label,col);
+    addFloat(player.x,player.y-H*.045,label,col);
   }
 }
 
 function releaseCharge(){
-  if(!G.pressHeld)return;
   G.pressHeld=false;
-  if(!player.onBoard||!G.pressArmed||!G.powerMode)return;
-  const p=Math.max(0,Math.min(1,G.powerVal));
-  // V91: one landing-rebound timing bar. Center is strongest.
-  const dist=Math.abs(p-.5);
-  // V96 balance: clear four-step rebound hierarchy without making non-perfect runs feel dead.
-  let label='OK',col='#f39c32',power=.94;
-  if(dist<=.050){label='PERFECT!';col='#ffd43b';power=1.24;}
-  else if(dist<=.155){label='GOOD';col='#58d68d';power=1.09;}
-  else if(dist>=.455){label='MISS!';col='#c77dff';power=.78;}
-  if(label==='PERFECT!'){G.combo=(G.combo||0)+1;comboPulse=1;}
-  else G.combo=0;
-  launchGrade=label;launchGradeLife=1;gaugeFlash=1;launchFlash=(label==='PERFECT!'?1:.65);
-  bigJudge(label,col);
-  if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
-  G.powerMode=false;G.pressArmed=false;G.landingTap=null;
-  if(label==='PERFECT!'&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
-  kjStartPartnerBeat(power*(label==='PERFECT!'?kjSuitPerfectMult():1),label);
 }
+
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
 let paused=false;
@@ -474,7 +449,7 @@ function updateGame(){
       squash+=(0-squash)*0.2;
     }
     // V62: 자동 재점프 없음. 첫 탭으로 시작한 파워 게이지만 빠르게 왕복한다.
-    if(G.powerMode && G.pressHeld){
+    if(false && G.powerMode && G.pressHeld){
       // V64: 누르고 있는 동안 0→100%로 차오른다. PERFECT를 지나면 과충전.
       G.powerVal=Math.min(1,G.powerVal+0.018);
       board.gaugeVal=G.powerVal;
@@ -584,7 +559,7 @@ function updateGame(){
       landingSquash=1;
       landingKick=1;
       // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
-      const landingJudge=G.landingTap||{label:'OK',col:'#8ecae6',mult:0.96};
+      const landingJudge=G.landingTap||{label:'MISS!',col:'#c77dff',power:.78};
       const isPerfect=landingJudge.label==='PERFECT!';
       if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
@@ -594,9 +569,14 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#fff1a8');
       }
       bigJudge(landingJudge.label,landingJudge.col);
+      const reboundPower=landingJudge.power||({PERFECT:1.24,GOOD:1.09,OK:.94,MISS:.78}[landingJudge.label.replace('!','')]||.78);
       G.landingTap=null;
-      G.powerMode=true; G.pressArmed=true; G.powerVal=0.08; G.powerDir=1; G.relaunchFrames=0;
+      G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
+      if(G.peakM<kjStageTarget()){
+        if(isPerfect&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
+        kjStartPartnerBeat(reboundPower*(isPerfect?kjSuitPerfectMult():1),landingJudge.label);
+      }
       // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
       if(G.peakM>=kjStageTarget())clearGame();
     }
@@ -1094,7 +1074,7 @@ function drawGame(){
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
   let partnerHop=0;
-  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.070:.045);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
+  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.125:.085);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
   drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
