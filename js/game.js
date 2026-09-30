@@ -192,6 +192,7 @@ function releaseCharge(){
   bigJudge(label,col);
   if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
+  if(label==='PERFECT!'&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
   launchWithPower(power*(label==='PERFECT!'?kjSuitPerfectMult():1));
 }
 let tsx=null;
@@ -1241,8 +1242,8 @@ function kjRenderShop(){
  document.getElementById('kjsCoin').textContent=+(localStorage.getItem('kjump_coin')||0);document.getElementById('kjsStar').textContent=(G&&G.star)||0;
  e.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
  document.getElementById('kjsCards').innerHTML=KJ_EQUIP[tab].map(x=>{const own=kjEquip.owned.includes(x[0]),eq=kjEquip.equipped[tab]===x[0];const lv=kjEquip.levels[x[0]]||1,upCost=300*lv;return `<div class="kjs-card ${eq?'eq':''}"><div class="kjs-icon">${icons[tab]}</div><div class="kjs-name">${x[1]}<br>Lv.${lv} / 5</div><div class="kjs-bonus">${x[3]}</div><button data-buy="${x[0]}">${eq?'장착중':own?'장착':`🪙 ${x[2]}`}</button>${own&&lv<5?`<button data-up="${x[0]}">강화 🪙 ${upCost}</button>`:''}</div>`}).join('');
- e.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const x=KJ_EQUIP[tab].find(v=>v[0]===b.dataset.buy);if(!kjEquip.owned.includes(x[0])){let c=+(localStorage.getItem('kjump_coin')||0);if(c<x[2]){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-x[2]);kjEquip.owned.push(x[0]);kjEquip.levels[x[0]]=1;}kjEquip.equipped[tab]=x[0];kjSaveEquip();kjRenderShop();});
- e.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const id=b.dataset.up,lv=kjEquip.levels[id]||1;if(lv>=5)return;const cost=300*lv;let c=+(localStorage.getItem('kjump_coin')||0);if(c<cost){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-cost);kjEquip.levels[id]=lv+1;kjSaveEquip();kjRenderShop();});
+ e.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const x=KJ_EQUIP[tab].find(v=>v[0]===b.dataset.buy);if(!kjEquip.owned.includes(x[0])){let c=+(localStorage.getItem('kjump_coin')||0);if(c<x[2]){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-x[2]);kjEquip.owned.push(x[0]);kjEquip.levels[x[0]]=1;}kjEquip.equipped[tab]=x[0];kjSaveEquip();kjRenderShop();kjRefreshGearHUD();kjToast(x[1]+' 장착!');});
+ e.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const id=b.dataset.up,lv=kjEquip.levels[id]||1;if(lv>=5)return;const cost=300*lv;let c=+(localStorage.getItem('kjump_coin')||0);if(c<cost){b.textContent='엽전 부족';return;}localStorage.setItem('kjump_coin',c-cost);kjEquip.levels[id]=lv+1;kjSaveEquip();kjRenderShop();kjRefreshGearHUD();kjToast('강화 성공! Lv.'+(lv+1));});
  const lines=['shoes','suit','charm'].map(k=>KJ_EQUIP[k].find(x=>x[0]===kjEquip.equipped[k])).filter(Boolean).map(x=>`${x[1]} · ${x[3]}`);
  document.getElementById('kjsStat').innerHTML=lines.join('<br>');
 }
@@ -1261,3 +1262,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 /* V103 one-time test wallet */
 if(!localStorage.getItem('kjump_v103_test_wallet')){const c=+(localStorage.getItem('kjump_coin')||0);localStorage.setItem('kjump_coin',Math.max(c,20000));localStorage.setItem('kjump_v103_test_wallet','1');}
+
+
+/* V108 equipment feedback HUD */
+function kjEnsureGearHUD(){
+ if(document.getElementById('kjGearHUD'))return;
+ const h=document.createElement('div');h.id='kjGearHUD';h.innerHTML='<div data-s="shoes">👟<b></b></div><div data-s="suit">🥋<b></b></div><div data-s="charm">🧿<b></b></div>';document.body.appendChild(h);
+ const st=document.createElement('style');st.textContent='#kjGearHUD{position:fixed;z-index:7200;left:12px;top:88px;display:flex;gap:5px;pointer-events:none}#kjGearHUD>div{width:43px;height:38px;box-sizing:border-box;border:2px solid #8b5a2b;border-radius:11px;background:#fff0cddd;box-shadow:0 3px 7px #0003;text-align:center;font-size:18px;line-height:20px;color:#56331d}#kjGearHUD b{display:block;font-size:9px;line-height:11px}.kj-gear-toast{position:fixed;z-index:100001;left:50%;top:25%;transform:translate(-50%,-50%);padding:10px 18px;border:3px solid #7a4b23;border-radius:16px;background:#fff1cddd;color:#5b351c;font-weight:900;box-shadow:0 8px 20px #0005;pointer-events:none}';document.head.appendChild(st);
+}
+function kjRefreshGearHUD(){kjEnsureGearHUD();['shoes','suit','charm'].forEach(k=>{const id=kjEquip.equipped[k],lv=kjEquip.levels[id]||1,n=document.querySelector('#kjGearHUD [data-s="'+k+'"] b');if(n)n.textContent='Lv.'+lv;});}
+function kjToast(msg){const t=document.createElement('div');t.className='kj-gear-toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),800);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',kjRefreshGearHUD);else kjRefreshGearHUD();
