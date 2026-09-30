@@ -88,8 +88,8 @@ function startGame(){
   G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
-  G.activeJumper='player'; G.nextJumper='partner';
-  player.x=(G.activeJumper==='partner'?board.cx+board.w*0.42*0.8:board.cx-board.w*0.42*0.8);
+  G.activeJumper='player';
+  player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
   items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
@@ -162,20 +162,13 @@ function kjCharmSteerMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.charm)||'luck';
  const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
-/* V112 — alternating seesaw prototype */
-function kjSwapJumper(){
-  const was=G.activeJumper||'player';
-  G.activeJumper=was==='player'?'partner':'player';
-  G.nextJumper=was;
-  // each character lands on its own side; the opposite character is launched next
-  player.x=G.activeJumper==='player'
-    ? board.cx-board.w*0.42*0.8
-    : board.cx+board.w*0.42*0.8;
-  player.y=board.y-player.r*0.5;
-  landingKick=1;shake=Math.min(1,shake+.35);
-  kjToast((G.activeJumper==='player'?'남자아이':'여자아이')+' 차례!');
+/* V113 — partner assist + cinematic camera experiment */
+let kjPartnerFX={active:false,t:0,dur:0.95,power:1};
+function kjStartPartnerAssist(power){
+  kjPartnerFX.active=true;kjPartnerFX.t=0;kjPartnerFX.power=power;
+  landingKick=1;shake=Math.min(1,shake+.45);
+  kjToast('둘이서 하나, 둘!');
 }
-
 function launchWithPower(mult=1){
   player.onBoard=false;
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
@@ -227,8 +220,9 @@ function releaseCharge(){
   if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
   if(label==='PERFECT!'&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
-  kjSwapJumper();
-  launchWithPower(power*(label==='PERFECT!'?kjSuitPerfectMult():1));
+  const finalPower=power*(label==='PERFECT!'?kjSuitPerfectMult():1);
+  kjStartPartnerAssist(finalPower);
+  setTimeout(()=>{if(!G.over){kjPartnerFX.active=false;launchWithPower(finalPower);}},360);
 }
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
@@ -531,7 +525,12 @@ function updateGame(){
     // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
     // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
     const nearGround=player.vy>0 && landingDist < H*0.30;
-    const cameraTarget=nearGround ? 0 : Math.min(0,player.y-H*0.40);
+    // V113: dynamic framing inspired by the supplied perspective-camera prototype.
+    // Ground/partner interaction stays close; ascent gradually opens the frame.
+    const heightPreview=Math.max(0,(board.y-player.y)/PPM());
+    const zoomOut=Math.min(1,heightPreview/420);
+    const frameY=H*(0.40+0.10*zoomOut);
+    const cameraTarget=nearGround ? 0 : Math.min(0,player.y-frameY);
     // V107: high-power equipment can launch much faster than the old fixed camera lerp.
     // Use velocity-aware follow while ascending so the player cannot outrun the camera.
     const riseSpeed=Math.max(0,-player.vy)/H;
@@ -576,20 +575,14 @@ function updateGame(){
     // 중앙선을 넘어 상대방 사이드에 착지하면 실패로 처리한다.
     const playerSideLeft=board.cx-board.w*0.42;
     const playerSideRight=board.cx;
-    const partnerSideLeft=board.cx;
-    const partnerSideRight=board.cx+board.w*0.42;
-    const validLanding=G.activeJumper==='partner'
-      ? (player.x>=partnerSideLeft-player.r*0.15 && player.x<=partnerSideRight+player.r*0.35)
-      : (player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15);
+    const validLanding=player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15;
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
       const impactSpeed=Math.max(0,player.vy);
       landingImpactFX.push({x:player.x,y:board.y-G.cam,life:1,power:Math.max(.65,Math.min(1.25,impactSpeed/(H*.018)))});
       gaugeFlash=1;
-      player.onBoard=true;clearAirInput();player.vy=0;player.x=G.activeJumper==='partner'
-        ? Math.max(board.cx,Math.min(board.cx+board.w*0.42,player.x))
-        : Math.max(board.cx-board.w*0.42,Math.min(board.cx,player.x));
+      player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx,player.x));
       player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
@@ -750,7 +743,7 @@ function loseLife(){
   // 실패 순간에는 현재 점프를 완전히 종료하고, 땅에 고정된 원래 널판지로 돌아온다.
   player.onBoard=true;
   player.vy=0;
-  player.x=(G.activeJumper==='partner'?board.cx+board.w*0.42*0.8:board.cx-board.w*0.42*0.8);
+  player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
   G.cam=0;
   G.curM=0;
@@ -1123,18 +1116,22 @@ function drawGame(){
   }
 
   // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
-  const restSide=G.activeJumper==='partner'?-1:1;
-  const partX=pivotX+Math.cos(tilt)*halfW*0.8*restSide;
-  const partY=pivotY+Math.sin(tilt)*halfW*0.8*restSide;
-  if(G.activeJumper==='partner') drawPlayer(partX,partY-W*0.030,W*0.11);
-  else drawPartner(partX,partY-W*0.030,W*0.11);
+  const partX=pivotX+Math.cos(tilt)*halfW*0.8;
+  const partY=pivotY+Math.sin(tilt)*halfW*0.8;
+  let partnerHop=0;
+  if(kjPartnerFX.active){
+    kjPartnerFX.t=Math.min(kjPartnerFX.dur,kjPartnerFX.t+1/60);
+    const u=Math.min(1,kjPartnerFX.t/kjPartnerFX.dur);
+    partnerHop=Math.sin(u*Math.PI)*H*.075;
+  }
+  drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
   if(!player.onBoard&&launchFlash>0.05){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  if(G.activeJumper==='partner') drawPartner(player.x,player.y+(player.onBoard?W*0.059:0),player.r); else drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
+  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
