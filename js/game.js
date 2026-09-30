@@ -496,7 +496,17 @@ function updateGame(){
     // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
     const nearGround=player.vy>0 && landingDist < H*0.30;
     const cameraTarget=nearGround ? 0 : Math.min(0,player.y-H*0.40);
-    G.cam += (cameraTarget-G.cam)*(nearGround ? 0.52 : (player.vy>0 ? 0.22 : 0.16));
+    // V107: high-power equipment can launch much faster than the old fixed camera lerp.
+    // Use velocity-aware follow while ascending so the player cannot outrun the camera.
+    const riseSpeed=Math.max(0,-player.vy)/H;
+    const riseFollow=Math.min(0.62,0.20+riseSpeed*6.5);
+    const follow=nearGround ? 0.52 : (player.vy>0 ? 0.22 : riseFollow);
+    G.cam += (cameraTarget-G.cam)*follow;
+    // Emergency catch-up only when the player is escaping above the intended framing.
+    const screenY=player.y-G.cam;
+    if(!nearGround && player.vy<0 && screenY<H*0.18){
+      G.cam=player.y-H*0.24;
+    }
     if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
