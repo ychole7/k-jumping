@@ -85,7 +85,7 @@ function startGame(){
   show('game');
   setTimeout(()=>{kjUpdateStageUI();kjToast('STAGE '+kjStageNo()+' · 목표 '+kjStageTarget()+'m');},0);
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false,activeJumper:'player'}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -161,18 +161,11 @@ function kjCharmSteerMult(){
  const id=(kjEquip&&kjEquip.equipped&&kjEquip.equipped.charm)||'luck';
  const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
-/* V114 — alternating rebound prototype, based on neol.html's core loop */
-function kjActiveIsPartner(){return G.activeJumper==='partner';}
-function kjSetActiveJumper(next){
-  G.activeJumper=next;
-  player.x=next==='partner'?board.cx+board.w*0.42*0.8:board.cx-board.w*0.42*0.8;
-  player.y=board.y-player.r*0.5;
-  landingKick=1;shake=Math.min(1,shake+.38);
-}
-function kjAlternateLaunch(power){
-  const next=kjActiveIsPartner()?'player':'partner';
-  kjSetActiveJumper(next);
-  launchWithPower(power);
+/* V115 fast partner rebound */
+let kjPartnerBeat={active:false,t:0,dur:.48,power:1,label:'OK'};
+function kjStartPartnerBeat(power,label){
+ kjPartnerBeat={active:true,t:0,dur:.48,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},480);
 }
 
 function launchWithPower(mult=1){
@@ -182,7 +175,7 @@ function launchWithPower(mult=1){
   launchFlash=1; jumpTrail=[];
 }
 function tapGame(){
-  if(current!=='game'||G.over||paused)return;
+  if(current!=='game'||G.over||paused||kjPartnerBeat.active)return;
   // V64: 누르는 순간. 공중에서는 '착지 타이밍'을 예약하고,
   // 널 위에서는 바로 힘을 눌러 담기 시작한다.
   G.pressHeld=true;
@@ -226,7 +219,7 @@ function releaseCharge(){
   if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   G.powerMode=false;G.pressArmed=false;G.landingTap=null;
   if(label==='PERFECT!'&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
-  kjAlternateLaunch(power*(label==='PERFECT!'?kjSuitPerfectMult():1));
+  kjStartPartnerBeat(power*(label==='PERFECT!'?kjSuitPerfectMult():1),label);
 }
 let tsx=null;
 let airSteer=0; // V56: 공중에서 화면 좌/우를 누르고 있는 동안 이동 방향
@@ -489,16 +482,15 @@ function updateGame(){
       board.tilt += (0.035*G.powerVal-board.tilt)*0.10;
     }else board.gaugeVal=G.powerMode?G.powerVal:0;
     board.tilt+=(0-board.tilt)*0.18;
-    const side=kjActiveIsPartner()?1:-1;
-    player.x=board.cx+side*Math.cos(board.tilt)*halfW*0.8;
-    player.y=board.y+side*Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
+    player.x=board.cx-Math.cos(board.tilt)*halfW*0.8;
+    player.y=board.y-Math.sin(board.tilt)*halfW*0.8-player.r*0.5;
     squash+=(0-squash)*0.2;
   }else{
     jumpTrail.push({x:player.x,y:player.y,life:1});
     if(jumpTrail.length>18)jumpTrail.shift();
     jumpTrail.forEach(p=>p.life-=0.055);
     jumpTrail=jumpTrail.filter(p=>p.life>0);
-    board.tilt+=((kjActiveIsPartner()?0.15:-0.15)-board.tilt)*0.06;
+    board.tilt+=(-0.15-board.tilt)*0.06;
     // V97: smooth apex -> descent. Upward motion keeps the original gravity;
     // once descending, gravity eases in and terminal fall speed is softened.
     const baseG=H*0.000260;
@@ -575,21 +567,14 @@ function updateGame(){
     // 중앙선을 넘어 상대방 사이드에 착지하면 실패로 처리한다.
     const playerSideLeft=board.cx-board.w*0.42;
     const playerSideRight=board.cx;
-    const partnerSideLeft=board.cx;
-    const partnerSideRight=board.cx+board.w*0.42;
-    const validLanding=kjActiveIsPartner()
-      ? (player.x>=partnerSideLeft-player.r*0.15 && player.x<=partnerSideRight+player.r*0.35)
-      : (player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15);
+    const validLanding=player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15;
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
     if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
       const impactSpeed=Math.max(0,player.vy);
       landingImpactFX.push({x:player.x,y:board.y-G.cam,life:1,power:Math.max(.65,Math.min(1.25,impactSpeed/(H*.018)))});
       gaugeFlash=1;
-      player.onBoard=true;clearAirInput();player.vy=0;player.x=kjActiveIsPartner()
-        ? Math.max(board.cx,Math.min(board.cx+board.w*0.42,player.x))
-        : Math.max(board.cx-board.w*0.42,Math.min(board.cx,player.x));
-      player.y=board.y-player.r*0.5;board.gaugePhase=0;
+      player.onBoard=true;clearAirInput();player.vy=0;player.x=Math.max(board.cx-board.w*0.42,Math.min(board.cx+board.w*0.42,player.x));player.y=board.y-player.r*0.5;board.gaugePhase=0;
       // 한 번의 점프가 끝나면 현재 높이는 0으로 돌아간다. 최고 높이는 유지한다.
       G.curM=0;
       // V76: 착지 순간 카메라를 0으로 강제 스냅하지 않는다.
@@ -1084,9 +1069,8 @@ function drawGame(){
 
   // 착지 가능 영역은 물리 판정과 동일하게 시각적으로만 표시한다.
   if(!player.onBoard&&board.landR){
-    const zoneSide=kjActiveIsPartner()?1:-1;
-    const zoneX=board.cx+zoneSide*Math.cos(tilt)*halfW*0.8;
-    const zoneY=board.y+zoneSide*Math.sin(tilt)*halfW*0.8;
+    const zoneX=board.cx+Math.cos(tilt)*halfW*0.8;
+    const zoneY=board.y+Math.sin(tilt)*halfW*0.8;
     const pulse=0.5+0.5*Math.sin(Date.now()/180);
     ctx.save();
     ctx.translate(zoneX,zoneY);ctx.rotate(tilt);
@@ -1107,20 +1091,21 @@ function drawGame(){
   }
 
   // 상대 캐릭터도 널판지와 같은 월드에 붙어 있다.
-  const restSide=kjActiveIsPartner()?-1:1;
-  const partX=pivotX+restSide*Math.cos(tilt)*halfW*0.8;
-  const partY=pivotY+restSide*Math.sin(tilt)*halfW*0.8;
-  if(kjActiveIsPartner())drawPlayer(partX,partY-W*0.030,W*0.11);
-  else drawPartner(partX,partY-W*0.030,W*0.11);
+  const partX=pivotX+Math.cos(tilt)*halfW*0.8;
+  const partY=pivotY+Math.sin(tilt)*halfW*0.8;
+  let partnerHop=0;
+  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.070:.045);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
+  drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
   if(!player.onBoard&&launchFlash>0.05){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  if(kjActiveIsPartner())drawPartner(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
-  else drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
+  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
+  if(!player.onBoard&&player.vy>0){const d=Math.max(0,board.y-(player.y+player.r)),range=H*.22;if(d<range){const q=Math.max(0,Math.min(1,d/range)),rr=player.r*(.72+q*1.55);ctx.save();ctx.globalAlpha=.35+.55*(1-q);ctx.strokeStyle=q<.18?'#ffd43b':'rgba(255,255,255,.96)';ctx.lineWidth=Math.max(3,W*.009);ctx.beginPath();ctx.arc(player.x,player.y,rr,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=.8;ctx.lineWidth=Math.max(2,W*.005);ctx.beginPath();ctx.arc(player.x,player.y,player.r*.72,0,Math.PI*2);ctx.stroke();ctx.restore();}}
+  if(kjPartnerBeat.active&&kjPartnerBeat.t/kjPartnerBeat.dur>.58){ctx.save();ctx.textAlign='center';ctx.font='900 '+Math.round(W*.075)+'px system-ui';ctx.fillStyle=kjPartnerBeat.label==='PERFECT!'?'#ffd43b':'#fff';ctx.strokeStyle='rgba(70,35,20,.45)';ctx.lineWidth=5;ctx.strokeText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.fillText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.restore();}
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
   if(missFlash>0){
