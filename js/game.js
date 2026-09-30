@@ -709,7 +709,9 @@ function clearGame(){
   up();
   G.over=true;
   if(G.curM>best){best=G.curM;localStorage.setItem('kjump_best_m',best);}
-  $('resTitle').textContent='STAGE '+kjStageNo()+' CLEAR!';kjAdvanceStage();
+  $('resTitle').textContent='STAGE '+kjStageNo()+' CLEAR!';
+  const rb=$('retryBtn');if(rb)rb.textContent=(kjStageNo()<KJ_STAGE_TARGETS.length?'다음 스테이지':'다시 도전');
+  kjAdvanceStage();
   $('resM').textContent=G.peakM;
   $('resStar').textContent=G.star;
   $('resCoin').textContent=G.coin;
@@ -748,6 +750,7 @@ function gameOver(){
   if(G.over)return;G.over=true;
   if(G.peakM>best){best=G.peakM;localStorage.setItem('kjump_best_m',best);}
   $('resTitle').textContent='GAME OVER';
+  const rb=$('retryBtn');if(rb)rb.textContent='다시 하기';
   $('resM').textContent=G.peakM;$('resStar').textContent=G.star;$('resCoin').textContent=G.coin;
   show('result');
 }
@@ -958,6 +961,22 @@ function drawRegionBanner(){
 }
 
 function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+/* V111 — procedural vector background experiment */
+function kjDrawVectorBG(){
+  const m=Math.max(0,Math.min(1000,G.curM||0)),t=m/1000,mix=(a,b,q)=>Math.round(a+(b-a)*q);
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,`rgb(${mix(126,20,t)},${mix(198,35,t)},${mix(239,78,t)})`);
+  g.addColorStop(1,`rgb(${mix(205,92,t*.72)},${mix(235,133,t*.72)},${mix(248,181,t*.72)})`);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.globalAlpha=.82;ctx.fillStyle=m>650?'#f5f1dc':'#fff0aa';ctx.beginPath();ctx.arc(W*.82,H*.15,W*.055,0,7);ctx.fill();ctx.restore();
+  if(m>450){ctx.save();ctx.globalAlpha=Math.min(.82,(m-450)/300);ctx.fillStyle='#fff';for(let i=0;i<28;i++){const x=((i*97)%103)/103*W,y=((i*61)%101)/101*H*.62,r=(1+(i%5===0)*.8)*Math.max(1,W/390);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();}ctx.restore();}
+  const rise=Math.max(0,-(G.cam||0));
+  ctx.fillStyle='rgba(73,119,137,.30)';ctx.beginPath();ctx.moveTo(0,H*.82);for(let i=0;i<=8;i++){const x=W*i/8,y=H*(.66+.055*Math.sin(i*1.7+rise*.0012));ctx.lineTo(x,y);}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(57,103,103,.42)';ctx.beginPath();ctx.moveTo(0,H*.90);for(let i=0;i<=7;i++){const x=W*i/7,y=H*(.75+.06*Math.sin(i*1.45+1.2+rise*.002));ctx.lineTo(x,y);}ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  for(let i=0;i<9;i++){const yy=((H*(.16+i*.11)+rise*(.035+i*.006))%(H*1.18))-H*.08,xx=W*(.09+((i*.219)%0.80)),r=W*(.032+(i%3)*.008);ctx.save();ctx.globalAlpha=.22+(i%3)*.08;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(xx,yy,r,0,7);ctx.arc(xx+r*.9,yy+r*.12,r*.72,0,7);ctx.arc(xx-r*.82,yy+r*.18,r*.62,0,7);ctx.fill();ctx.restore();}
+  const gf=Math.max(0,1-m/180);if(gf>0){ctx.save();ctx.globalAlpha=.62*gf;ctx.fillStyle='rgba(78,91,73,.78)';for(let i=0;i<7;i++){const x=W*(.04+i*.145),bw=W*.075,bh=H*(.035+(i%3)*.012),y=H*.90-bh;ctx.fillRect(x,y,bw,bh);ctx.beginPath();ctx.moveTo(x-W*.008,y);ctx.lineTo(x+bw*.5,y-H*.025);ctx.lineTo(x+bw+W*.008,y);ctx.closePath();ctx.fill();}ctx.restore();}
+}
+
 function drawGame(){
   // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
   ctx.save();
@@ -971,7 +990,7 @@ function drawGame(){
   }
 
   // 화면에 붙어 있는 배경/UI와, 카메라가 따라가는 월드 오브젝트를 분리한다.
-  drawBG();
+  kjDrawVectorBG();
   
   ctx.fillStyle='rgba(255,183,197,.85)';
   petals.forEach(p=>{ctx.beginPath();ctx.ellipse(p.x,p.y,p.s,p.s*0.6,0,0,7);ctx.fill();});
