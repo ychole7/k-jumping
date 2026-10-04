@@ -162,10 +162,10 @@ function kjCharmSteerMult(){
  const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
 /* V115 fast partner rebound */
-let kjPartnerBeat={active:false,t:0,dur:.62,power:1,label:'OK'};
+let kjPartnerBeat={active:false,t:0,dur:.56,power:1,label:'OK'};
 function kjStartPartnerBeat(power,label){
- kjPartnerBeat={active:true,t:0,dur:.62,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
- setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},620);
+ kjPartnerBeat={active:true,t:0,dur:.56,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},560);
 }
 
 function launchWithPower(mult=1){
@@ -176,19 +176,11 @@ function launchWithPower(mult=1){
 }
 function tapGame(){
   if(current!=='game'||G.over||paused||kjPartnerBeat.active)return;
-  // V116: no power gauge. Only the descent timing tap matters.
-  if(player.onBoard){if(G.peakM===0&&!kjPartnerBeat.active)launchWithPower(1);return;}
+  if(player.onBoard){if(G.peakM===0)launchWithPower(1);return;}
   if(player.vy>0){
-    const d=Math.max(0,board.y-(player.y+player.r));
-    const fallSpeed=Math.max(0.001,player.vy);
-    const framesToImpact=d/fallSpeed;
-    let label='MISS!',col='#c77dff',power=.78;
-    if(framesToImpact<=2.8){label='PERFECT!';col='#ffd43b';power=1.24;}
-    else if(framesToImpact<=6.8){label='GOOD';col='#58d68d';power=1.09;}
-    else if(framesToImpact<=11.5){label='OK';col='#f39c32';power=.94;}
-    G.landingTap={label,col,power,d,framesToImpact};
+    // V117: remember the tap only; judge it on the exact contact frame.
+    G.landingTap={time:performance.now()};
     G.pressArmed=true;
-    addFloat(player.x,player.y-H*.045,label,col);
   }
 }
 
@@ -559,7 +551,12 @@ function updateGame(){
       landingSquash=1;
       landingKick=1;
       // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
-      const landingJudge=G.landingTap||{label:'MISS!',col:'#c77dff',power:.78};
+      const contactNow=performance.now();
+      const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
+      let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
+      if(tapDelta<=70)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
+      else if(tapDelta<=135)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
+      else if(tapDelta<=220)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
       const isPerfect=landingJudge.label==='PERFECT!';
       if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
@@ -1074,7 +1071,7 @@ function drawGame(){
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
   let partnerHop=0;
-  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.125:.085);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
+  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.155:.105);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
   drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
@@ -1084,7 +1081,17 @@ function drawGame(){
   }
   drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
-  if(!player.onBoard&&player.vy>0){const d=Math.max(0,board.y-(player.y+player.r)),range=H*.22;if(d<range){const q=Math.max(0,Math.min(1,d/range)),rr=player.r*(.72+q*1.55);ctx.save();ctx.globalAlpha=.35+.55*(1-q);ctx.strokeStyle=q<.18?'#ffd43b':'rgba(255,255,255,.96)';ctx.lineWidth=Math.max(3,W*.009);ctx.beginPath();ctx.arc(player.x,player.y,rr,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=.8;ctx.lineWidth=Math.max(2,W*.005);ctx.beginPath();ctx.arc(player.x,player.y,player.r*.72,0,Math.PI*2);ctx.stroke();ctx.restore();}}
+  // V117: fixed target on the plank. Feet meet target = TAP.
+  if(!player.onBoard&&player.vy>0){
+    const d=Math.max(0,board.y-(player.y+player.r)),range=H*.28;
+    if(d<range){
+      const q=Math.max(0,Math.min(1,d/range)),tx=board.cx-board.w*.42*.8,ty=board.y-H*.018,pulse=.5+.5*Math.sin(performance.now()/95);
+      ctx.save();ctx.globalAlpha=.28+.58*(1-q);ctx.strokeStyle=q<.16?'#ffd43b':'rgba(255,255,255,.96)';ctx.lineWidth=Math.max(3,W*.009);
+      ctx.beginPath();ctx.arc(tx,ty,player.r*(.46+.10*pulse),0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=.18+.34*(1-q);ctx.fillStyle=q<.16?'#ffd43b':'#fff';ctx.beginPath();ctx.arc(tx,ty,player.r*.16,0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+  }
+
   if(kjPartnerBeat.active&&kjPartnerBeat.t/kjPartnerBeat.dur>.58){ctx.save();ctx.textAlign='center';ctx.font='900 '+Math.round(W*.075)+'px system-ui';ctx.fillStyle=kjPartnerBeat.label==='PERFECT!'?'#ffd43b':'#fff';ctx.strokeStyle='rgba(70,35,20,.45)';ctx.lineWidth=5;ctx.strokeText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.fillText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.restore();}
   // 월드 파티클도 월드와 함께 움직인다.
   drawParticles();
