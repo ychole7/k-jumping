@@ -90,7 +90,7 @@ function startGame(){
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
-  items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;shake=0;
+  items=[];rocks=[];floats=[];particles=[];jumpTrail=[];launchFlash=0;landingCamFX=0;landingFocus=0;shake=0;
   petals=Array.from({length:14},()=>({x:Math.random()*W,y:Math.random()*H,s:2+Math.random()*3,vy:.4+Math.random(),vx:(Math.random()-.5)*.6}));
   spawnAhead(-H*0.4);
   // V89: first simple flying obstacle.
@@ -393,6 +393,8 @@ let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
 let landingKick=0;
+let landingCamFX=0;
+let landingFocus=0;
 let shake=0;         // 화면 흔들림 강도
 let missFlash=0;
 let judgeFx={text:'',color:'#fff',life:0,max:0.78,x:0,y:0};
@@ -417,6 +419,7 @@ function updateParticles(){
   if(launchFlash>0)launchFlash*=0.82; if(launchFlash<0.02)launchFlash=0;
   if(landingSquash>0)landingSquash*=0.78; if(landingSquash<0.02)landingSquash=0;
   if(landingKick>0)landingKick*=0.72; if(landingKick<0.02)landingKick=0;
+  if(landingCamFX>0)landingCamFX*=0.70; if(landingCamFX<0.015)landingCamFX=0;
   if(missFlash>0)missFlash-=0.035; if(missFlash<0)missFlash=0;
   if(judgeFx.life>0){ judgeFx.life-=0.035; if(judgeFx.life<0)judgeFx.life=0; }
 }
@@ -489,12 +492,18 @@ function updateGame(){
     // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
     // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
     const nearGround=player.vy>0 && landingDist < H*0.30;
-    const cameraTarget=nearGround ? 0 : Math.min(0,player.y-H*0.40);
+    // V118: landing is the hero moment. As the feet enter the final 30%,
+    // ease the camera toward the plank instead of snapping to ground.
+    landingFocus=nearGround?Math.max(0,Math.min(1,1-landingDist/(H*.30))):0;
+    const airTarget=Math.min(0,player.y-H*0.40);
+    const landingTarget=0;
+    const focusEase=landingFocus*landingFocus*(3-2*landingFocus);
+    const cameraTarget=airTarget+(landingTarget-airTarget)*focusEase;
     // V107: high-power equipment can launch much faster than the old fixed camera lerp.
     // Use velocity-aware follow while ascending so the player cannot outrun the camera.
     const riseSpeed=Math.max(0,-player.vy)/H;
     const riseFollow=Math.min(0.62,0.20+riseSpeed*6.5);
-    const follow=nearGround ? 0.52 : (player.vy>0 ? 0.22 : riseFollow);
+    const follow=nearGround ? (0.20+0.24*landingFocus) : (player.vy>0 ? 0.22 : riseFollow);
     G.cam += (cameraTarget-G.cam)*follow;
     // Emergency catch-up only when the player is escaping above the intended framing.
     const screenY=player.y-G.cam;
@@ -558,6 +567,7 @@ function updateGame(){
       else if(tapDelta<=135)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
       else if(tapDelta<=220)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
       const isPerfect=landingJudge.label==='PERFECT!';
+      landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
       if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
       shake=Math.min(1,shake+(isPerfect?.82:.45));
@@ -968,6 +978,8 @@ function drawGame(){
   // 같은 양만큼 화면에서 이동해야 한다. 널판지는 월드 좌표에 고정한다.
   ctx.save();
   ctx.translate(0,-G.cam);
+  // V118: tiny contact-frame camera punch; strong enough to feel, too short to disturb aiming.
+  if(landingCamFX>0)ctx.translate(0,H*.010*landingCamFX);
 
   // 수집 아이템
   for(const s of items){
@@ -1088,6 +1100,7 @@ function drawGame(){
       const q=Math.max(0,Math.min(1,d/range)),tx=board.cx-board.w*.42*.8,ty=board.y-H*.018,pulse=.5+.5*Math.sin(performance.now()/95);
       ctx.save();ctx.globalAlpha=.28+.58*(1-q);ctx.strokeStyle=q<.16?'#ffd43b':'rgba(255,255,255,.96)';ctx.lineWidth=Math.max(3,W*.009);
       ctx.beginPath();ctx.arc(tx,ty,player.r*(.46+.10*pulse),0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=.18+.42*(1-q);ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(tx,ty-player.r*(.7+q*.9));ctx.lineTo(tx,ty-player.r*.28);ctx.stroke();ctx.setLineDash([]);
       ctx.globalAlpha=.18+.34*(1-q);ctx.fillStyle=q<.16?'#ffd43b':'#fff';ctx.beginPath();ctx.arc(tx,ty,player.r*.16,0,Math.PI*2);ctx.fill();ctx.restore();
     }
   }
