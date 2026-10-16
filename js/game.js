@@ -164,8 +164,15 @@ function kjCharmSteerMult(){
 /* V115 fast partner rebound */
 let kjPartnerBeat={active:false,t:0,dur:.22,power:1,label:'OK'};
 function kjStartPartnerBeat(power,label){
- kjPartnerBeat={active:true,t:0,dur:.22,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
- setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},220);
+ const dur=label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
+ kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
+ shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ const token=kjPartnerBeat;
+ setTimeout(()=>{
+   if(current==='game'&&!G.over&&!paused&&kjPartnerBeat===token&&token.active){
+     token.active=false;launchWithPower(token.power);
+   }
+ },Math.round(dur*1000));
 }
 
 function launchWithPower(mult=1){
@@ -392,6 +399,8 @@ let milestoneFX=null;   // 먼지·반짝임 파티클
 let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
+let impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
+
 let landingKick=0;
 let landingCamFX=0;
 let landingFocus=0;
@@ -567,6 +576,9 @@ function updateGame(){
       else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
       else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
       const isPerfect=landingJudge.label==='PERFECT!';
+      impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
+      if(isPerfect)landingSquash=1.5;
+
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
       if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
@@ -732,6 +744,7 @@ function loseLife(){
   board.tilt=0;
   jumpTrail=[];
   landingSquash=0;
+  impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
   landingKick=0;
   shake=Math.min(1,shake+0.8);
   updateHud();
@@ -1093,54 +1106,50 @@ function drawGame(){
   }
   drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
-  // Impact Landing V2.3: rising tension as contact approaches.
-  // The visual countdown uses the same foot-to-plank distance as the contact check.
-  if(!player.onBoard && player.vy>0){
+  // Impact Landing V3.0: ring converges exactly at physical contact.
+  if(!player.onBoard&&player.vy>0){
     const dist=Math.max(0,board.y-(player.y+player.r));
-    const range=H*.34;
-    if(dist<range){
-      const progress=1-Math.min(1,dist/range);
-      const tension=progress*progress*(3-2*progress);
-      const tx=player.x,ty=board.y-player.r*.10;
-      const targetR=Math.max(W*.037,player.r*.50);
-      const ringR=targetR+(1-tension)*Math.max(W*.16,player.r*2.0);
-      const contactSoon=dist<Math.max(H*.035,player.vy*5);
-      const urgent=dist<Math.max(H*.075,player.vy*11);
-      const tapped=G.landingTap&&performance.now()-G.landingTap.time<260;
-      const pulse=0.5+0.5*Math.sin(performance.now()/(urgent?45:105));
-      ctx.save();
-      ctx.lineCap='round';
-      // Progressive glow and a faster heartbeat-like pulse on final approach.
-      ctx.globalAlpha=.35+.55*tension;
-      ctx.strokeStyle=contactSoon?'#ffd43b':urgent?'#ffe98a':'#ffffff';
-      ctx.lineWidth=Math.max(3,W*(contactSoon?.014:urgent?.011:.008));
-      ctx.shadowColor=contactSoon?'#ffb700':'#ffe8a0';
-      ctx.shadowBlur=W*(.012+.035*tension+.016*pulse*(urgent?1:0));
-      ctx.beginPath();ctx.arc(tx,ty,ringR,0,Math.PI*2);ctx.stroke();
+    const gravity=PHYS.gravity();
+    const speed=Math.max(1,player.vy);
+    const eta=(-speed+Math.sqrt(speed*speed+2*gravity*dist))/gravity;
+    const windowSec=1.05;
+    if(eta<windowSec){
+      const t=1-Math.max(0,eta)/windowSec;
+      const near=t>.68,critical=t>.87;
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
+      const cx=player.x,cy=board.y-player.r*.12;
+      const rTarget=Math.max(W*.041,player.r*.56);
+      const r=rTarget+Math.pow(1-t,1.3)*W*.22;
+      const beat=.5+.5*Math.sin(performance.now()/(critical?43:near?78:140));
+      ctx.save();ctx.lineCap='round';
+      ctx.globalAlpha=.30+.68*t;
+      ctx.strokeStyle=critical?'#ffd24a':near?'#ffe6a0':'#79d9ff';
+      ctx.shadowColor=critical?'#ffb000':'#72d7ff';
+      ctx.shadowBlur=W*(.012+.028*t+(critical?.015*beat:0));
+      ctx.lineWidth=Math.max(3,W*(.007+.009*t));
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
       ctx.shadowBlur=0;
-      // The fixed inner ring is the actual target.
-      ctx.globalAlpha=.62+.32*tension;
-      ctx.strokeStyle='#fff1aa';ctx.lineWidth=Math.max(2,W*.006);
-      ctx.beginPath();ctx.arc(tx,ty,targetR,0,Math.PI*2);ctx.stroke();
-      // Ticking markers grow brighter as the moving ring closes in.
-      if(urgent){
-        ctx.globalAlpha=.35+.55*tension;
-        ctx.strokeStyle=contactSoon?'#ffd43b':'#ffffff';
+      ctx.globalAlpha=.4+.5*t;
+      ctx.strokeStyle=critical?'#fff1a2':'#c8f3ff';
+      ctx.lineWidth=Math.max(2,W*.005);
+      ctx.beginPath();ctx.arc(cx,cy,rTarget,0,Math.PI*2);ctx.stroke();
+      if(near){
+        ctx.strokeStyle=critical?'#ffd24a':'#fff1bb';
+        ctx.globalAlpha=(t-.68)/.32*(.6+.4*beat);
         ctx.lineWidth=Math.max(2,W*.006);
         for(let i=0;i<8;i++){
-          const a=i*Math.PI/4-Math.PI/2;
-          const r0=ringR+W*.014,r1=r0+W*(contactSoon?.027:.017);
-          ctx.beginPath();ctx.moveTo(tx+Math.cos(a)*r0,ty+Math.sin(a)*r0);
-          ctx.lineTo(tx+Math.cos(a)*r1,ty+Math.sin(a)*r1);ctx.stroke();
+          const a=i*Math.PI/4;
+          ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r+W*.015),cy+Math.sin(a)*(r+W*.015));
+          ctx.lineTo(cx+Math.cos(a)*(r+W*.03),cy+Math.sin(a)*(r+W*.03));ctx.stroke();
         }
       }
-      if(contactSoon){
-        ctx.globalAlpha=.12+.18*pulse;
-        ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(tx,ty,targetR*1.85,0,Math.PI*2);ctx.fill();
+      if(critical){
+        ctx.globalAlpha=.08+.17*beat;ctx.fillStyle='#ffda53';
+        ctx.beginPath();ctx.arc(cx,cy,rTarget*1.7,0,Math.PI*2);ctx.fill();
       }
       if(tapped){
-        ctx.globalAlpha=.95;ctx.strokeStyle='#78ffdc';ctx.lineWidth=Math.max(3,W*.011);
-        ctx.beginPath();ctx.arc(tx,ty,targetR*.72,0,Math.PI*2);ctx.stroke();
+        ctx.globalAlpha=.95;ctx.strokeStyle='#6effd8';ctx.lineWidth=W*.011;
+        ctx.beginPath();ctx.arc(cx,cy,rTarget*.72,0,Math.PI*2);ctx.stroke();
       }
       ctx.restore();
     }
@@ -1203,6 +1212,30 @@ function drawGame(){
   }
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
+  // V3: decisive contact burst, board compression flash, and rebound cue.
+  if(impactV3.phase==='impact'){
+    const age=(performance.now()-impactV3.at)/1000;
+    if(age>.32)impactV3.phase='idle';
+    else{
+      const perfect=impactV3.grade==='PERFECT!';
+      const strength=perfect?1:impactV3.grade==='GOOD'?.7:.4;
+      const fade=Math.max(0,1-age/.32),cx=impactV3.x,cy=impactV3.y-G.cam;
+      ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
+      ctx.strokeStyle=perfect?'#ffd34d':'#fff2c2';
+      ctx.shadowColor=perfect?'#ffc12c':'#ffffff';ctx.shadowBlur=W*.027*strength;
+      ctx.lineWidth=Math.max(2,W*.013*strength*fade);
+      ctx.beginPath();ctx.ellipse(0,0,W*(.07+age*.65)*strength,H*(.008+age*.07),0,0,Math.PI*2);ctx.stroke();
+      if(perfect){
+        for(let i=0;i<12;i++){
+          const a=Math.PI+(i/11)*Math.PI;
+          const r=W*(.08+age*.4);
+          ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.5,Math.sin(a)*r*.25);
+          ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r*.6);ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
   // V95 landing impact FX.
   for(const f of landingImpactFX){
     const t=1-f.life,p=f.power;ctx.save();ctx.globalAlpha=Math.max(0,f.life)*.72;ctx.strokeStyle='#fff3cf';ctx.lineWidth=Math.max(2,W*.010*f.life);ctx.shadowColor='rgba(255,220,150,.7)';ctx.shadowBlur=10;
@@ -1220,25 +1253,23 @@ function drawGame(){
     if(launchGrade==='PERFECT!'){ctx.globalAlpha=launchGradeLife*.75;for(let i=0;i<4;i++){const a=performance.now()*.004+i*1.57,rr=W*(.035+i*.009);ctx.fillStyle='#fff4a8';ctx.beginPath();ctx.arc(player.x+Math.cos(a)*rr,player.y-G.cam+H*.07+Math.sin(a)*rr*.35,W*.006,0,Math.PI*2);ctx.fill();}}
     ctx.restore();
   }
-  // V91 landing timing cue: appears only on final descent.
+  // V3: final-contact prompt placed near the plank instead of screen center.
   if(!player.onBoard&&player.vy>0){
-    const d=board.y-(player.y+player.r);
-    if(d>0&&d<H*.24){
-      const a=Math.max(0,Math.min(1,1-d/(H*.24)));
-      const urgent=d<Math.max(H*.075,player.vy*11);
-      const contactSoon=d<Math.max(H*.035,player.vy*5);
-      const pulse=.5+.5*Math.sin(performance.now()/(urgent?45:110));
-      const tapped=G.landingTap&&performance.now()-G.landingTap.time<260;
+    const dist=board.y-(player.y+player.r);
+    const g=PHYS.gravity(),v=Math.max(1,player.vy);
+    const eta=(-v+Math.sqrt(v*v+2*g*Math.max(0,dist)))/g;
+    if(dist>0&&eta<.38){
+      const urgent=eta<.13,blink=.5+.5*Math.sin(performance.now()/55);
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
       ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.globalAlpha=(.30+.65*a)*(urgent?.85+.15*pulse:1);
-      const scale=contactSoon?1.12+.07*pulse:1;
-      ctx.translate(W*.5,H*.48);ctx.scale(scale,scale);
-      ctx.font='900 '+Math.round(W*.095)+'px system-ui';
-      ctx.lineWidth=Math.max(4,W*.014);
-      ctx.strokeStyle='rgba(91,48,0,.78)';
-      ctx.fillStyle=tapped?'#79ffdc':contactSoon?'#ffd43b':'#fff3a6';
-      const label=tapped?'OK!':contactSoon?'지금!':'TAP!';
-      ctx.strokeText(label,0,0);ctx.fillText(label,0,0);ctx.restore();
+      ctx.globalAlpha=tapped?.75:urgent?.85+.15*blink:.45+.45*(1-eta/.38);
+      ctx.font='900 '+Math.round(W*(urgent?.082:.067))+'px system-ui';
+      ctx.lineWidth=Math.max(3,W*.010);
+      ctx.strokeStyle='rgba(65,37,18,.85)';
+      ctx.fillStyle=tapped?'#78ffdc':urgent?'#ffdc4a':'#fff8dc';
+      const label=tapped?'탭!':urgent?'지금!':'준비!';
+      const px=player.x,py=Math.max(H*.17,board.y-G.cam-player.r*2.7);
+      ctx.strokeText(label,px,py);ctx.fillText(label,px,py);ctx.restore();
     }
   }
   // V89 simple commercial-style bird obstacle.
