@@ -559,13 +559,13 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // Impact Landing V2.1: 접촉 순간 판정 후 짧은 파트너 반동을 거쳐 자동 재점프한다.
+      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
       const contactNow=performance.now();
       const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
       let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
-      if(tapDelta<=70)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
-      else if(tapDelta<=135)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
-      else if(tapDelta<=220)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
+      if(tapDelta<=100)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
+      else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
+      else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
       const isPerfect=landingJudge.label==='PERFECT!';
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
       if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
@@ -1093,15 +1093,40 @@ function drawGame(){
   }
   drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
-  // V117: fixed target on the plank. Feet meet target = TAP.
-  if(!player.onBoard&&player.vy>0){
-    const d=Math.max(0,board.y-(player.y+player.r)),range=H*.28;
-    if(d<range){
-      const q=Math.max(0,Math.min(1,d/range)),tx=board.cx-board.w*.42*.8,ty=board.y-H*.018,pulse=.5+.5*Math.sin(performance.now()/95);
-      ctx.save();ctx.globalAlpha=.28+.58*(1-q);ctx.strokeStyle=q<.16?'#ffd43b':'rgba(255,255,255,.96)';ctx.lineWidth=Math.max(3,W*.009);
-      ctx.beginPath();ctx.arc(tx,ty,player.r*(.46+.10*pulse),0,Math.PI*2);ctx.stroke();
-      ctx.globalAlpha=.18+.42*(1-q);ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(tx,ty-player.r*(.7+q*.9));ctx.lineTo(tx,ty-player.r*.28);ctx.stroke();ctx.setLineDash([]);
-      ctx.globalAlpha=.18+.34*(1-q);ctx.fillStyle=q<.16?'#ffd43b':'#fff';ctx.beginPath();ctx.arc(tx,ty,player.r*.16,0,Math.PI*2);ctx.fill();ctx.restore();
+  // Impact Landing V2.2: the moving ring converges exactly as the feet reach the plank.
+  // Use world-space coordinates so the cue follows the plank during camera movement.
+  if(!player.onBoard && player.vy>0){
+    const dist=Math.max(0,board.y-(player.y+player.r));
+    const range=H*.30;
+    if(dist<range){
+      const progress=1-Math.min(1,dist/range);
+      const smooth=progress*progress*(3-2*progress);
+      const tx=player.x, ty=board.y-player.r*.10;
+      const targetR=Math.max(W*.037,player.r*.50);
+      const ringR=targetR+(1-smooth)*Math.max(W*.12,player.r*1.65);
+      const near=dist<Math.max(H*.036,player.vy*6);
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<250;
+      ctx.save();
+      // Dim the background locally without hiding the character or plank.
+      ctx.globalAlpha=.30+.40*smooth;
+      ctx.strokeStyle=near?'#ffd43b':'#ffffff';
+      ctx.lineWidth=Math.max(3,W*(near?.012:.008));
+      ctx.shadowColor=near?'#ffc400':'rgba(255,255,255,.8)';
+      ctx.shadowBlur=near?W*.045:W*.014;
+      ctx.beginPath();ctx.arc(tx,ty,ringR,0,Math.PI*2);ctx.stroke();
+      ctx.shadowBlur=0;
+      ctx.globalAlpha=.70+.25*smooth;
+      ctx.strokeStyle='#ffe68c';ctx.lineWidth=Math.max(2,W*.006);
+      ctx.beginPath();ctx.arc(tx,ty,targetR,0,Math.PI*2);ctx.stroke();
+      if(near){
+        ctx.globalAlpha=.13+.13*Math.sin(performance.now()/65)**2;
+        ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(tx,ty,targetR*1.65,0,Math.PI*2);ctx.fill();
+      }
+      if(tapped){
+        ctx.globalAlpha=.90;ctx.strokeStyle='#8df7d5';ctx.lineWidth=Math.max(3,W*.009);
+        ctx.beginPath();ctx.arc(tx,ty,targetR*.72,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 
