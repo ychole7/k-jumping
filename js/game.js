@@ -1093,37 +1093,53 @@ function drawGame(){
   }
   drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
-  // Impact Landing V2.2: the moving ring converges exactly as the feet reach the plank.
-  // Use world-space coordinates so the cue follows the plank during camera movement.
+  // Impact Landing V2.3: rising tension as contact approaches.
+  // The visual countdown uses the same foot-to-plank distance as the contact check.
   if(!player.onBoard && player.vy>0){
     const dist=Math.max(0,board.y-(player.y+player.r));
-    const range=H*.30;
+    const range=H*.34;
     if(dist<range){
       const progress=1-Math.min(1,dist/range);
-      const smooth=progress*progress*(3-2*progress);
-      const tx=player.x, ty=board.y-player.r*.10;
+      const tension=progress*progress*(3-2*progress);
+      const tx=player.x,ty=board.y-player.r*.10;
       const targetR=Math.max(W*.037,player.r*.50);
-      const ringR=targetR+(1-smooth)*Math.max(W*.12,player.r*1.65);
-      const near=dist<Math.max(H*.036,player.vy*6);
-      const tapped=G.landingTap&&performance.now()-G.landingTap.time<250;
+      const ringR=targetR+(1-tension)*Math.max(W*.16,player.r*2.0);
+      const contactSoon=dist<Math.max(H*.035,player.vy*5);
+      const urgent=dist<Math.max(H*.075,player.vy*11);
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<260;
+      const pulse=0.5+0.5*Math.sin(performance.now()/(urgent?45:105));
       ctx.save();
-      // Dim the background locally without hiding the character or plank.
-      ctx.globalAlpha=.30+.40*smooth;
-      ctx.strokeStyle=near?'#ffd43b':'#ffffff';
-      ctx.lineWidth=Math.max(3,W*(near?.012:.008));
-      ctx.shadowColor=near?'#ffc400':'rgba(255,255,255,.8)';
-      ctx.shadowBlur=near?W*.045:W*.014;
+      ctx.lineCap='round';
+      // Progressive glow and a faster heartbeat-like pulse on final approach.
+      ctx.globalAlpha=.35+.55*tension;
+      ctx.strokeStyle=contactSoon?'#ffd43b':urgent?'#ffe98a':'#ffffff';
+      ctx.lineWidth=Math.max(3,W*(contactSoon?.014:urgent?.011:.008));
+      ctx.shadowColor=contactSoon?'#ffb700':'#ffe8a0';
+      ctx.shadowBlur=W*(.012+.035*tension+.016*pulse*(urgent?1:0));
       ctx.beginPath();ctx.arc(tx,ty,ringR,0,Math.PI*2);ctx.stroke();
       ctx.shadowBlur=0;
-      ctx.globalAlpha=.70+.25*smooth;
-      ctx.strokeStyle='#ffe68c';ctx.lineWidth=Math.max(2,W*.006);
+      // The fixed inner ring is the actual target.
+      ctx.globalAlpha=.62+.32*tension;
+      ctx.strokeStyle='#fff1aa';ctx.lineWidth=Math.max(2,W*.006);
       ctx.beginPath();ctx.arc(tx,ty,targetR,0,Math.PI*2);ctx.stroke();
-      if(near){
-        ctx.globalAlpha=.13+.13*Math.sin(performance.now()/65)**2;
-        ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(tx,ty,targetR*1.65,0,Math.PI*2);ctx.fill();
+      // Ticking markers grow brighter as the moving ring closes in.
+      if(urgent){
+        ctx.globalAlpha=.35+.55*tension;
+        ctx.strokeStyle=contactSoon?'#ffd43b':'#ffffff';
+        ctx.lineWidth=Math.max(2,W*.006);
+        for(let i=0;i<8;i++){
+          const a=i*Math.PI/4-Math.PI/2;
+          const r0=ringR+W*.014,r1=r0+W*(contactSoon?.027:.017);
+          ctx.beginPath();ctx.moveTo(tx+Math.cos(a)*r0,ty+Math.sin(a)*r0);
+          ctx.lineTo(tx+Math.cos(a)*r1,ty+Math.sin(a)*r1);ctx.stroke();
+        }
+      }
+      if(contactSoon){
+        ctx.globalAlpha=.12+.18*pulse;
+        ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(tx,ty,targetR*1.85,0,Math.PI*2);ctx.fill();
       }
       if(tapped){
-        ctx.globalAlpha=.90;ctx.strokeStyle='#8df7d5';ctx.lineWidth=Math.max(3,W*.009);
+        ctx.globalAlpha=.95;ctx.strokeStyle='#78ffdc';ctx.lineWidth=Math.max(3,W*.011);
         ctx.beginPath();ctx.arc(tx,ty,targetR*.72,0,Math.PI*2);ctx.stroke();
       }
       ctx.restore();
@@ -1209,10 +1225,20 @@ function drawGame(){
     const d=board.y-(player.y+player.r);
     if(d>0&&d<H*.24){
       const a=Math.max(0,Math.min(1,1-d/(H*.24)));
-      ctx.save();ctx.globalAlpha=.35+.65*a;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font='900 '+Math.round(W*.09)+'px system-ui';ctx.lineWidth=Math.max(4,W*.014);
-      ctx.strokeStyle='rgba(91,48,0,.72)';ctx.fillStyle='#fff3a6';
-      ctx.strokeText('TAP!',W*.5,H*.52);ctx.fillText('TAP!',W*.5,H*.52);ctx.restore();
+      const urgent=d<Math.max(H*.075,player.vy*11);
+      const contactSoon=d<Math.max(H*.035,player.vy*5);
+      const pulse=.5+.5*Math.sin(performance.now()/(urgent?45:110));
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<260;
+      ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.globalAlpha=(.30+.65*a)*(urgent?.85+.15*pulse:1);
+      const scale=contactSoon?1.12+.07*pulse:1;
+      ctx.translate(W*.5,H*.48);ctx.scale(scale,scale);
+      ctx.font='900 '+Math.round(W*.095)+'px system-ui';
+      ctx.lineWidth=Math.max(4,W*.014);
+      ctx.strokeStyle='rgba(91,48,0,.78)';
+      ctx.fillStyle=tapped?'#79ffdc':contactSoon?'#ffd43b':'#fff3a6';
+      const label=tapped?'OK!':contactSoon?'지금!':'TAP!';
+      ctx.strokeText(label,0,0);ctx.fillText(label,0,0);ctx.restore();
     }
   }
   // V89 simple commercial-style bird obstacle.
