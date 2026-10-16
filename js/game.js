@@ -162,10 +162,10 @@ function kjCharmSteerMult(){
  const lv=kjEquip.levels[id]||1;return id==='luck'?1.10+(lv-1)*.025:1;
 }
 /* V115 fast partner rebound */
-let kjPartnerBeat={active:false,t:0,dur:.56,power:1,label:'OK'};
+let kjPartnerBeat={active:false,t:0,dur:.22,power:1,label:'OK'};
 function kjStartPartnerBeat(power,label){
- kjPartnerBeat={active:true,t:0,dur:.56,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
- setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},560);
+ kjPartnerBeat={active:true,t:0,dur:.22,power,label}; landingKick=1; shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ setTimeout(()=>{if(!G.over&&kjPartnerBeat.active){kjPartnerBeat.active=false;launchWithPower(kjPartnerBeat.power);}},220);
 }
 
 function launchWithPower(mult=1){
@@ -559,7 +559,7 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
+      // Impact Landing V2.1: 접촉 순간 판정 후 짧은 파트너 반동을 거쳐 자동 재점프한다.
       const contactNow=performance.now();
       const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
       let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
