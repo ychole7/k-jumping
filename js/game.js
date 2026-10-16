@@ -163,13 +163,35 @@ function kjCharmSteerMult(){
 }
 /* V115 fast partner rebound */
 let kjPartnerBeat={active:false,t:0,dur:.22,power:1,label:'OK'};
+// V3.1: short synthesized contact audio (no extra asset files).
+let kjImpactAudio=null;
+function kjPlayImpact(grade){
+ try{
+   const AC=window.AudioContext||window.webkitAudioContext;
+   if(!AC)return;
+   if(!kjImpactAudio)kjImpactAudio=new AC();
+   if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();
+   const now=kjImpactAudio.currentTime;
+   const perfect=grade==='PERFECT!';
+   const osc=kjImpactAudio.createOscillator(),gain=kjImpactAudio.createGain();
+   osc.type='sine';
+   osc.frequency.setValueAtTime(perfect?170:130,now);
+   osc.frequency.exponentialRampToValueAtTime(perfect?58:70,now+.14);
+   gain.gain.setValueAtTime(.0001,now);
+   gain.gain.exponentialRampToValueAtTime(perfect?.24:.13,now+.008);
+   gain.gain.exponentialRampToValueAtTime(.0001,now+.19);
+   osc.connect(gain);gain.connect(kjImpactAudio.destination);
+   osc.start(now);osc.stop(now+.20);
+ }catch(_){}
+}
 function kjStartPartnerBeat(power,label){
  const dur=label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
  kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
  shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
  const token=kjPartnerBeat;
  setTimeout(()=>{
-   if(current==='game'&&!G.over&&!paused&&kjPartnerBeat===token&&token.active){
+   if(current==='game'&&!G.over&&kjPartnerBeat===token&&token.active){
+     if(paused){setTimeout(()=>{if(current==='game'&&!G.over&&kjPartnerBeat===token&&token.active&&!paused){token.active=false;launchWithPower(token.power);}},180);return;}
      token.active=false;launchWithPower(token.power);
    }
  },Math.round(dur*1000));
@@ -180,6 +202,7 @@ function launchWithPower(mult=1){
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
   player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
   launchFlash=1; jumpTrail=[];
+  if(impactV3.phase==='impact')impactV3.phase='rebound';
 }
 function tapGame(){
   if(current!=='game'||G.over||paused||kjPartnerBeat.active)return;
@@ -208,6 +231,7 @@ function down(e){
   const t=e.touches&&e.touches.length?e.touches[0]:e;
   tsx=t.clientX;
   const wasOnBoard=player.onBoard;
+  if(kjImpactAudio&&kjImpactAudio.state==='suspended')kjImpactAudio.resume().catch(()=>{});
   tapGame();
   // V56: 이미 공중에 있을 때 새로 누르면 화면 좌/우 절반으로 이동한다.
   // 점프를 시작한 최초 탭은 조향으로 취급하지 않아 기존 타이밍 입력을 보존한다.
@@ -577,6 +601,9 @@ function updateGame(){
       else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
       const isPerfect=landingJudge.label==='PERFECT!';
       impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
+      kjPlayImpact(landingJudge.label);
+      if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
+
       if(isPerfect)landingSquash=1.5;
 
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
@@ -1213,13 +1240,13 @@ function drawGame(){
   drawJudgeFx();
   ctx.textAlign='center';ctx.font='900 20px sans-serif';
   // V3: decisive contact burst, board compression flash, and rebound cue.
-  if(impactV3.phase==='impact'){
+  if(impactV3.phase==='impact'||impactV3.phase==='rebound'){
     const age=(performance.now()-impactV3.at)/1000;
-    if(age>.32)impactV3.phase='idle';
+    if(age>.42)impactV3.phase='idle';
     else{
       const perfect=impactV3.grade==='PERFECT!';
       const strength=perfect?1:impactV3.grade==='GOOD'?.7:.4;
-      const fade=Math.max(0,1-age/.32),cx=impactV3.x,cy=impactV3.y-G.cam;
+      const fade=Math.max(0,1-age/.42),cx=impactV3.x,cy=impactV3.y-G.cam;
       ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
       ctx.strokeStyle=perfect?'#ffd34d':'#fff2c2';
       ctx.shadowColor=perfect?'#ffc12c':'#ffffff';ctx.shadowBlur=W*.027*strength;
@@ -1231,6 +1258,14 @@ function drawGame(){
           const r=W*(.08+age*.4);
           ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.5,Math.sin(a)*r*.25);
           ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r*.6);ctx.stroke();
+        }
+      }
+      if(perfect&&age<.25){
+        ctx.globalAlpha=fade*.7;ctx.fillStyle='#fff7c2';
+        for(let i=0;i<10;i++){
+          const a=-Math.PI+i*Math.PI/9;
+          const d=W*(.10+age*.55),size=W*.012*fade;
+          ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d*.55,size,0,Math.PI*2);ctx.fill();
         }
       }
       ctx.restore();
