@@ -172,7 +172,7 @@ function kjPlayImpact(grade){
    if(!kjImpactAudio)kjImpactAudio=new AC();
    if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();
    const now=kjImpactAudio.currentTime;
-   const perfect=grade==='PERFECT!';
+   const perfect=grade==='PERFECT!'||grade==='SUPER PERFECT!';
    const osc=kjImpactAudio.createOscillator(),gain=kjImpactAudio.createGain();
    osc.type='sine';
    osc.frequency.setValueAtTime(perfect?170:130,now);
@@ -185,9 +185,9 @@ function kjPlayImpact(grade){
  }catch(_){}
 }
 function kjStartPartnerBeat(power,label){
- const dur=label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
+ const dur=label==='SUPER PERFECT!'?.12:label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
  kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
- shake=Math.min(1,shake+(label==='PERFECT!'?.55:.28));
+ shake=Math.min(1,shake+((label==='PERFECT!'||label==='SUPER PERFECT!')?.65:.28));
  const token=kjPartnerBeat;
  setTimeout(()=>{
    if(current==='game'&&!G.over&&kjPartnerBeat===token&&token.active){
@@ -599,7 +599,16 @@ function updateGame(){
       if(tapDelta<=100)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
       else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
       else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
-      const isPerfect=landingJudge.label==='PERFECT!';
+      // V4: Precision landing combines tap timing with landing position.
+      // The sweet spot is the middle of the player's half, not the whole board.
+      const sweetX=(playerSideLeft+playerSideRight)*.5;
+      const sweetHalf=Math.max(player.r*.9,(playerSideRight-playerSideLeft)*.27);
+      const positionAccuracy=Math.max(0,1-Math.abs(player.x-sweetX)/sweetHalf);
+      const superPerfect=landingJudge.label==='PERFECT!'&&tapDelta<=45&&positionAccuracy>=.65;
+      if(superPerfect){
+        landingJudge={label:'SUPER PERFECT!',col:'#fff3a5',power:1.65,delta:tapDelta};
+      }
+      const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
       impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
       kjPlayImpact(landingJudge.label);
       if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
@@ -607,7 +616,11 @@ function updateGame(){
       if(isPerfect)landingSquash=1.5;
 
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
-      if(isPerfect){G.combo=(G.combo||0)+1;comboPulse=1;if(G.combo>=2)addFloat(player.x,board.y-H*0.15,'PERFECT ×'+G.combo,'#ffd34d');}else{G.combo=0;}
+      if(isPerfect){
+        G.combo=(G.combo||0)+1;comboPulse=1;
+        if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
+        else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
+      }else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
       shake=Math.min(1,shake+(isPerfect?.82:.45));
       if(isPerfect){
@@ -615,7 +628,13 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#fff1a8');
       }
       bigJudge(landingJudge.label,landingJudge.col);
-      const reboundPower=landingJudge.power||({PERFECT:1.24,GOOD:1.09,OK:.94,MISS:.78}[landingJudge.label.replace('!','')]||.78);
+      // Every third precision landing triggers a noticeably higher bonus jump.
+      const streakBoost=isPerfect&&G.combo>=3&&G.combo%3===0?1.35:1;
+      if(streakBoost>1){
+        addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
+        spawnSparkle(player.x,board.y,'#ffe76d');
+      }
+      const reboundPower=landingJudge.power*streakBoost;
       G.landingTap=null;
       G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
@@ -1123,7 +1142,7 @@ function drawGame(){
   const partX=pivotX+Math.cos(tilt)*halfW*0.8;
   const partY=pivotY+Math.sin(tilt)*halfW*0.8;
   let partnerHop=0;
-  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*(kjPartnerBeat.label==='PERFECT!'?.155:.105);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
+  if(kjPartnerBeat.active){kjPartnerBeat.t=Math.min(kjPartnerBeat.dur,kjPartnerBeat.t+1/60);const u=Math.min(1,kjPartnerBeat.t/kjPartnerBeat.dur);partnerHop=Math.sin(u*Math.PI)*H*((kjPartnerBeat.label==='PERFECT!'||kjPartnerBeat.label==='SUPER PERFECT!')?.18:.105);board.tilt+=(0.16*Math.sin(u*Math.PI*1.35)-board.tilt)*.16;}
   drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
@@ -1146,6 +1165,12 @@ function drawGame(){
       const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
       const cx=player.x,cy=board.y-player.r*.12;
       const rTarget=Math.max(W*.041,player.r*.56);
+      // Position challenge: show a golden sweet spot on the player's landing half.
+      const sweetX=(board.cx-board.w*.42+board.cx)*.5;
+      ctx.save();ctx.globalAlpha=.22+.48*t;
+      ctx.strokeStyle='#ffd44e';ctx.lineWidth=Math.max(2,W*.008);
+      ctx.beginPath();ctx.ellipse(sweetX,board.y-G.cam,W*.065,H*.009,0,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
       const r=rTarget+Math.pow(1-t,1.3)*W*.22;
       const beat=.5+.5*Math.sin(performance.now()/(critical?43:near?78:140));
       ctx.save();ctx.lineCap='round';
@@ -1244,7 +1269,7 @@ function drawGame(){
     const age=(performance.now()-impactV3.at)/1000;
     if(age>.42)impactV3.phase='idle';
     else{
-      const perfect=impactV3.grade==='PERFECT!';
+      const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='SUPER PERFECT!';
       const strength=perfect?1:impactV3.grade==='GOOD'?.7:.4;
       const fade=Math.max(0,1-age/.42),cx=impactV3.x,cy=impactV3.y-G.cam;
       ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
