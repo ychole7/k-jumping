@@ -165,27 +165,100 @@ function kjCharmSteerMult(){
 let kjPartnerBeat={active:false,t:0,dur:.22,power:1,label:'OK'};
 // V3.1: short synthesized contact audio (no extra asset files).
 let kjImpactAudio=null;
+function kjAudio(){
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+ if(!kjImpactAudio)kjImpactAudio=new AC();if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();return kjImpactAudio;
+}
+function kjTone(a,type,f0,f1,vol,dur,delay=0){
+ const t=a.currentTime+delay,o=a.createOscillator(),g=a.createGain();
+ o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur*.8);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+.02);
+}
+function kjNoise(a,freq,q,vol,dur,sweepTo){
+ const t=a.currentTime,n=Math.ceil(a.sampleRate*dur),buf=a.createBuffer(1,n,a.sampleRate),d=buf.getChannelData(0);
+ for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+ const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();
+ src.buffer=buf;f.type='bandpass';f.Q.value=q;f.frequency.setValueAtTime(freq,t);if(sweepTo)f.frequency.exponentialRampToValueAtTime(sweepTo,t+dur);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+(sweepTo?dur*.4:.004));g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ src.connect(f);f.connect(g);g.connect(a.destination);src.start(t);src.stop(t+dur);
+}
+// V16: 판정별로 확실히 다른 착지음. PERFECT = 쿵 + 딱 + 콤보마다 올라가는 종소리.
 function kjPlayImpact(grade){
  try{
-   const AC=window.AudioContext||window.webkitAudioContext;
-   if(!AC)return;
-   if(!kjImpactAudio)kjImpactAudio=new AC();
-   if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();
-   const now=kjImpactAudio.currentTime;
-   const perfect=grade==='PERFECT!'||grade==='SUPER PERFECT!';
-   const osc=kjImpactAudio.createOscillator(),gain=kjImpactAudio.createGain();
-   osc.type='sine';
-   osc.frequency.setValueAtTime(perfect?170:130,now);
-   osc.frequency.exponentialRampToValueAtTime(perfect?58:70,now+.14);
-   gain.gain.setValueAtTime(.0001,now);
-   gain.gain.exponentialRampToValueAtTime(perfect?.24:.13,now+.008);
-   gain.gain.exponentialRampToValueAtTime(.0001,now+.19);
-   osc.connect(gain);gain.connect(kjImpactAudio.destination);
-   osc.start(now);osc.stop(now+.20);
+   const a=kjAudio();if(!a)return;
+   const sup=grade==='SUPER PERFECT!',perf=sup||grade==='PERFECT!';
+   if(perf){
+     kjTone(a,'sine',180,42,.42,.26);
+     kjNoise(a,2600,1.2,.35,.07);
+     const step=Math.min(G.combo||1,8)-1,base=660*Math.pow(2,step*2/12);
+     kjTone(a,'triangle',base,base*1.01,.10,.32,.02);
+     kjTone(a,'triangle',base*1.5,base*1.5,.07,.38,.07);
+     if(sup)kjTone(a,'triangle',base*2,base*2,.07,.45,.12);
+   }else if(grade==='GOOD'){
+     kjTone(a,'sine',150,55,.26,.2);kjNoise(a,1800,1.4,.16,.05);
+     kjTone(a,'triangle',520,520,.05,.18,.02);
+   }else if(grade==='OK'){
+     kjTone(a,'sine',120,60,.18,.18);
+   }else{
+     kjTone(a,'sine',95,48,.16,.22);kjTone(a,'square',110,82,.025,.18);
+   }
  }catch(_){}
 }
+function kjPlayWhoosh(mult){
+ try{const a=kjAudio();if(!a||mult<1)return;kjNoise(a,350,.9,Math.min(.22,.07+(mult-1)*.25),.42,2400);}catch(_){}
+}
+/* V16: 히트스톱 · 줌 펀치 · 플래시 · 발사 스피드라인 */
+let kjHitStopUntil=0,kjImpactFX=null,kjLaunchFX=null;
+function kjTriggerImpact(grade,x,y){
+ const sup=grade==='SUPER PERFECT!',perf=sup||grade==='PERFECT!',good=grade==='GOOD';
+ const str=sup?1.35:perf?1:good?.45:grade==='OK'?.18:0;
+ kjHitStopUntil=performance.now()+(sup?140:perf?100:good?40:0);
+ kjImpactFX={at:performance.now(),grade,str,x,y,perf,sup};
+}
+function kjZoomPunch(){
+ const f=kjImpactFX;if(!f||f.str<=0)return null;
+ const age=(performance.now()-f.at)/1000,dur=.32;if(age>dur)return null;
+ const k=age/dur,e=(1-k)*(1-k);
+ return {x:W*.5,y:f.y-G.cam,s:1+.075*f.str*e};
+}
+function kjDrawImpactPunch(){
+ const now=performance.now();
+ ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);
+ const f=kjImpactFX;
+ if(f){
+   const age=(now-f.at)/1000;
+   // 화면 플래시: PERFECT는 하얗게 번쩍, MISS는 회색으로 가라앉음
+   if(f.perf&&age<.16){ctx.globalAlpha=(1-age/.16)*(f.sup?.75:.5);ctx.fillStyle=f.sup?'#fff6c8':'#ffffff';ctx.fillRect(0,0,W,H);}
+   else if(f.grade==='MISS!'&&age<.35){ctx.globalAlpha=.28*(1-age/.35);ctx.fillStyle='#2b2440';ctx.fillRect(0,0,W,H);}
+   // 충격파 링 + 방사형 집중선
+   if(f.str>.3&&age<.38){
+     const t=age/.38,x=f.x,y=f.y-G.cam;
+     ctx.globalAlpha=(1-t)*.9;ctx.strokeStyle=f.sup?'#fff3a5':'#ffffff';ctx.lineWidth=Math.max(2,W*.02*(1-t)*f.str);
+     ctx.beginPath();ctx.ellipse(x,y,W*(.08+.55*t)*f.str,W*(.03+.2*t)*f.str,0,0,Math.PI*2);ctx.stroke();
+     if(f.perf){
+       ctx.globalAlpha=(1-t)*.55;ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1.5,W*.006);
+       for(let i=0;i<28;i++){const ang=i/28*Math.PI*2+(i%2)*.06,r0=W*(.42+.15*t),r1=W*(.95+.1*(i%3));
+         ctx.beginPath();ctx.moveTo(x+Math.cos(ang)*r0,y+Math.sin(ang)*r0);ctx.lineTo(x+Math.cos(ang)*r1,y+Math.sin(ang)*r1);ctx.stroke();}
+     }
+   }
+   if(age>1)kjImpactFX=null;
+ }
+ // 발사 스피드라인: 반동이 셀수록 길고 많다
+ const L=kjLaunchFX;
+ if(L&&L.mult>1.05&&player&&!player.onBoard){
+   const age=(now-L.at)/1000,dur=.45;
+   if(age<dur){
+     const p=Math.min(1,(L.mult-1)/.8),n=Math.round(6+14*p),px=player.x,py=player.y-G.cam;
+     ctx.globalAlpha=(1-age/dur)*(.35+.4*p);ctx.strokeStyle='#ffffff';ctx.lineCap='round';
+     for(let i=0;i<n;i++){const ox=((i*73)%100/100-.5)*W*.32,len=H*(.08+.18*p)*(.6+((i*37)%10)/10),oy=player.r*(.6+((i*17)%10)/12);
+       ctx.lineWidth=Math.max(1.5,W*.006*(1+p));ctx.beginPath();ctx.moveTo(px+ox,py+oy);ctx.lineTo(px+ox,py+oy+len);ctx.stroke();}
+   }else kjLaunchFX=null;
+ }
+ ctx.restore();
+}
 function kjStartPartnerBeat(power,label){
- const dur=label==='SUPER PERFECT!'?.12:label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
+ const dur=label==='SUPER PERFECT!'?.15:label==='PERFECT!'?.11:label==='GOOD'?.07:label==='OK'?.06:.16;
  kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
  shake=Math.min(1,shake+((label==='PERFECT!'||label==='SUPER PERFECT!')?.65:.28));
  const token=kjPartnerBeat;
@@ -203,7 +276,7 @@ const KJ_WIN={super:35,perfect:70,good:140,ok:220,ignore:450};
 function kjResolveLanding(delta,positionAccuracy,contactNow){
   // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
   const tapDelta=delta==null?9999:Math.abs(delta);
-  let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
+  let landingJudge={label:'MISS!',col:'#9a8fb0',power:.72,delta:tapDelta};
   if(tapDelta<=KJ_WIN.perfect)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
   else if(tapDelta<=KJ_WIN.good)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
   else if(tapDelta<=KJ_WIN.ok)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
@@ -216,15 +289,15 @@ function kjResolveLanding(delta,positionAccuracy,contactNow){
   const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
   impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
   kjPlayImpact(landingJudge.label);
-  if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
+  kjTriggerImpact(landingJudge.label,player.x,board.y);
+  if(navigator.vibrate)try{navigator.vibrate(superPerfect?[40,30,70]:isPerfect?[28,20,40]:landingJudge.label==='MISS!'?[8]:[14]);}catch(_){}
 
   if(isPerfect)landingSquash=1.5;
 
   landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
   if(isPerfect){
     G.combo=(G.combo||0)+1;comboPulse=1;
-    if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
-    else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
+    if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
   }else{G.combo=0;}
   spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
   shake=Math.min(1,shake+(isPerfect?.82:.45));
@@ -241,7 +314,9 @@ function kjResolveLanding(delta,positionAccuracy,contactNow){
     addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
     spawnSparkle(player.x,board.y,'#ffe76d');
   }
-  const reboundPower=landingJudge.power*streakBoost;
+  // V16: PERFECT 연속일수록 반동이 계속 커진다(최대 8연속).
+  const comboBoost=isPerfect?1+Math.min(Math.max(0,G.combo-1),8)*.035:1;
+  const reboundPower=landingJudge.power*streakBoost*comboBoost;
   G.landingTap=null;G.lateWindow=null;kjRhythmWasDescending=false;
   G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
   G.lastJudge=null;
@@ -257,6 +332,7 @@ function launchWithPower(mult=1){
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
   player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
   launchFlash=1; jumpTrail=[];
+  kjLaunchFX={at:performance.now(),mult};kjPlayWhoosh(mult);
   if(impactV3.phase==='impact')impactV3.phase='rebound';
 }
 function tapGame(){
@@ -770,13 +846,16 @@ function drawJudgeFx(){
   const t=judgeFx.life/judgeFx.max;
   const fade=t<0.22?t/0.22:1;
   const rise=(1-t)*H*.07;
-  const x=Math.max(W*.15,Math.min(W*.85,judgeFx.x));
+  ctx.save();ctx.font='1000 '+Math.round(W*.115)+'px Arial, sans-serif';
+  const jw=Math.min(W*.92,ctx.measureText(judgeFx.text).width);ctx.restore();
+  const x=Math.max(jw/2+W*.04,Math.min(W-jw/2-W*.04,judgeFx.x));
   const y=Math.max(H*.12,Math.min(H*.72,judgeFx.y-rise));
   ctx.save();
   ctx.globalAlpha=fade;
   ctx.textAlign='center';
   ctx.textBaseline='middle';
   ctx.font='1000 '+Math.round(W*.115)+'px Arial, sans-serif';
+  {const mw=ctx.measureText(judgeFx.text).width;if(mw>W*.92)ctx.font='1000 '+Math.round(W*.115*W*.92/mw)+'px Arial, sans-serif';}
   ctx.lineWidth=Math.max(3,W*.014);
   ctx.strokeStyle='rgba(0,0,0,.32)';
   ctx.strokeText(judgeFx.text,x,y);
@@ -1170,6 +1249,8 @@ function drawGame(){
   ctx.clearRect(0,0,W,H);
   ctx.restore();
   ctx.save();
+  const kjZp=kjZoomPunch();
+  if(kjZp){ctx.translate(kjZp.x,kjZp.y);ctx.scale(kjZp.s,kjZp.s);ctx.translate(-kjZp.x,-kjZp.y);}
   if(shake>0.02){
     const sx=(Math.random()-0.5)*shake*W*0.03, sy=(Math.random()-0.5)*shake*W*0.03;
     ctx.translate(sx,sy);
@@ -1463,7 +1544,8 @@ function drawGame(){
     ctx.restore();
   }
   // V3: final-contact prompt placed near the plank instead of screen center.
-  if(!player.onBoard&&player.vy>0){
+  // V16: 링 큐와 중복되는 옛 '준비!/지금!' 텍스트(부정확한 ETA)는 끔
+  if(false&&!player.onBoard&&player.vy>0){
     const dist=board.y-(player.y+player.r);
     const g=PHYS.gravity(),v=Math.max(1,player.vy);
     const eta=(-v+Math.sqrt(v*v+2*g*Math.max(0,dist)))/g;
@@ -1522,11 +1604,12 @@ function drawGame(){
 
   kjDrawLandingDrama();
   kjDrawContactDrama();
+  kjDrawImpactPunch();
   drawRegionBanner();
 }
 function loop(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  if(current==='game'){updateGame();drawGame();}
+  if(current==='game'){if(performance.now()>=kjHitStopUntil)updateGame();drawGame();}
   else ctx.clearRect(0,0,W,H);
   requestAnimationFrame(loop);
 }
