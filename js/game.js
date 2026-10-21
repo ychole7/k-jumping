@@ -424,6 +424,7 @@ let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
 let impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
+let kjSpring={start:-1,grade:'',duration:.20};
 
 let landingKick=0;
 let landingCamFX=0;
@@ -592,7 +593,7 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
+      // V4.1: 착지 판정 뒤 짧은 압축-반발 모션을 거쳐 자동 재점프.
       const contactNow=performance.now();
       const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
       let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
@@ -610,6 +611,7 @@ function updateGame(){
       }
       const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
       impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
+      kjSpring={start:contactNow,grade:landingJudge.label,duration:landingJudge.label==='SUPER PERFECT!'?.12:landingJudge.label==='PERFECT!'?.16:.20};
       kjPlayImpact(landingJudge.label);
       if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
 
@@ -791,6 +793,7 @@ function loseLife(){
   jumpTrail=[];
   landingSquash=0;
   impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
+  kjSpring={start:-1,grade:'',duration:.20};
   landingKick=0;
   shake=Math.min(1,shake+0.8);
   updateHud();
@@ -1057,7 +1060,18 @@ function drawGame(){
     drawObstacle(r);
   }
 
-  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
+  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2;
+  // V4.1 physical anticipation: hard compression -> overshoot -> elastic settle.
+  const springAge=kjSpring.start>=0?(performance.now()-kjSpring.start)/1000:99;
+  const springActive=springAge>=0&&springAge<.36;
+  const springPower=kjSpring.grade==='SUPER PERFECT!'?1.25:kjSpring.grade==='PERFECT!'?1:.65;
+  let springTilt=0;
+  if(springActive){
+    if(springAge<.075)springTilt=-.17*springPower*Math.sin(springAge/.075*Math.PI/2);
+    else if(springAge<.21)springTilt=-.17*springPower*Math.cos((springAge-.075)/.135*Math.PI)*Math.exp(-(springAge-.075)*3);
+    else springTilt=.055*springPower*Math.sin((springAge-.21)/.15*Math.PI)*Math.exp(-(springAge-.21)*8);
+  }
+  const tilt=(board.tilt||0)+springTilt;
 
   // 널은 '회전하는 판'과 '땅에 고정된 받침'을 분리해서 그린다.
   // 기존 seesaw_final.png가 한 장으로 합쳐져 있으므로 원본의 상단 판/하단 받침 영역을
@@ -1146,11 +1160,29 @@ function drawGame(){
   drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
+  // V4.1: launch kick trails: brief, sharp and tied to actual upward velocity.
+  if(!player.onBoard&&launchFlash>.16&&player.vy<0){
+    ctx.save();ctx.strokeStyle='#ffe49a';ctx.lineCap='round';
+    const a=launchFlash;
+    for(let i=-2;i<=2;i++){
+      ctx.globalAlpha=(.28+.12*(2-Math.abs(i)))*a;
+      ctx.lineWidth=Math.max(2,W*.009*(1-Math.abs(i)*.12));
+      const x=player.x+i*player.r*.40;
+      const y=player.y+player.r*.5;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-i*W*.015,y+H*(.035+.025*a));ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   if(!player.onBoard&&launchFlash>0.05){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
+  const springAgePlayer=kjSpring.start>=0?(performance.now()-kjSpring.start)/1000:99;
+  const recoil=player.onBoard&&springAgePlayer<.23?
+    (springAgePlayer<.075?Math.sin(springAgePlayer/.075*Math.PI/2)*W*.026:
+      -Math.sin((springAgePlayer-.075)/.155*Math.PI)*W*.038):0;
+  drawPlayer(player.x,player.y+(player.onBoard?W*.059+recoil:0),player.r);
 
   // Impact Landing V3.0: ring converges exactly at physical contact.
   if(!player.onBoard&&player.vy>0){
