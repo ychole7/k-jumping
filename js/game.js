@@ -35,6 +35,8 @@ let best=+(localStorage.getItem('kjump_best_m')||0);
 const PPM=()=>H*0.085;
   const PHYS={gravity:()=>H*1.72,launch:()=>-H*1.42,airMax:()=>H*.95,cameraDead:()=>H*.24,cameraFollow:4.2,landingTolerance:()=>H*.13};
 let G={};
+/* V17: 체공 시간 압축. 같은 높이를 KJ_TS배 시간에 오르내린다(속도 ×1/KJ_TS, 중력 ×1/KJ_TS²). */
+const KJ_TS=0.22;
 const REGIONS=[
   {max:100,name:'하늘마을',sub:'따뜻한 봄 하늘'},
   {max:250,name:'구름마을',sub:'구름 위로 더 높이'},
@@ -306,6 +308,13 @@ function kjResolveLanding(delta,positionAccuracy,contactNow){
     spawnSparkle(player.x,board.y,'#fff1a8');
   }
   bigJudge(landingJudge.label,landingJudge.col);
+  // V17: MISS는 하트 1개. 흐름은 끊지 않고 약한 반동으로 이어간다. 0개면 게임 오버.
+  if(landingJudge.label==='MISS!'){
+    G.hearts=Math.max(0,G.hearts-1);updateHud();missFlash=1;missText='-♥';
+    shake=Math.min(1,shake+.7);
+    if(navigator.vibrate)try{navigator.vibrate([60,40,60]);}catch(_){}
+    if(G.hearts<=0){G.landingTap=null;G.lateWindow=null;gameOver();return;}
+  }
   if(delta!=null&&landingJudge.label!=='SUPER PERFECT!'&&tapDelta>15)
     addFloat(player.x,board.y-H*.27,(delta<0?'EARLY ':'LATE ')+Math.round(tapDelta)+'ms',delta<0?'#a4eaff':'#ffb38a');
   // Every third precision landing triggers a noticeably higher bonus jump.
@@ -330,7 +339,7 @@ function kjResolveLanding(delta,positionAccuracy,contactNow){
 function launchWithPower(mult=1){
   player.onBoard=false;
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
-  player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
+  player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult()/KJ_TS;
   launchFlash=1; jumpTrail=[];
   kjLaunchFX={at:performance.now(),mult};kjPlayWhoosh(mult);
   if(impactV3.phase==='impact')impactV3.phase='rebound';
@@ -353,9 +362,9 @@ let kjFrameMs=16.7,kjLastFrameAt=0;
 function kjFrameTick(){const n=performance.now();if(kjLastFrameAt){const d=n-kjLastFrameAt;if(d>4&&d<60)kjFrameMs+=(d-kjFrameMs)*.1;}kjLastFrameAt=n;}
 function kjEtaSec(){
   if(!player||player.onBoard)return 0;
-  let vy=player.vy,y=player.y,n=0;const baseG=H*0.000260,target=board.y-10-player.r;
+  let vy=player.vy,y=player.y,n=0;const baseG=H*0.000260/(KJ_TS*KJ_TS),target=board.y-10-player.r;
   while(y<target&&n<600){
-    if(vy<=0)vy+=baseG;else{const fb=Math.min(1,vy/(H*.020));vy+=baseG*(.58+.24*fb);vy=Math.min(vy,H*.0205);}
+    if(vy<=0)vy+=baseG;else{const fb=Math.min(1,vy/(H*.020/KJ_TS));vy+=baseG*(.58+.24*fb);vy=Math.min(vy,H*.0205/KJ_TS);}
     y+=vy;n++;
   }
   return n*kjFrameMs/1000;
@@ -392,7 +401,7 @@ function mv(e){
   // V59: 손가락의 현재 위치를 기준으로 방향을 즉시 갱신해 이전 방향이 남지 않게 한다.
   airSteer=(t.clientX < innerWidth*0.5 ? -1 : 1);
   // 상승은 민감하게, 하강은 약 60%로 낮춰 착지 직전 과조향을 줄인다.
-  const dragGain=(player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004 ? 0.98 : 1.22))*kjCharmSteerMult();
+  const dragGain=(player.vy>0 ? 0.74 : (Math.abs(player.vy)<H*0.004/KJ_TS ? 0.98 : 1.22))*kjCharmSteerMult();
   player.x=Math.max(player.r,Math.min(W-player.r,player.x+dx*dragGain));
 }
 function up(){releaseCharge();tsx=null;airSteer=0;inputLock=false;activePointerId=null;activeTouchId=null;}
@@ -645,13 +654,13 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     // V97: smooth apex -> descent. Upward motion keeps the original gravity;
     // once descending, gravity eases in and terminal fall speed is softened.
-    const baseG=H*0.000260;
+    const baseG=H*0.000260/(KJ_TS*KJ_TS);
     if(player.vy<=0){
       player.vy+=baseG;
     }else{
-      const fallBlend=Math.min(1,player.vy/(H*.020));
+      const fallBlend=Math.min(1,player.vy/(H*.020/KJ_TS));
       player.vy+=baseG*(.58+.24*fallBlend);
-      player.vy=Math.min(player.vy,H*.0205);
+      player.vy=Math.min(player.vy,H*.0205/KJ_TS);
     }
     player.y+=player.vy;
     // V59: 상승/정점/하강 조향을 분리한다.
@@ -661,9 +670,9 @@ function updateGame(){
       const absVy=Math.abs(player.vy);
       let steerGain;
       if(player.vy>0) steerGain=0.0087;       // 하강: V57의 약 60%
-      else if(absVy<H*0.004) steerGain=0.0112; // 정점 부근
+      else if(absVy<H*0.004/KJ_TS) steerGain=0.0112; // 정점 부근
       else steerGain=0.0145;                  // 상승: V57 유지
-      player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()));
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()/Math.sqrt(KJ_TS)));
     }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
     // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
@@ -728,7 +737,7 @@ function updateGame(){
     const validLanding=player.x>=playerSideLeft-player.r*0.35 && player.x<=playerSideRight+player.r*0.15;
     const landHalf=board.w*0.48;
     board.landX=landX;board.landR=player.r*0.9;
-    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8&&validLanding){
+    if(player.vy>0&&player.y+player.r>=bw-10&&player.y+player.r<=bw+player.r*1.8+player.vy&&validLanding){
       const impactSpeed=Math.max(0,player.vy);
       landingImpactFX.push({x:player.x,y:board.y-G.cam,life:1,power:Math.max(.65,Math.min(1.25,impactSpeed/(H*.018)))});
       gaugeFlash=1;
@@ -751,7 +760,7 @@ function updateGame(){
     }
     // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
-    if(player.vy>0&&player.y+player.r>bw+player.r*2.4)loseLife();
+    if(player.vy>0&&player.y+player.r>bw+player.r*2.4+player.vy)loseLife();
   }
   // V62: 고도별 장애물 이동 + 충돌. 충돌 시 하트 1개 감소하고 같은 장애물은 제거한다.
   if(G.hitCooldown>0)G.hitCooldown--;
@@ -804,7 +813,7 @@ function updateGame(){
       b.hit=true;G.hitCooldown=34;
       const push=(player.x<b.x?-1:1)*W*.034;
       player.x=Math.max(player.r,Math.min(W-player.r,player.x+push));
-      player.vy-=H*.055;
+      player.vy-=H*.055/KJ_TS;
       airSteer=0;
       missFlash=.55;missText='BUMP!';shake=Math.min(1,shake+.62);
       addFloat(player.x,player.y-H*.05,'BUMP!','#ffcf66');spawnSparkle(player.x,player.y,'#fff1a8');
