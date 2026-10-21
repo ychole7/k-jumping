@@ -635,7 +635,7 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#ffe76d');
       }
       const reboundPower=landingJudge.power*streakBoost;
-      G.landingTap=null;
+      G.landingTap=null;kjRhythmWasDescending=false;
       G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
       if(G.peakM<kjStageTarget()){
@@ -1014,14 +1014,38 @@ function drawRegionBanner(){
 }
 
 function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+// V5.1: approach rhythm is tied to physical time-to-contact, not a camera animation.
+let kjRhythmBeats=[false,false,false];
+let kjRhythmWasDescending=false;
+function kjRhythmTick(eta){
+  if(!kjRhythmWasDescending){kjRhythmBeats=[false,false,false];kjRhythmWasDescending=true;}
+  const thresholds=[.42,.25,.105];
+  for(let i=0;i<thresholds.length;i++){
+    if(eta>thresholds[i]||kjRhythmBeats[i])continue;
+    kjRhythmBeats[i]=true;
+    try{
+      if(!kjImpactAudio||kjImpactAudio.state!=='running')continue;
+      const a=kjImpactAudio,now=a.currentTime;
+      const osc=a.createOscillator(),gain=a.createGain();
+      osc.type=i===2?'triangle':'sine';
+      osc.frequency.setValueAtTime([340,440,630][i],now);
+      osc.frequency.exponentialRampToValueAtTime([210,270,430][i],now+.065);
+      gain.gain.setValueAtTime(.0001,now);
+      gain.gain.exponentialRampToValueAtTime([.035,.055,.075][i],now+.008);
+      gain.gain.exponentialRampToValueAtTime(.0001,now+.085);
+      osc.connect(gain);gain.connect(a.destination);osc.start(now);osc.stop(now+.09);
+    }catch(_){}
+  }
+}
 // V5.0: screen-space landing tension; never changes camera, physics or timing.
 function kjDrawLandingDrama(){
-  if(!player||player.onBoard||player.vy<=0||G.over||paused)return;
+  if(!player||player.onBoard||player.vy<=0||G.over||paused){kjRhythmWasDescending=false;return;}
   const distance=board.y-(player.y+player.r);
   if(distance<=0)return;
   const gravity=PHYS.gravity(),speed=Math.max(1,player.vy);
   const eta=(-speed+Math.sqrt(speed*speed+2*gravity*distance))/gravity;
-  if(eta>=.72)return;
+  if(eta>=.72){kjRhythmWasDescending=false;return;}
+  kjRhythmTick(eta);
   const u=Math.max(0,Math.min(1,1-eta/.72));
   const intensity=u*u*(3-2*u);
   const now=performance.now();
@@ -1045,6 +1069,18 @@ function kjDrawLandingDrama(){
     ctx.fillRect(x,top,barW/3*fill,barH);
   }
   ctx.globalAlpha=1;
+  // A readable cue near the landing target, growing with proximity.
+  if(eta<.30){
+    const cue=Math.max(0,1-eta/.30),blink=.78+.22*Math.sin(now*.025);
+    const x=player.x,y=board.y-G.cam-H*.115;
+    ctx.save();ctx.globalAlpha=cue*blink;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='900 '+Math.round(W*(.045+.012*cue))+'px system-ui';
+    ctx.lineWidth=Math.max(3,W*.009);ctx.strokeStyle='rgba(48,25,15,.75)';
+    ctx.fillStyle=armed?'#80ffdf':'#ffe071';
+    ctx.strokeText(armed?'READY!':'TAP!',x,y);ctx.fillText(armed?'READY!':'TAP!',x,y);
+    ctx.restore();
+  }
   // Tight urgency beat only at the last fraction of a second.
   if(eta<.19&&!armed){
     ctx.strokeStyle='rgba(255,221,124,'+(.12+.30*pulse*intensity)+')';
@@ -1065,6 +1101,10 @@ function kjDrawContactDrama(){
     ctx.fillStyle='rgba(255,245,197,'+((1-age/.11)*.20*strength)+')';ctx.fillRect(0,0,W,H);
   }
   ctx.translate(x,y);ctx.lineCap='round';
+  // Fast expanding impact disc, followed by a clean recoil ring.
+  ctx.beginPath();ctx.ellipse(0,0,W*(.04+.25*t),H*(.012+.048*t),0,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,237,147,'+(.9*fade*strength)+')';
+  ctx.lineWidth=Math.max(2,W*.015*(1-t));ctx.stroke();
   for(let i=0;i<18;i++){
     const a=-Math.PI+(i/17)*Math.PI;
     const inner=W*(.06+.15*t),outer=inner+W*(.07+.20*t)*strength;
