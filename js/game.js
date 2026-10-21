@@ -172,7 +172,7 @@ function kjPlayImpact(grade){
    if(!kjImpactAudio)kjImpactAudio=new AC();
    if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();
    const now=kjImpactAudio.currentTime;
-   const perfect=grade==='PERFECT!'||grade==='PERFECT!';
+   const perfect=grade==='PERFECT!'||grade==='SUPER PERFECT!';
    const osc=kjImpactAudio.createOscillator(),gain=kjImpactAudio.createGain();
    osc.type='sine';
    osc.frequency.setValueAtTime(perfect?170:130,now);
@@ -185,7 +185,7 @@ function kjPlayImpact(grade){
  }catch(_){}
 }
 function kjStartPartnerBeat(power,label){
- const dur=label==='PERFECT!'?.075:label==='GOOD'?.095:.12;
+ const dur=label==='SUPER PERFECT!'?.12:label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
  kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
  shake=Math.min(1,shake+((label==='PERFECT!'||label==='SUPER PERFECT!')?.65:.28));
  const token=kjPartnerBeat;
@@ -199,8 +199,8 @@ function kjStartPartnerBeat(power,label){
 
 function launchWithPower(mult=1){
   player.onBoard=false;
-  // V5: faster rise, proportionally stronger gravity preserves approximate jump height.
-  player.vy=-(H*0.0484)*1.066*1.30*mult*kjJumpEquipMult();
+  // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
+  player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
   launchFlash=1; jumpTrail=[];
   if(impactV3.phase==='impact')impactV3.phase='rebound';
 }
@@ -424,7 +424,6 @@ let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
 let impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
-// V5: no plank spring; landing precision is the main event.
 
 let landingKick=0;
 let landingCamFX=0;
@@ -497,13 +496,13 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     // V97: smooth apex -> descent. Upward motion keeps the original gravity;
     // once descending, gravity eases in and terminal fall speed is softened.
-    const baseG=H*0.000260*1.69;
+    const baseG=H*0.000260;
     if(player.vy<=0){
       player.vy+=baseG;
     }else{
       const fallBlend=Math.min(1,player.vy/(H*.020));
-      player.vy+=baseG*(1.05+.28*fallBlend);
-      player.vy=Math.min(player.vy,H*.0205*1.60);
+      player.vy+=baseG*(.58+.24*fallBlend);
+      player.vy=Math.min(player.vy,H*.0205);
     }
     player.y+=player.vy;
     // V59: 상승/정점/하강 조향을 분리한다.
@@ -518,33 +517,34 @@ function updateGame(){
       player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()));
     }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
-    // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
-    // V75: 카메라는 플레이어를 따라 상승/하강하되 지면(0) 아래로는 가지 않는다.
-    // 이 값 하나로 월드 전체(널/상대/아이템)가 움직이므로 널 자체 좌표는 절대 변경하지 않는다.
+    // V4.1 CAMERA TEST: descent anticipation, without changing game physics.
+    // Rising: follow player as before. Descending: progressively reveal the
+    // fixed landing plank, then lock the camera to the ground before contact.
     const landingDist=board.y-(player.y+player.r);
-    // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
-    // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
-    const nearGround=player.vy>0 && landingDist < H*0.30;
-    // V118: landing is the hero moment. As the feet enter the final 30%,
-    // ease the camera toward the plank instead of snapping to ground.
-    landingFocus=nearGround?Math.max(0,Math.min(1,1-landingDist/(H*.30))):0;
-    const airTarget=Math.min(0,player.y-H*0.40);
-    const landingTarget=0;
-    const focusEase=landingFocus*landingFocus*(3-2*landingFocus);
-    const cameraTarget=airTarget+(landingTarget-airTarget)*focusEase;
-    // V107: high-power equipment can launch much faster than the old fixed camera lerp.
-    // Use velocity-aware follow while ascending so the player cannot outrun the camera.
+    const airTarget=Math.min(0,player.y-H*.40);
+    const descending=player.vy>0;
+    const clamp01=v=>Math.max(0,Math.min(1,v));
+    const smooth01=v=>{v=clamp01(v);return v*v*(3-2*v);};
+    // Start the camera reveal early, while the player still has time to react.
+    const reveal=smooth01((H*1.25-landingDist)/(H*.72));
+    // At medium distance, frame the player near the upper portion of the view.
+    // This allows the board to enter from below rather than suddenly popping in.
+    const anticipationTarget=Math.min(0,player.y-H*.19);
+    // Last approach: return to zero smoothly so the plank stays rock solid.
+    const groundLock=smooth01((H*.55-landingDist)/(H*.34));
+    const anticipated=airTarget+(anticipationTarget-airTarget)*reveal;
+    const cameraTarget=descending
+      ? anticipated+(0-anticipated)*groundLock
+      : airTarget;
+    landingFocus=descending?groundLock:0;
     const riseSpeed=Math.max(0,-player.vy)/H;
-    const riseFollow=Math.min(0.62,0.20+riseSpeed*6.5);
-    const follow=nearGround ? (0.20+0.24*landingFocus) : (player.vy>0 ? 0.22 : riseFollow);
-    G.cam += (cameraTarget-G.cam)*follow;
-    // Emergency catch-up only when the player is escaping above the intended framing.
+    const riseFollow=Math.min(.62,.20+riseSpeed*6.5);
+    const follow=descending ? (.13+.22*reveal+.17*groundLock) : riseFollow;
+    G.cam+=(cameraTarget-G.cam)*follow;
+    // Catch-up only on ascent. Never snap the camera during descent.
     const screenY=player.y-G.cam;
-    if(!nearGround && player.vy<0 && screenY<H*0.18){
-      G.cam=player.y-H*0.24;
-    }
-    if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
+    if(!descending&&screenY<H*.18)G.cam=player.y-H*.24;
+    if(Math.abs(cameraTarget-G.cam)<.35)G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
     const heightNow=Math.max(0,(board.y-player.y)/PPM());
@@ -593,25 +593,34 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V4.1: 착지 판정 뒤 짧은 압축-반발 모션을 거쳐 자동 재점프.
+      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
       const contactNow=performance.now();
       const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
       let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
-      if(tapDelta<=90)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
-      else if(tapDelta<=170)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
-      else if(tapDelta<=260)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
-      // V5: only timing counts. No hidden position-based SUPER PERFECT.
-      const isPerfect=landingJudge.label==='PERFECT!';
+      if(tapDelta<=100)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
+      else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
+      else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
+      // V4: Precision landing combines tap timing with landing position.
+      // The sweet spot is the middle of the player's half, not the whole board.
+      const sweetX=(playerSideLeft+playerSideRight)*.5;
+      const sweetHalf=Math.max(player.r*.9,(playerSideRight-playerSideLeft)*.27);
+      const positionAccuracy=Math.max(0,1-Math.abs(player.x-sweetX)/sweetHalf);
+      const superPerfect=landingJudge.label==='PERFECT!'&&tapDelta<=45&&positionAccuracy>=.65;
+      if(superPerfect){
+        landingJudge={label:'SUPER PERFECT!',col:'#fff3a5',power:1.65,delta:tapDelta};
+      }
+      const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
       impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
       kjPlayImpact(landingJudge.label);
       if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
 
-      if(isPerfect)landingSquash=1;
+      if(isPerfect)landingSquash=1.5;
 
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
       if(isPerfect){
         G.combo=(G.combo||0)+1;comboPulse=1;
-        if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
+        if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
+        else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
       }else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
       shake=Math.min(1,shake+(isPerfect?.82:.45));
@@ -620,7 +629,13 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#fff1a8');
       }
       bigJudge(landingJudge.label,landingJudge.col);
-      const reboundPower=landingJudge.power;
+      // Every third precision landing triggers a noticeably higher bonus jump.
+      const streakBoost=isPerfect&&G.combo>=3&&G.combo%3===0?1.35:1;
+      if(streakBoost>1){
+        addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
+        spawnSparkle(player.x,board.y,'#ffe76d');
+      }
+      const reboundPower=landingJudge.power*streakBoost;
       G.landingTap=null;
       G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
@@ -777,7 +792,6 @@ function loseLife(){
   jumpTrail=[];
   landingSquash=0;
   impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
-
   landingKick=0;
   shake=Math.min(1,shake+0.8);
   updateHud();
@@ -1001,40 +1015,6 @@ function drawRegionBanner(){
 }
 
 function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
-// Predict contact using the exact frame-based descent integrator, not PHYS.gravity().
-function kjLandingEta(){
-  if(player.onBoard||player.vy<=0)return Infinity;
-  let d=board.y-(player.y+player.r),v=player.vy;
-  if(d<=0)return 0;
-  const baseG=H*.000260*1.69,cap=H*.0205*1.60;
-  for(let frames=1;frames<=180;frames++){
-    const blend=Math.min(1,v/(H*.020));
-    v=Math.min(cap,v+baseG*(1.05+.28*blend));
-    d-=v;
-    if(d<=0)return frames/60;
-  }
-  return 3;
-}
-function kjDrawLandingCue(){
-  const eta=kjLandingEta();
-  if(eta>.90)return;
-  const progress=Math.max(0,Math.min(1,1-eta/.90));
-  const target=Math.max(W*.041,player.r*.56);
-  const outer=target+W*.25*Math.pow(1-progress,1.45);
-  const x=player.x,y=board.y-player.r*.12;
-  const armed=G.landingTap&&performance.now()-G.landingTap.time<270;
-  const pulse=Math.sin(performance.now()/(eta<.17?48:110))*.5+.5;
-  ctx.save();ctx.lineCap='round';
-  ctx.globalAlpha=.45+.55*progress;
-  ctx.lineWidth=Math.max(2,W*.007);
-  ctx.strokeStyle='#ffffff';ctx.shadowColor='#ffffff';ctx.shadowBlur=W*.009;
-  ctx.beginPath();ctx.arc(x,y,target,0,Math.PI*2);ctx.stroke();
-  ctx.lineWidth=Math.max(3,W*.012);
-  ctx.strokeStyle=armed?'#75ffe1':'#ffd43b';ctx.shadowColor=armed?'#75ffe1':'#ffbb20';
-  ctx.shadowBlur=W*(.012+.018*progress+.012*pulse*progress);
-  ctx.beginPath();ctx.arc(x,y,outer,0,Math.PI*2);ctx.stroke();
-  ctx.restore();
-}
 function drawGame(){
   // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
   ctx.save();
@@ -1078,8 +1058,7 @@ function drawGame(){
     drawObstacle(r);
   }
 
-  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2;
-  const tilt=board.tilt||0;
+  const pivotX=board.cx,pivotY=board.y,halfW=board.w/2,tilt=board.tilt||0;
 
   // 널은 '회전하는 판'과 '땅에 고정된 받침'을 분리해서 그린다.
   // 기존 seesaw_final.png가 한 장으로 합쳐져 있으므로 원본의 상단 판/하단 받침 영역을
@@ -1168,29 +1147,66 @@ function drawGame(){
   drawPartner(partX,partY-W*0.030-partnerHop,W*0.11);
 
   if(!player.onBoard)drawJumpTrail();
-  // V4.1: launch kick trails: brief, sharp and tied to actual upward velocity.
-  if(!player.onBoard&&launchFlash>.16&&player.vy<0){
-    ctx.save();ctx.strokeStyle='#ffe49a';ctx.lineCap='round';
-    const a=launchFlash;
-    for(let i=-2;i<=2;i++){
-      ctx.globalAlpha=(.28+.12*(2-Math.abs(i)))*a;
-      ctx.lineWidth=Math.max(2,W*.009*(1-Math.abs(i)*.12));
-      const x=player.x+i*player.r*.40;
-      const y=player.y+player.r*.5;
-      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-i*W*.015,y+H*(.035+.025*a));ctx.stroke();
-    }
-    ctx.restore();
-  }
-
   if(!player.onBoard&&launchFlash>0.05){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  const recoil=0;
-  drawPlayer(player.x,player.y+(player.onBoard?W*.059+recoil:0),player.r);
+  drawPlayer(player.x,player.y+(player.onBoard?W*0.059:0),player.r);
 
-  // V5: one shrinking target ring, locked to the actual landing moment.
-  if(!player.onBoard&&player.vy>0)kjDrawLandingCue();
+  // Impact Landing V3.0: ring converges exactly at physical contact.
+  if(!player.onBoard&&player.vy>0){
+    const dist=Math.max(0,board.y-(player.y+player.r));
+    const gravity=PHYS.gravity();
+    const speed=Math.max(1,player.vy);
+    const eta=(-speed+Math.sqrt(speed*speed+2*gravity*dist))/gravity;
+    const windowSec=1.05;
+    if(eta<windowSec){
+      const t=1-Math.max(0,eta)/windowSec;
+      const near=t>.68,critical=t>.87;
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
+      const cx=player.x,cy=board.y-player.r*.12;
+      const rTarget=Math.max(W*.041,player.r*.56);
+      // Position challenge: show a golden sweet spot on the player's landing half.
+      const sweetX=(board.cx-board.w*.42+board.cx)*.5;
+      ctx.save();ctx.globalAlpha=.22+.48*t;
+      ctx.strokeStyle='#ffd44e';ctx.lineWidth=Math.max(2,W*.008);
+      ctx.beginPath();ctx.ellipse(sweetX,board.y-G.cam,W*.065,H*.009,0,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+      const r=rTarget+Math.pow(1-t,1.3)*W*.22;
+      const beat=.5+.5*Math.sin(performance.now()/(critical?43:near?78:140));
+      ctx.save();ctx.lineCap='round';
+      ctx.globalAlpha=.30+.68*t;
+      ctx.strokeStyle=critical?'#ffd24a':near?'#ffe6a0':'#79d9ff';
+      ctx.shadowColor=critical?'#ffb000':'#72d7ff';
+      ctx.shadowBlur=W*(.012+.028*t+(critical?.015*beat:0));
+      ctx.lineWidth=Math.max(3,W*(.007+.009*t));
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+      ctx.shadowBlur=0;
+      ctx.globalAlpha=.4+.5*t;
+      ctx.strokeStyle=critical?'#fff1a2':'#c8f3ff';
+      ctx.lineWidth=Math.max(2,W*.005);
+      ctx.beginPath();ctx.arc(cx,cy,rTarget,0,Math.PI*2);ctx.stroke();
+      if(near){
+        ctx.strokeStyle=critical?'#ffd24a':'#fff1bb';
+        ctx.globalAlpha=(t-.68)/.32*(.6+.4*beat);
+        ctx.lineWidth=Math.max(2,W*.006);
+        for(let i=0;i<8;i++){
+          const a=i*Math.PI/4;
+          ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r+W*.015),cy+Math.sin(a)*(r+W*.015));
+          ctx.lineTo(cx+Math.cos(a)*(r+W*.03),cy+Math.sin(a)*(r+W*.03));ctx.stroke();
+        }
+      }
+      if(critical){
+        ctx.globalAlpha=.08+.17*beat;ctx.fillStyle='#ffda53';
+        ctx.beginPath();ctx.arc(cx,cy,rTarget*1.7,0,Math.PI*2);ctx.fill();
+      }
+      if(tapped){
+        ctx.globalAlpha=.95;ctx.strokeStyle='#6effd8';ctx.lineWidth=W*.011;
+        ctx.beginPath();ctx.arc(cx,cy,rTarget*.72,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
 
   if(kjPartnerBeat.active&&kjPartnerBeat.t/kjPartnerBeat.dur>.58){ctx.save();ctx.textAlign='center';ctx.font='900 '+Math.round(W*.075)+'px system-ui';ctx.fillStyle=kjPartnerBeat.label==='PERFECT!'?'#ffd43b':'#fff';ctx.strokeStyle='rgba(70,35,20,.45)';ctx.lineWidth=5;ctx.strokeText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.fillText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.restore();}
   // 월드 파티클도 월드와 함께 움직인다.
@@ -1254,7 +1270,7 @@ function drawGame(){
     const age=(performance.now()-impactV3.at)/1000;
     if(age>.42)impactV3.phase='idle';
     else{
-      const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='PERFECT!';
+      const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='SUPER PERFECT!';
       const strength=perfect?1:impactV3.grade==='GOOD'?.7:.4;
       const fade=Math.max(0,1-age/.42),cx=impactV3.x,cy=impactV3.y-G.cam;
       ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
@@ -1298,19 +1314,23 @@ function drawGame(){
     if(launchGrade==='PERFECT!'){ctx.globalAlpha=launchGradeLife*.75;for(let i=0;i<4;i++){const a=performance.now()*.004+i*1.57,rr=W*(.035+i*.009);ctx.fillStyle='#fff4a8';ctx.beginPath();ctx.arc(player.x+Math.cos(a)*rr,player.y-G.cam+H*.07+Math.sin(a)*rr*.35,W*.006,0,Math.PI*2);ctx.fill();}}
     ctx.restore();
   }
-  // Last 0.3s: single, quiet timing prompt (no competing indicators).
+  // V3: final-contact prompt placed near the plank instead of screen center.
   if(!player.onBoard&&player.vy>0){
-    const eta=kjLandingEta();
-    if(eta<.30){
-      const armed=G.landingTap&&performance.now()-G.landingTap.time<270;
+    const dist=board.y-(player.y+player.r);
+    const g=PHYS.gravity(),v=Math.max(1,player.vy);
+    const eta=(-v+Math.sqrt(v*v+2*g*Math.max(0,dist)))/g;
+    if(dist>0&&eta<.38){
+      const urgent=eta<.13,blink=.5+.5*Math.sin(performance.now()/55);
+      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
       ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.globalAlpha=.55+.45*(1-eta/.30);
-      ctx.font='900 '+Math.round(W*.070)+'px system-ui';
-      ctx.lineWidth=Math.max(3,W*.009);ctx.strokeStyle='rgba(65,37,18,.85)';
-      ctx.fillStyle=armed?'#75ffe1':'#ffdf5d';
-      const txt=armed?'좋아!':eta<.11?'지금!':'준비!';
-      const py=Math.max(H*.17,board.y-G.cam-player.r*2.7);
-      ctx.strokeText(txt,player.x,py);ctx.fillText(txt,player.x,py);ctx.restore();
+      ctx.globalAlpha=tapped?.75:urgent?.85+.15*blink:.45+.45*(1-eta/.38);
+      ctx.font='900 '+Math.round(W*(urgent?.082:.067))+'px system-ui';
+      ctx.lineWidth=Math.max(3,W*.010);
+      ctx.strokeStyle='rgba(65,37,18,.85)';
+      ctx.fillStyle=tapped?'#78ffdc':urgent?'#ffdc4a':'#fff8dc';
+      const label=tapped?'탭!':urgent?'지금!':'준비!';
+      const px=player.x,py=Math.max(H*.17,board.y-G.cam-player.r*2.7);
+      ctx.strokeText(label,px,py);ctx.fillText(label,px,py);ctx.restore();
     }
   }
   // V89 simple commercial-style bird obstacle.
