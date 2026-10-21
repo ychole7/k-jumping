@@ -517,31 +517,33 @@ function updateGame(){
       player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()));
     }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V4.3 CAMERA TEST: ascent follows player; descent transitions once
-    // at the apex into a fixed landing-board view. No zoom or late correction.
-    const ascending=player.vy<=0;
-    const airTarget=Math.min(0,player.y-H*.40);
-    if(ascending){
-      G.kjDescentView=0;
-      landingFocus=0;
-      const riseSpeed=Math.max(0,-player.vy)/H;
-      const riseFollow=Math.min(.62,.20+riseSpeed*6.5);
-      G.cam+=(airTarget-G.cam)*riseFollow;
-      const screenY=player.y-G.cam;
-      if(screenY<H*.18)G.cam=player.y-H*.24;
-    }else{
-      // Transition starts immediately after the apex, never near landing.
-      // 0.055 per frame is about 0.7 s at 60 fps.
-      G.kjDescentView=Math.min(1,(G.kjDescentView||0)+.055);
-      const t=G.kjDescentView;
-      const ease=t*t*(3-2*t);
-      // Freeze the world at its current camera position once the descent
-      // begins, then blend to a single fixed board view (cam = 0).
-      if(t<=.055)G.kjApexCamera=G.cam;
-      G.cam=(G.kjApexCamera||0)*(1-ease);
-      landingFocus=ease;
+    // V24: V15 카메라 방식 복원. G.cam은 음수로 이동할 수 있어야 한다.
+    // 플레이어가 상승하면 카메라도 따라가고, 플레이어는 화면 약 40%에 머문다.
+    // V75: 카메라는 플레이어를 따라 상승/하강하되 지면(0) 아래로는 가지 않는다.
+    // 이 값 하나로 월드 전체(널/상대/아이템)가 움직이므로 널 자체 좌표는 절대 변경하지 않는다.
+    const landingDist=board.y-(player.y+player.r);
+    // V77: 하강 마지막 구간에서는 카메라를 먼저 지면에 붙인다.
+    // 착지 판정 뒤에 월드가 움직이지 않으므로 널이 튀어 오르는 착시가 사라진다.
+    const nearGround=player.vy>0 && landingDist < H*0.30;
+    // V118: landing is the hero moment. As the feet enter the final 30%,
+    // ease the camera toward the plank instead of snapping to ground.
+    landingFocus=nearGround?Math.max(0,Math.min(1,1-landingDist/(H*.30))):0;
+    const airTarget=Math.min(0,player.y-H*0.40);
+    const landingTarget=0;
+    const focusEase=landingFocus*landingFocus*(3-2*landingFocus);
+    const cameraTarget=airTarget+(landingTarget-airTarget)*focusEase;
+    // V107: high-power equipment can launch much faster than the old fixed camera lerp.
+    // Use velocity-aware follow while ascending so the player cannot outrun the camera.
+    const riseSpeed=Math.max(0,-player.vy)/H;
+    const riseFollow=Math.min(0.62,0.20+riseSpeed*6.5);
+    const follow=nearGround ? (0.20+0.24*landingFocus) : (player.vy>0 ? 0.22 : riseFollow);
+    G.cam += (cameraTarget-G.cam)*follow;
+    // Emergency catch-up only when the player is escaping above the intended framing.
+    const screenY=player.y-G.cam;
+    if(!nearGround && player.vy<0 && screenY<H*0.18){
+      G.cam=player.y-H*0.24;
     }
-    if(Math.abs(G.cam)<.35)G.cam=0;
+    if(Math.abs(cameraTarget-G.cam)<0.35) G.cam=cameraTarget;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
     const heightNow=Math.max(0,(board.y-player.y)/PPM());
@@ -1012,6 +1014,67 @@ function drawRegionBanner(){
 }
 
 function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+// V5.0: screen-space landing tension; never changes camera, physics or timing.
+function kjDrawLandingDrama(){
+  if(!player||player.onBoard||player.vy<=0||G.over||paused)return;
+  const distance=board.y-(player.y+player.r);
+  if(distance<=0)return;
+  const gravity=PHYS.gravity(),speed=Math.max(1,player.vy);
+  const eta=(-speed+Math.sqrt(speed*speed+2*gravity*distance))/gravity;
+  if(eta>=.72)return;
+  const u=Math.max(0,Math.min(1,1-eta/.72));
+  const intensity=u*u*(3-2*u);
+  const now=performance.now();
+  const pulse=.5+.5*Math.sin(now/(eta<.16?38:eta<.34?67:110));
+  const armed=!!(G.landingTap&&now-G.landingTap.time<300);
+  ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);
+  // Restrained peripheral tunnel focus, not a zoom or a camera translation.
+  const shade=ctx.createRadialGradient(W*.5,H*.49,W*.10,W*.5,H*.49,H*.70);
+  shade.addColorStop(0,'rgba(22,12,30,0)');
+  shade.addColorStop(1,'rgba(34,14,38,'+(.38*intensity)+')');
+  ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
+  // A three-beat closing countdown across the top, away from the landing target.
+  const barW=W*.30,barH=Math.max(3,W*.011),left=(W-barW)/2,top=H*.105;
+  ctx.globalAlpha=.24+.72*intensity;
+  for(let i=0;i<3;i++){
+    const start=i/3,end=(i+1)/3;
+    const fill=Math.max(0,Math.min(1,(u-start)/(end-start)));
+    const x=left+i*(barW/3+W*.009);
+    ctx.fillStyle='rgba(24,28,45,.48)';ctx.fillRect(x,top,barW/3,barH);
+    ctx.fillStyle=armed?'#76ffcf':i===2?'#ffca55':'#a4eaff';
+    ctx.fillRect(x,top,barW/3*fill,barH);
+  }
+  ctx.globalAlpha=1;
+  // Tight urgency beat only at the last fraction of a second.
+  if(eta<.19&&!armed){
+    ctx.strokeStyle='rgba(255,221,124,'+(.12+.30*pulse*intensity)+')';
+    ctx.lineWidth=Math.max(3,W*.009);ctx.strokeRect(W*.018,H*.018,W*.964,H*.964);
+  }
+  ctx.restore();
+}
+function kjDrawContactDrama(){
+  if(impactV3.phase!=='impact'&&impactV3.phase!=='rebound')return;
+  const age=(performance.now()-impactV3.at)/1000;
+  if(age<0||age>.34)return;
+  const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='SUPER PERFECT!';
+  const strength=perfect?1:impactV3.grade==='GOOD'?.58:.27;
+  const t=age/.34,fade=Math.pow(1-t,2);
+  const x=impactV3.x,y=impactV3.y-G.cam;
+  ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(age<.11){
+    ctx.fillStyle='rgba(255,245,197,'+((1-age/.11)*.20*strength)+')';ctx.fillRect(0,0,W,H);
+  }
+  ctx.translate(x,y);ctx.lineCap='round';
+  for(let i=0;i<18;i++){
+    const a=-Math.PI+(i/17)*Math.PI;
+    const inner=W*(.06+.15*t),outer=inner+W*(.07+.20*t)*strength;
+    ctx.strokeStyle=i%3===0?'rgba(255,255,255,'+(.85*fade*strength)+')':'rgba(255,204,74,'+(.72*fade*strength)+')';
+    ctx.lineWidth=Math.max(1,W*.007*(1-t)*strength);
+    ctx.beginPath();ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner*.65);
+    ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer*.65);ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawGame(){
   // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
   ctx.save();
@@ -1369,6 +1432,8 @@ function drawGame(){
   // V61: 대기형 MAX 파워게이지 제거. 착지 타이밍이 다음 점프 파워를 결정한다.
   ctx.restore();
 
+  kjDrawLandingDrama();
+  kjDrawContactDrama();
   drawRegionBanner();
 }
 function loop(){
