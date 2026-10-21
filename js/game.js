@@ -197,6 +197,61 @@ function kjStartPartnerBeat(power,label){
  },Math.round(dur*1000));
 }
 
+
+/* V15: 착지 타이밍 판정. delta = 탭시각 - 착지시각(ms). 음수=이르게, 양수=늦게, null=안 누름 */
+const KJ_WIN={super:35,perfect:70,good:140,ok:220,ignore:450};
+function kjResolveLanding(delta,positionAccuracy,contactNow){
+  // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
+  const tapDelta=delta==null?9999:Math.abs(delta);
+  let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
+  if(tapDelta<=KJ_WIN.perfect)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
+  else if(tapDelta<=KJ_WIN.good)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
+  else if(tapDelta<=KJ_WIN.ok)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
+  // V4: Precision landing combines tap timing with landing position.
+  // The sweet spot is the middle of the player's half, not the whole board.
+  const superPerfect=landingJudge.label==='PERFECT!'&&tapDelta<=KJ_WIN.super&&positionAccuracy>=.65;
+  if(superPerfect){
+    landingJudge={label:'SUPER PERFECT!',col:'#fff3a5',power:1.65,delta:tapDelta};
+  }
+  const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
+  impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
+  kjPlayImpact(landingJudge.label);
+  if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
+
+  if(isPerfect)landingSquash=1.5;
+
+  landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
+  if(isPerfect){
+    G.combo=(G.combo||0)+1;comboPulse=1;
+    if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
+    else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
+  }else{G.combo=0;}
+  spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
+  shake=Math.min(1,shake+(isPerfect?.82:.45));
+  if(isPerfect){
+    perfectFX.push({x:player.x,y:board.y-G.cam,life:1});
+    spawnSparkle(player.x,board.y,'#fff1a8');
+  }
+  bigJudge(landingJudge.label,landingJudge.col);
+  if(delta!=null&&landingJudge.label!=='SUPER PERFECT!'&&tapDelta>15)
+    addFloat(player.x,board.y-H*.27,(delta<0?'EARLY ':'LATE ')+Math.round(tapDelta)+'ms',delta<0?'#a4eaff':'#ffb38a');
+  // Every third precision landing triggers a noticeably higher bonus jump.
+  const streakBoost=isPerfect&&G.combo>=3&&G.combo%3===0?1.35:1;
+  if(streakBoost>1){
+    addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
+    spawnSparkle(player.x,board.y,'#ffe76d');
+  }
+  const reboundPower=landingJudge.power*streakBoost;
+  G.landingTap=null;G.lateWindow=null;kjRhythmWasDescending=false;
+  G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
+  G.lastJudge=null;
+  if(G.peakM<kjStageTarget()){
+    if(isPerfect&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
+    kjStartPartnerBeat(reboundPower*(isPerfect?kjSuitPerfectMult():1),landingJudge.label);
+  }
+  // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
+  if(G.peakM>=kjStageTarget())clearGame();
+}
 function launchWithPower(mult=1){
   player.onBoard=false;
   // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
@@ -205,13 +260,29 @@ function launchWithPower(mult=1){
   if(impactV3.phase==='impact')impactV3.phase='rebound';
 }
 function tapGame(){
-  if(current!=='game'||G.over||paused||kjPartnerBeat.active)return;
+  if(current!=='game'||G.over||paused)return;
+  // V15: 착지 직후의 늦은 탭도 판정한다.
+  if(G.lateWindow){const w=G.lateWindow;kjResolveLanding(performance.now()-w.at,w.pos,w.at);return;}
+  if(kjPartnerBeat.active)return;
   if(player.onBoard){if(G.peakM===0)launchWithPower(1);return;}
-  if(player.vy>0){
-    // V117: remember the tap only; judge it on the exact contact frame.
+  if(player.vy>0&&!G.landingTap){
+    // 너무 이른 탭은 무시(헛손질), 판정 범위 안의 첫 탭만 잠근다 → 연타 이득 없음.
+    if(kjEtaSec()*1000>KJ_WIN.ignore)return;
     G.landingTap={time:performance.now()};
     G.pressArmed=true;
   }
+}
+/* V15: 실제 물리 루프를 그대로 돌려 착지까지 남은 시간을 계산한다(프레임 기반 물리). */
+let kjFrameMs=16.7,kjLastFrameAt=0;
+function kjFrameTick(){const n=performance.now();if(kjLastFrameAt){const d=n-kjLastFrameAt;if(d>4&&d<60)kjFrameMs+=(d-kjFrameMs)*.1;}kjLastFrameAt=n;}
+function kjEtaSec(){
+  if(!player||player.onBoard)return 0;
+  let vy=player.vy,y=player.y,n=0;const baseG=H*0.000260,target=board.y-10-player.r;
+  while(y<target&&n<600){
+    if(vy<=0)vy+=baseG;else{const fb=Math.min(1,vy/(H*.020));vy+=baseG*(.58+.24*fb);vy=Math.min(vy,H*.0205);}
+    y+=vy;n++;
+  }
+  return n*kjFrameMs/1000;
 }
 
 function releaseCharge(){
@@ -466,6 +537,8 @@ function drawParticles(){
 }
 function updateGame(){
   if(current!=='game'||G.over||paused)return;
+  kjFrameTick();
+  if(G.lateWindow&&performance.now()-G.lateWindow.at>KJ_WIN.ok)kjResolveLanding(null,G.lateWindow.pos,G.lateWindow.at);
   const halfW=board.w/2;
   if(player.onBoard){
     // 널은 board.y에 고정. 착지 후에는 카메라만 부드럽게 원점으로 복귀한다.
@@ -592,58 +665,13 @@ function updateGame(){
       jumpTrail=[];
       landingSquash=1;
       landingKick=1;
-      // V62: 착지 판정은 보여주되 멈춰 선다. 다음 점프는 반드시 플레이어가 파워 게이지를 조작한다.
+      // V15: 대칭 판정 — 착지 전에 눌렀으면 즉시 판정, 아직 안 눌렀으면 짧은 늦은 탭 창을 연다.
       const contactNow=performance.now();
-      const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
-      let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
-      if(tapDelta<=100)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
-      else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
-      else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
-      // V4: Precision landing combines tap timing with landing position.
-      // The sweet spot is the middle of the player's half, not the whole board.
       const sweetX=(playerSideLeft+playerSideRight)*.5;
       const sweetHalf=Math.max(player.r*.9,(playerSideRight-playerSideLeft)*.27);
       const positionAccuracy=Math.max(0,1-Math.abs(player.x-sweetX)/sweetHalf);
-      const superPerfect=landingJudge.label==='PERFECT!'&&tapDelta<=45&&positionAccuracy>=.65;
-      if(superPerfect){
-        landingJudge={label:'SUPER PERFECT!',col:'#fff3a5',power:1.65,delta:tapDelta};
-      }
-      const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
-      impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
-      kjPlayImpact(landingJudge.label);
-      if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
-
-      if(isPerfect)landingSquash=1.5;
-
-      landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
-      if(isPerfect){
-        G.combo=(G.combo||0)+1;comboPulse=1;
-        if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
-        else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
-      }else{G.combo=0;}
-      spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
-      shake=Math.min(1,shake+(isPerfect?.82:.45));
-      if(isPerfect){
-        perfectFX.push({x:player.x,y:board.y-G.cam,life:1});
-        spawnSparkle(player.x,board.y,'#fff1a8');
-      }
-      bigJudge(landingJudge.label,landingJudge.col);
-      // Every third precision landing triggers a noticeably higher bonus jump.
-      const streakBoost=isPerfect&&G.combo>=3&&G.combo%3===0?1.35:1;
-      if(streakBoost>1){
-        addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
-        spawnSparkle(player.x,board.y,'#ffe76d');
-      }
-      const reboundPower=landingJudge.power*streakBoost;
-      G.landingTap=null;kjRhythmWasDescending=false;
-      G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
-      G.lastJudge=null;
-      if(G.peakM<kjStageTarget()){
-        if(isPerfect&&kjEquip.equipped.suit!=='basic')kjToast('🥋 PERFECT 반동 강화!');
-        kjStartPartnerBeat(reboundPower*(isPerfect?kjSuitPerfectMult():1),landingJudge.label);
-      }
-      // 목표 높이를 넘었더라도 착지까지 기다린 뒤 클리어한다.
-      if(G.peakM>=kjStageTarget())clearGame();
+      if(G.landingTap)kjResolveLanding(G.landingTap.time-contactNow,positionAccuracy,contactNow);
+      else G.lateWindow={at:contactNow,pos:positionAccuracy};
     }
     // 플레이어 사이드가 아닌 곳에 착지하려 했거나 널판지를 완전히 지나치면 실패.
     // 중앙선을 넘은 상대방 사이드 착지는 성공 처리하지 않는다.
@@ -786,7 +814,7 @@ function loseLife(){
   G.lastJumpM=0;
   board.gaugePhase=0;
   board.gaugeVal=0;
-  G.powerMode=false;G.powerVal=0;G.powerDir=1;G.landingTap=null;G.combo=0;G.pressHeld=false;G.pressArmed=false;
+  G.powerMode=false;G.powerVal=0;G.powerDir=1;G.landingTap=null;G.lateWindow=null;G.combo=0;G.pressHeld=false;G.pressArmed=false;
   board.tilt=0;
   jumpTrail=[];
   landingSquash=0;
@@ -1038,19 +1066,39 @@ function kjRhythmTick(eta){
   }
 }
 // V5.0: screen-space landing tension; never changes camera, physics or timing.
+/* V15: 줄어드는 노란 원이 흰 원에 겹치는 순간 = 착지 순간 */
+function kjDrawTimingRing(eta){
+  const x=player.x,y=board.y-G.cam-player.r*.5,base=Math.max(22,W*.065);
+  const rad=base+Math.max(0,eta)*W*.42,armed=!!G.landingTap;
+  ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.lineWidth=Math.max(3,W*.008);ctx.strokeStyle='rgba(255,255,255,.95)';
+  ctx.beginPath();ctx.arc(x,y,base,0,Math.PI*2);ctx.stroke();
+  ctx.globalAlpha=Math.min(1,(.9-eta)*4);ctx.lineWidth=Math.max(4,W*.013);
+  ctx.strokeStyle=armed?'#76ffcf':'#ffd23f';
+  ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+function kjDrawLateRing(){
+  if(!G.lateWindow||!player)return;
+  const k=Math.min(1,(performance.now()-G.lateWindow.at)/KJ_WIN.ok);
+  const x=player.x,y=board.y-G.cam-player.r*.5,base=Math.max(22,W*.065);
+  ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1-k;
+  ctx.lineWidth=Math.max(4,W*.013);ctx.strokeStyle='#ff7a7a';
+  ctx.beginPath();ctx.arc(x,y,base*(1-.35*k),0,Math.PI*2);ctx.stroke();ctx.restore();
+}
 function kjDrawLandingDrama(){
+  kjDrawLateRing();
   if(!player||player.onBoard||player.vy<=0||G.over||paused){kjRhythmWasDescending=false;return;}
-  const distance=board.y-(player.y+player.r);
-  if(distance<=0)return;
-  const gravity=PHYS.gravity(),speed=Math.max(1,player.vy);
-  const eta=(-speed+Math.sqrt(speed*speed+2*gravity*distance))/gravity;
-  if(eta>=.72){kjRhythmWasDescending=false;return;}
+  const eta=kjEtaSec();
+  if(eta>=.9){kjRhythmWasDescending=false;return;}
+  kjDrawTimingRing(eta);
+  if(eta>=.72)return;
   kjRhythmTick(eta);
   const u=Math.max(0,Math.min(1,1-eta/.72));
   const intensity=u*u*(3-2*u);
   const now=performance.now();
   const pulse=.5+.5*Math.sin(now/(eta<.16?38:eta<.34?67:110));
-  const armed=!!(G.landingTap&&now-G.landingTap.time<300);
+  const armed=!!G.landingTap;
   ctx.save();ctx.setTransform(DPR,0,0,DPR,0,0);
   // Restrained peripheral tunnel focus, not a zoom or a camera translation.
   const shade=ctx.createRadialGradient(W*.5,H*.49,W*.10,W*.5,H*.49,H*.70);
