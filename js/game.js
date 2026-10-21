@@ -85,7 +85,7 @@ function startGame(){
   show('game');
   setTimeout(()=>{kjUpdateStageUI();kjToast('STAGE '+kjStageNo()+' · 목표 '+kjStageTarget()+'m');},0);
   if(!W||!H)resize();
-  G={cam:0,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
+  G={cam:0,cameraZoom:1,curM:0,peakM:0,lastJumpM:0,star:0,coin:+(localStorage.getItem('kjump_coin')||0),hearts:3,over:false,targetReached:false,lastRegionIndex:0,lastMilestone:0,combo:0,landingTap:null,relaunchFrames:0,powerMode:false,powerVal:0,powerDir:1,hitCooldown:0,birdGrace:0,pressHeld:false,pressArmed:false}; paused=false; $('pauseOverlay').classList.remove('on');
   board={cx:W*0.5,y:H*0.755,w:W*0.82,tilt:0,gaugePhase:0};
   player={x:0,y:0,vy:0,r:W*0.12,onBoard:true};
   player.x=board.cx-board.w*0.42*0.8;
@@ -469,7 +469,7 @@ function updateGame(){
   const halfW=board.w/2;
   if(player.onBoard){
     // 널은 board.y에 고정. 착지 후에는 카메라만 부드럽게 원점으로 복귀한다.
-    G.cam=0;
+    G.cam=0;G.cameraZoom=1;
     if(landingSquash>0.01){
       squash=Math.max(squash,landingSquash*0.34);
       board.tilt += (0-board.tilt)*0.28;
@@ -517,34 +517,24 @@ function updateGame(){
       player.x=Math.max(player.r,Math.min(W-player.r,player.x+airSteer*W*steerGain*kjCharmSteerMult()));
     }
     squash=Math.max(-0.35,Math.min(0.35,-player.vy*4/H));
-    // V4.1 CAMERA TEST: descent anticipation, without changing game physics.
-    // Rising: follow player as before. Descending: progressively reveal the
-    // fixed landing plank, then lock the camera to the ground before contact.
-    const landingDist=board.y-(player.y+player.r);
-    const airTarget=Math.min(0,player.y-H*.40);
+    // V4.2: ascent tracks the player; descent uses a wide, stable view.
+    // Fit the distance between the jumper and the landing plank early,
+    // rather than chasing the plank at the last moment.
     const descending=player.vy>0;
-    const clamp01=v=>Math.max(0,Math.min(1,v));
-    const smooth01=v=>{v=clamp01(v);return v*v*(3-2*v);};
-    // Start the camera reveal early, while the player still has time to react.
-    const reveal=smooth01((H*1.25-landingDist)/(H*.72));
-    // At medium distance, frame the player near the upper portion of the view.
-    // This allows the board to enter from below rather than suddenly popping in.
-    const anticipationTarget=Math.min(0,player.y-H*.19);
-    // Last approach: return to zero smoothly so the plank stays rock solid.
-    const groundLock=smooth01((H*.55-landingDist)/(H*.34));
-    const anticipated=airTarget+(anticipationTarget-airTarget)*reveal;
+    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const separation=Math.max(0,board.y-player.y);
+    const desiredZoom=descending
+      ? clamp((H*.64)/(separation+player.r*1.5),.38,1)
+      : 1;
+    if(!Number.isFinite(G.cameraZoom))G.cameraZoom=1;
+    G.cameraZoom+=(desiredZoom-G.cameraZoom)*(descending?.085:.12);
+    const z=G.cameraZoom;
     const cameraTarget=descending
-      ? anticipated+(0-anticipated)*groundLock
-      : airTarget;
-    landingFocus=descending?groundLock:0;
-    const riseSpeed=Math.max(0,-player.vy)/H;
-    const riseFollow=Math.min(.62,.20+riseSpeed*6.5);
-    const follow=descending ? (.13+.22*reveal+.17*groundLock) : riseFollow;
-    G.cam+=(cameraTarget-G.cam)*follow;
-    // Catch-up only on ascent. Never snap the camera during descent.
-    const screenY=player.y-G.cam;
-    if(!descending&&screenY<H*.18)G.cam=player.y-H*.24;
-    if(Math.abs(cameraTarget-G.cam)<.35)G.cam=cameraTarget;
+      ? board.y-H*.77/z
+      : Math.min(0,player.y-H*.40);
+    G.cam+=(cameraTarget-G.cam)*(descending?.12:.22);
+    if(!descending && (player.y-G.cam)*z<H*.18)G.cam=player.y-H*.24/z;
+    landingFocus=0;
     // 높이는 카메라 이동량이 아니라 '널판지에서 플레이어가 얼마나 올라갔는지'로 계산한다.
     // 상승할 때는 증가하고, 하강하면 다시 감소한다. 최고 높이는 별도로 유지한다.
     const heightNow=Math.max(0,(board.y-player.y)/PPM());
@@ -782,7 +772,7 @@ function loseLife(){
   player.vy=0;
   player.x=board.cx-board.w*0.42*0.8;
   player.y=board.y-player.r*0.5;
-  G.cam=0;
+  G.cam=0;G.cameraZoom=1;
   G.curM=0;
   G.lastJumpM=0;
   board.gaugePhase=0;
@@ -1037,6 +1027,10 @@ function drawGame(){
   // 플레이어를 따라 카메라가 이동하면 '땅에 놓인' 모든 월드 요소가
   // 같은 양만큼 화면에서 이동해야 한다. 널판지는 월드 좌표에 고정한다.
   ctx.save();
+  // Camera zoom is applied only to world objects, not HUD or scenery.
+  const worldZoom=G.cameraZoom||1;
+  ctx.translate(W*(1-worldZoom)*.5,0);
+  ctx.scale(worldZoom,worldZoom);
   ctx.translate(0,-G.cam);
   // V118: tiny contact-frame camera punch; strong enough to feel, too short to disturb aiming.
   if(landingCamFX>0)ctx.translate(0,H*.010*landingCamFX);
