@@ -172,7 +172,7 @@ function kjPlayImpact(grade){
    if(!kjImpactAudio)kjImpactAudio=new AC();
    if(kjImpactAudio.state==='suspended')kjImpactAudio.resume();
    const now=kjImpactAudio.currentTime;
-   const perfect=grade==='PERFECT!'||grade==='SUPER PERFECT!';
+   const perfect=grade==='PERFECT!'||grade==='PERFECT!';
    const osc=kjImpactAudio.createOscillator(),gain=kjImpactAudio.createGain();
    osc.type='sine';
    osc.frequency.setValueAtTime(perfect?170:130,now);
@@ -185,7 +185,7 @@ function kjPlayImpact(grade){
  }catch(_){}
 }
 function kjStartPartnerBeat(power,label){
- const dur=label==='SUPER PERFECT!'?.12:label==='PERFECT!'?.16:label==='GOOD'?.19:.22;
+ const dur=label==='PERFECT!'?.075:label==='GOOD'?.095:.12;
  kjPartnerBeat={active:true,t:0,dur,power,label}; landingKick=1;
  shake=Math.min(1,shake+((label==='PERFECT!'||label==='SUPER PERFECT!')?.65:.28));
  const token=kjPartnerBeat;
@@ -199,8 +199,8 @@ function kjStartPartnerBeat(power,label){
 
 function launchWithPower(mult=1){
   player.onBoard=false;
-  // V63: 같은 높이감을 유지하면서 상승/하강 시간을 약 20% 늘린다.
-  player.vy=-(H*0.0484)*1.066*mult*kjJumpEquipMult();
+  // V5: faster rise, proportionally stronger gravity preserves approximate jump height.
+  player.vy=-(H*0.0484)*1.066*1.30*mult*kjJumpEquipMult();
   launchFlash=1; jumpTrail=[];
   if(impactV3.phase==='impact')impactV3.phase='rebound';
 }
@@ -424,7 +424,7 @@ let jumpTrail=[];   // 점프 궤적
 let launchFlash=0;
 let landingSquash=0;
 let impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
-let kjSpring={start:-1,grade:'',duration:.20};
+// V5: no plank spring; landing precision is the main event.
 
 let landingKick=0;
 let landingCamFX=0;
@@ -497,13 +497,13 @@ function updateGame(){
     board.tilt+=(-0.15-board.tilt)*0.06;
     // V97: smooth apex -> descent. Upward motion keeps the original gravity;
     // once descending, gravity eases in and terminal fall speed is softened.
-    const baseG=H*0.000260;
+    const baseG=H*0.000260*1.69;
     if(player.vy<=0){
       player.vy+=baseG;
     }else{
       const fallBlend=Math.min(1,player.vy/(H*.020));
-      player.vy+=baseG*(.58+.24*fallBlend);
-      player.vy=Math.min(player.vy,H*.0205);
+      player.vy+=baseG*(1.05+.28*fallBlend);
+      player.vy=Math.min(player.vy,H*.0205*1.60);
     }
     player.y+=player.vy;
     // V59: 상승/정점/하강 조향을 분리한다.
@@ -597,31 +597,21 @@ function updateGame(){
       const contactNow=performance.now();
       const tapDelta=G.landingTap&&G.landingTap.time!=null?contactNow-G.landingTap.time:9999;
       let landingJudge={label:'MISS!',col:'#c77dff',power:.78,delta:tapDelta};
-      if(tapDelta<=100)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
-      else if(tapDelta<=200)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
-      else if(tapDelta<=300)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
-      // V4: Precision landing combines tap timing with landing position.
-      // The sweet spot is the middle of the player's half, not the whole board.
-      const sweetX=(playerSideLeft+playerSideRight)*.5;
-      const sweetHalf=Math.max(player.r*.9,(playerSideRight-playerSideLeft)*.27);
-      const positionAccuracy=Math.max(0,1-Math.abs(player.x-sweetX)/sweetHalf);
-      const superPerfect=landingJudge.label==='PERFECT!'&&tapDelta<=45&&positionAccuracy>=.65;
-      if(superPerfect){
-        landingJudge={label:'SUPER PERFECT!',col:'#fff3a5',power:1.65,delta:tapDelta};
-      }
-      const isPerfect=landingJudge.label==='PERFECT!'||superPerfect;
+      if(tapDelta<=90)landingJudge={label:'PERFECT!',col:'#ffd43b',power:1.24,delta:tapDelta};
+      else if(tapDelta<=170)landingJudge={label:'GOOD',col:'#58d68d',power:1.09,delta:tapDelta};
+      else if(tapDelta<=260)landingJudge={label:'OK',col:'#f39c32',power:.94,delta:tapDelta};
+      // V5: only timing counts. No hidden position-based SUPER PERFECT.
+      const isPerfect=landingJudge.label==='PERFECT!';
       impactV3={phase:'impact',at:contactNow,grade:landingJudge.label,x:player.x,y:board.y};
-      kjSpring={start:contactNow,grade:landingJudge.label,duration:landingJudge.label==='SUPER PERFECT!'?.12:landingJudge.label==='PERFECT!'?.16:.20};
       kjPlayImpact(landingJudge.label);
       if(navigator.vibrate)try{navigator.vibrate(isPerfect?[16,24,30]:[13]);}catch(_){}
 
-      if(isPerfect)landingSquash=1.5;
+      if(isPerfect)landingSquash=1;
 
       landingCamFX=isPerfect?1:(landingJudge.label==='GOOD'?.72:landingJudge.label==='OK'?.48:.28);
       if(isPerfect){
         G.combo=(G.combo||0)+1;comboPulse=1;
-        if(superPerfect)addFloat(player.x,board.y-H*.22,'SUPER PERFECT!','#fff2a0');
-        else if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
+        if(G.combo>=2)addFloat(player.x,board.y-H*.15,'PERFECT ×'+G.combo,'#ffd34d');
       }else{G.combo=0;}
       spawnDust(player.x,board.y,isPerfect?14:landingJudge.label==='GOOD'?8:5,isPerfect?1.75:1);
       shake=Math.min(1,shake+(isPerfect?.82:.45));
@@ -630,13 +620,7 @@ function updateGame(){
         spawnSparkle(player.x,board.y,'#fff1a8');
       }
       bigJudge(landingJudge.label,landingJudge.col);
-      // Every third precision landing triggers a noticeably higher bonus jump.
-      const streakBoost=isPerfect&&G.combo>=3&&G.combo%3===0?1.35:1;
-      if(streakBoost>1){
-        addFloat(player.x,board.y-H*.34,'3 COMBO · BONUS JUMP!','#ffde57');
-        spawnSparkle(player.x,board.y,'#ffe76d');
-      }
-      const reboundPower=landingJudge.power*streakBoost;
+      const reboundPower=landingJudge.power;
       G.landingTap=null;
       G.powerMode=false; G.pressArmed=false; G.powerVal=0; G.relaunchFrames=0;
       G.lastJudge=null;
@@ -793,7 +777,7 @@ function loseLife(){
   jumpTrail=[];
   landingSquash=0;
   impactV3={phase:'idle',at:0,grade:'',x:0,y:0};
-  kjSpring={start:-1,grade:'',duration:.20};
+
   landingKick=0;
   shake=Math.min(1,shake+0.8);
   updateHud();
@@ -1017,6 +1001,40 @@ function drawRegionBanner(){
 }
 
 function roundRect(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+// Predict contact using the exact frame-based descent integrator, not PHYS.gravity().
+function kjLandingEta(){
+  if(player.onBoard||player.vy<=0)return Infinity;
+  let d=board.y-(player.y+player.r),v=player.vy;
+  if(d<=0)return 0;
+  const baseG=H*.000260*1.69,cap=H*.0205*1.60;
+  for(let frames=1;frames<=180;frames++){
+    const blend=Math.min(1,v/(H*.020));
+    v=Math.min(cap,v+baseG*(1.05+.28*blend));
+    d-=v;
+    if(d<=0)return frames/60;
+  }
+  return 3;
+}
+function kjDrawLandingCue(){
+  const eta=kjLandingEta();
+  if(eta>.90)return;
+  const progress=Math.max(0,Math.min(1,1-eta/.90));
+  const target=Math.max(W*.041,player.r*.56);
+  const outer=target+W*.25*Math.pow(1-progress,1.45);
+  const x=player.x,y=board.y-player.r*.12;
+  const armed=G.landingTap&&performance.now()-G.landingTap.time<270;
+  const pulse=Math.sin(performance.now()/(eta<.17?48:110))*.5+.5;
+  ctx.save();ctx.lineCap='round';
+  ctx.globalAlpha=.45+.55*progress;
+  ctx.lineWidth=Math.max(2,W*.007);
+  ctx.strokeStyle='#ffffff';ctx.shadowColor='#ffffff';ctx.shadowBlur=W*.009;
+  ctx.beginPath();ctx.arc(x,y,target,0,Math.PI*2);ctx.stroke();
+  ctx.lineWidth=Math.max(3,W*.012);
+  ctx.strokeStyle=armed?'#75ffe1':'#ffd43b';ctx.shadowColor=armed?'#75ffe1':'#ffbb20';
+  ctx.shadowBlur=W*(.012+.018*progress+.012*pulse*progress);
+  ctx.beginPath();ctx.arc(x,y,outer,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
 function drawGame(){
   // V74: 이전 프레임의 카메라 transform/잔상을 완전히 제거한 뒤 새 프레임을 그린다.
   ctx.save();
@@ -1061,17 +1079,7 @@ function drawGame(){
   }
 
   const pivotX=board.cx,pivotY=board.y,halfW=board.w/2;
-  // V4.1 physical anticipation: hard compression -> overshoot -> elastic settle.
-  const springAge=kjSpring.start>=0?(performance.now()-kjSpring.start)/1000:99;
-  const springActive=springAge>=0&&springAge<.36;
-  const springPower=kjSpring.grade==='SUPER PERFECT!'?1.25:kjSpring.grade==='PERFECT!'?1:.65;
-  let springTilt=0;
-  if(springActive){
-    if(springAge<.075)springTilt=-.17*springPower*Math.sin(springAge/.075*Math.PI/2);
-    else if(springAge<.21)springTilt=-.17*springPower*Math.cos((springAge-.075)/.135*Math.PI)*Math.exp(-(springAge-.075)*3);
-    else springTilt=.055*springPower*Math.sin((springAge-.21)/.15*Math.PI)*Math.exp(-(springAge-.21)*8);
-  }
-  const tilt=(board.tilt||0)+springTilt;
+  const tilt=board.tilt||0;
 
   // 널은 '회전하는 판'과 '땅에 고정된 받침'을 분리해서 그린다.
   // 기존 seesaw_final.png가 한 장으로 합쳐져 있으므로 원본의 상단 판/하단 받침 영역을
@@ -1178,66 +1186,11 @@ function drawGame(){
     ctx.save();ctx.globalAlpha=launchFlash*0.22;ctx.fillStyle='#fff';
     ctx.beginPath();ctx.arc(player.x,player.y,player.r*(1.2+launchFlash),0,7);ctx.fill();ctx.restore();
   }
-  const springAgePlayer=kjSpring.start>=0?(performance.now()-kjSpring.start)/1000:99;
-  const recoil=player.onBoard&&springAgePlayer<.23?
-    (springAgePlayer<.075?Math.sin(springAgePlayer/.075*Math.PI/2)*W*.026:
-      -Math.sin((springAgePlayer-.075)/.155*Math.PI)*W*.038):0;
+  const recoil=0;
   drawPlayer(player.x,player.y+(player.onBoard?W*.059+recoil:0),player.r);
 
-  // Impact Landing V3.0: ring converges exactly at physical contact.
-  if(!player.onBoard&&player.vy>0){
-    const dist=Math.max(0,board.y-(player.y+player.r));
-    const gravity=PHYS.gravity();
-    const speed=Math.max(1,player.vy);
-    const eta=(-speed+Math.sqrt(speed*speed+2*gravity*dist))/gravity;
-    const windowSec=1.05;
-    if(eta<windowSec){
-      const t=1-Math.max(0,eta)/windowSec;
-      const near=t>.68,critical=t>.87;
-      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
-      const cx=player.x,cy=board.y-player.r*.12;
-      const rTarget=Math.max(W*.041,player.r*.56);
-      // Position challenge: show a golden sweet spot on the player's landing half.
-      const sweetX=(board.cx-board.w*.42+board.cx)*.5;
-      ctx.save();ctx.globalAlpha=.22+.48*t;
-      ctx.strokeStyle='#ffd44e';ctx.lineWidth=Math.max(2,W*.008);
-      ctx.beginPath();ctx.ellipse(sweetX,board.y-G.cam,W*.065,H*.009,0,0,Math.PI*2);ctx.stroke();
-      ctx.restore();
-      const r=rTarget+Math.pow(1-t,1.3)*W*.22;
-      const beat=.5+.5*Math.sin(performance.now()/(critical?43:near?78:140));
-      ctx.save();ctx.lineCap='round';
-      ctx.globalAlpha=.30+.68*t;
-      ctx.strokeStyle=critical?'#ffd24a':near?'#ffe6a0':'#79d9ff';
-      ctx.shadowColor=critical?'#ffb000':'#72d7ff';
-      ctx.shadowBlur=W*(.012+.028*t+(critical?.015*beat:0));
-      ctx.lineWidth=Math.max(3,W*(.007+.009*t));
-      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
-      ctx.shadowBlur=0;
-      ctx.globalAlpha=.4+.5*t;
-      ctx.strokeStyle=critical?'#fff1a2':'#c8f3ff';
-      ctx.lineWidth=Math.max(2,W*.005);
-      ctx.beginPath();ctx.arc(cx,cy,rTarget,0,Math.PI*2);ctx.stroke();
-      if(near){
-        ctx.strokeStyle=critical?'#ffd24a':'#fff1bb';
-        ctx.globalAlpha=(t-.68)/.32*(.6+.4*beat);
-        ctx.lineWidth=Math.max(2,W*.006);
-        for(let i=0;i<8;i++){
-          const a=i*Math.PI/4;
-          ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r+W*.015),cy+Math.sin(a)*(r+W*.015));
-          ctx.lineTo(cx+Math.cos(a)*(r+W*.03),cy+Math.sin(a)*(r+W*.03));ctx.stroke();
-        }
-      }
-      if(critical){
-        ctx.globalAlpha=.08+.17*beat;ctx.fillStyle='#ffda53';
-        ctx.beginPath();ctx.arc(cx,cy,rTarget*1.7,0,Math.PI*2);ctx.fill();
-      }
-      if(tapped){
-        ctx.globalAlpha=.95;ctx.strokeStyle='#6effd8';ctx.lineWidth=W*.011;
-        ctx.beginPath();ctx.arc(cx,cy,rTarget*.72,0,Math.PI*2);ctx.stroke();
-      }
-      ctx.restore();
-    }
-  }
+  // V5: one shrinking target ring, locked to the actual landing moment.
+  if(!player.onBoard&&player.vy>0)kjDrawLandingCue();
 
   if(kjPartnerBeat.active&&kjPartnerBeat.t/kjPartnerBeat.dur>.58){ctx.save();ctx.textAlign='center';ctx.font='900 '+Math.round(W*.075)+'px system-ui';ctx.fillStyle=kjPartnerBeat.label==='PERFECT!'?'#ffd43b':'#fff';ctx.strokeStyle='rgba(70,35,20,.45)';ctx.lineWidth=5;ctx.strokeText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.fillText('팡!',board.cx+board.w*.28,board.y-H*.13);ctx.restore();}
   // 월드 파티클도 월드와 함께 움직인다.
@@ -1301,7 +1254,7 @@ function drawGame(){
     const age=(performance.now()-impactV3.at)/1000;
     if(age>.42)impactV3.phase='idle';
     else{
-      const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='SUPER PERFECT!';
+      const perfect=impactV3.grade==='PERFECT!'||impactV3.grade==='PERFECT!';
       const strength=perfect?1:impactV3.grade==='GOOD'?.7:.4;
       const fade=Math.max(0,1-age/.42),cx=impactV3.x,cy=impactV3.y-G.cam;
       ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
@@ -1345,23 +1298,19 @@ function drawGame(){
     if(launchGrade==='PERFECT!'){ctx.globalAlpha=launchGradeLife*.75;for(let i=0;i<4;i++){const a=performance.now()*.004+i*1.57,rr=W*(.035+i*.009);ctx.fillStyle='#fff4a8';ctx.beginPath();ctx.arc(player.x+Math.cos(a)*rr,player.y-G.cam+H*.07+Math.sin(a)*rr*.35,W*.006,0,Math.PI*2);ctx.fill();}}
     ctx.restore();
   }
-  // V3: final-contact prompt placed near the plank instead of screen center.
+  // Last 0.3s: single, quiet timing prompt (no competing indicators).
   if(!player.onBoard&&player.vy>0){
-    const dist=board.y-(player.y+player.r);
-    const g=PHYS.gravity(),v=Math.max(1,player.vy);
-    const eta=(-v+Math.sqrt(v*v+2*g*Math.max(0,dist)))/g;
-    if(dist>0&&eta<.38){
-      const urgent=eta<.13,blink=.5+.5*Math.sin(performance.now()/55);
-      const tapped=G.landingTap&&performance.now()-G.landingTap.time<280;
+    const eta=kjLandingEta();
+    if(eta<.30){
+      const armed=G.landingTap&&performance.now()-G.landingTap.time<270;
       ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.globalAlpha=tapped?.75:urgent?.85+.15*blink:.45+.45*(1-eta/.38);
-      ctx.font='900 '+Math.round(W*(urgent?.082:.067))+'px system-ui';
-      ctx.lineWidth=Math.max(3,W*.010);
-      ctx.strokeStyle='rgba(65,37,18,.85)';
-      ctx.fillStyle=tapped?'#78ffdc':urgent?'#ffdc4a':'#fff8dc';
-      const label=tapped?'탭!':urgent?'지금!':'준비!';
-      const px=player.x,py=Math.max(H*.17,board.y-G.cam-player.r*2.7);
-      ctx.strokeText(label,px,py);ctx.fillText(label,px,py);ctx.restore();
+      ctx.globalAlpha=.55+.45*(1-eta/.30);
+      ctx.font='900 '+Math.round(W*.070)+'px system-ui';
+      ctx.lineWidth=Math.max(3,W*.009);ctx.strokeStyle='rgba(65,37,18,.85)';
+      ctx.fillStyle=armed?'#75ffe1':'#ffdf5d';
+      const txt=armed?'좋아!':eta<.11?'지금!':'준비!';
+      const py=Math.max(H*.17,board.y-G.cam-player.r*2.7);
+      ctx.strokeText(txt,player.x,py);ctx.fillText(txt,player.x,py);ctx.restore();
     }
   }
   // V89 simple commercial-style bird obstacle.
